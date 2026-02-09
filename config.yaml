@@ -30,3 +30,13 @@ statistics:
 
 # Duplicate protection
 skip_already_processed: true   # skip files that already have a note in output
+
+# Speaker diarization (identifies WHO is speaking)
+# Requires: pip install pyannote.audio
+# And a HuggingFace token from https://huggingface.co/settings/tokens
+# You must also accept terms at https://huggingface.co/pyannote/speaker-diarization-3.1
+diarization:
+  enabled: false               # set to true once you have a HF token
+  hf_token: ""                 # paste your HuggingFace token here
+  min_speakers: 2
+  max_speakers: 6

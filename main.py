@@ -20,7 +20,7 @@ os.chdir(os.path.dirname(os.path.abspath(__file__)))
 import whisper
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
-from sentiment_analyzer import analyze_sentiment, format_sentiment_markdown
+from sentiment_analyzer import analyze_sentiment, analyze_per_speaker, format_sentiment_markdown
 
 # ---------------------------------------------------------------------------
 # Logging
@@ -49,6 +49,12 @@ def load_config() -> dict:
         "sentiment": {"enabled": True, "sentences_per_segment": 5},
         "statistics": {"enabled": True},
         "skip_already_processed": True,
+        "diarization": {
+            "enabled": False,
+            "hf_token": "",
+            "min_speakers": 2,
+            "max_speakers": 6,
+        },
     }
 
     if os.path.exists(CONFIG_PATH):
@@ -73,6 +79,34 @@ PROCESSED_FOLDER = CFG["processed_folder"]
 OUTPUT_FOLDER = CFG["output_folder"]
 MODEL_TYPE = CFG["model"]
 AUDIO_EXTENSIONS = tuple(CFG["audio_extensions"])
+
+# ---------------------------------------------------------------------------
+# Speaker diarization (lazy init)
+# ---------------------------------------------------------------------------
+_diarizer = None
+
+
+def get_diarizer():
+    """Lazily initialize the speaker diarizer."""
+    global _diarizer
+    if _diarizer is not None:
+        return _diarizer
+
+    diar_cfg = CFG.get("diarization", {})
+    if not diar_cfg.get("enabled", False):
+        return None
+
+    try:
+        from speaker_diarizer import SpeakerDiarizer
+        _diarizer = SpeakerDiarizer(
+            hf_token=diar_cfg.get("hf_token"),
+            min_speakers=diar_cfg.get("min_speakers", 2),
+            max_speakers=diar_cfg.get("max_speakers", 6),
+        )
+        return _diarizer
+    except Exception as e:
+        log.warning("⚠️  Diarization unavailable: %s — falling back to per-segment", e)
+        return None
 
 # ---------------------------------------------------------------------------
 # Transcript statistics
@@ -156,22 +190,53 @@ class WhisperHandler(FileSystemEventHandler):
 
             transcript = result["text"]
 
-            # 2. Build note content
+            # 2. Speaker diarization (if enabled)
+            diarizer = get_diarizer()
+            merged_segments = None
+            speaker_texts = None
+
+            if diarizer:
+                try:
+                    diar_result = diarizer.diarize(filename)
+                    merged_segments = diarizer.merge_with_transcript(result, diar_result)
+                    speaker_texts = diarizer.group_by_speaker(merged_segments)
+                    log.info("   🗣️  Speakers: %s", ", ".join(diar_result["speakers"]))
+                except Exception as e:
+                    log.warning("   ⚠️  Diarization failed: %s — continuing without", e)
+
+            # 3. Build note content
             note_content = f"# 🎙️ Transcript: {name_without_ext}\n"
             note_content += f"**Date:** {time.strftime('%Y-%m-%d %H:%M')}\n"
             note_content += f"**Tags:** #transcribed #clinical-whisper #sentiment\n"
             note_content += f"**Model:** `{MODEL_TYPE}`\n"
-            note_content += "---\n\n"
-            note_content += transcript
 
-            # 3. Transcript statistics
+            if speaker_texts:
+                speakers_list = ", ".join(speaker_texts.keys())
+                note_content += f"**Speakers:** {speakers_list}\n"
+
+            note_content += "---\n\n"
+
+            # Use diarized transcript if available, else raw text
+            if merged_segments:
+                from speaker_diarizer import SpeakerDiarizer
+                note_content += SpeakerDiarizer.format_transcript_with_speakers(merged_segments)
+            else:
+                note_content += transcript
+
+            # 4. Transcript statistics
             if CFG.get("statistics", {}).get("enabled", True):
                 note_content += compute_statistics(transcript)
 
-            # 4. Sentiment analysis
+            # 5. Sentiment analysis
             if CFG.get("sentiment", {}).get("enabled", True):
                 log.info("   🧠 Running sentiment analysis...")
                 sentiment = analyze_sentiment(transcript)
+
+                # Per-speaker sentiment (if diarization succeeded)
+                if speaker_texts:
+                    log.info("   👥 Analyzing per-speaker sentiment...")
+                    sentiment["speaker_sentiments"] = analyze_per_speaker(speaker_texts)
+
                 note_content += format_sentiment_markdown(sentiment)
                 log.info(
                     "   📊 Sentiment: %s (%d/10)",

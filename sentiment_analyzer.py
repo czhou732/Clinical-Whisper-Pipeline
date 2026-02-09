@@ -131,7 +131,8 @@ def analyze_sentiment(transcript_text: str) -> dict:
             "overall": {"label", "score", "polarity", "subjectivity"},
             "tones": [...],
             "segments": [{"index", "score", "label", "polarity", "preview"}, ...],
-            "critical_moments": [{"segment_index", "direction", "shift", ...}, ...]
+            "critical_moments": [...],
+            "speaker_sentiments": {}   # populated by analyze_per_speaker()
         }
     """
     if not transcript_text or not transcript_text.strip():
@@ -140,6 +141,7 @@ def analyze_sentiment(transcript_text: str) -> dict:
             "tones": ["neutral"],
             "segments": [],
             "critical_moments": [],
+            "speaker_sentiments": {},
         }
 
     # --- Overall analysis ---
@@ -177,7 +179,40 @@ def analyze_sentiment(transcript_text: str) -> dict:
         "tones": tones,
         "segments": segments,
         "critical_moments": critical_moments,
+        "speaker_sentiments": {},
     }
+
+
+def analyze_per_speaker(speaker_texts: dict[str, str]) -> dict[str, dict]:
+    """
+    Analyze sentiment for each speaker individually.
+
+    Args:
+        speaker_texts: {"Speaker 1": "all their text...", "Speaker 2": "..."}
+
+    Returns:
+        {
+            "Speaker 1": {"label", "score", "polarity", "subjectivity", "tones", "word_count"},
+            "Speaker 2": {...},
+        }
+    """
+    results = {}
+    for speaker, text in speaker_texts.items():
+        if not text.strip():
+            continue
+        blob = TextBlob(text)
+        pol = blob.sentiment.polarity
+        sub = blob.sentiment.subjectivity
+        tones = _detect_tones(text)
+        results[speaker] = {
+            "label": _label_from_polarity(pol),
+            "score": _polarity_to_score(pol),
+            "polarity": round(pol, 3),
+            "subjectivity": round(sub, 3),
+            "tones": tones,
+            "word_count": len(text.split()),
+        }
+    return results
 
 
 # ---------------------------------------------------------------------------
@@ -200,12 +235,43 @@ def _sentiment_emoji(label: str) -> str:
     }.get(label, "❓")
 
 
+def _format_speaker_section(speaker_sentiments: dict) -> str:
+    """Format per-speaker sentiment as Markdown."""
+    if not speaker_sentiments:
+        return ""
+
+    lines = []
+    lines.append("### 👥 Per-Speaker Sentiment\n")
+    lines.append("| Speaker | Sentiment | Score | Tones | Words |")
+    lines.append("|---------|-----------|-------|-------|-------|")
+
+    for spk, data in sorted(speaker_sentiments.items()):
+        emoji = _sentiment_emoji(data["label"])
+        tones = ", ".join(data["tones"][:3])
+        lines.append(
+            f"| {spk} | {emoji} {data['label']} | {data['score']}/10 | {tones} | {data['word_count']:,} |"
+        )
+
+    lines.append("")
+
+    # Add detail blocks for each speaker
+    for spk, data in sorted(speaker_sentiments.items()):
+        emoji = _sentiment_emoji(data["label"])
+        lines.append(f"**{spk}** {emoji}  ")
+        lines.append(f"Score: `{_score_bar(data['score'])}` · Subjectivity: {data['subjectivity']:.2f}  ")
+        tone_tags = " · ".join(f"`{t}`" for t in data["tones"])
+        lines.append(f"Tones: {tone_tags}\n")
+
+    return "\n".join(lines)
+
+
 def format_sentiment_markdown(analysis: dict) -> str:
     """Format sentiment analysis results as a Markdown section."""
     overall = analysis["overall"]
     tones = analysis["tones"]
     segments = analysis["segments"]
     moments = analysis["critical_moments"]
+    speaker_sentiments = analysis.get("speaker_sentiments", {})
 
     lines = []
     lines.append("\n---\n")
@@ -220,6 +286,10 @@ def format_sentiment_markdown(analysis: dict) -> str:
     # Tones
     tone_tags = " · ".join(f"`{t}`" for t in tones)
     lines.append(f"**🎭 Emotional Tones:** {tone_tags}\n")
+
+    # Per-speaker breakdown (if available)
+    if speaker_sentiments:
+        lines.append(_format_speaker_section(speaker_sentiments))
 
     # Segment breakdown
     if segments:
@@ -272,14 +342,25 @@ if __name__ == "__main__":
 
     result = analyze_sentiment(sample)
 
+    # Simulate per-speaker data
+    speaker_texts = {
+        "Speaker 1": "Great job on that assignment! You did really well. I'm so proud of your progress. "
+                     "Let's keep working together. No, that's wrong. Let me explain again.",
+        "Speaker 2": "I see you're confused. What don't you understand? "
+                     "Yes! Perfect! You got it! Alright, we're done for today.",
+    }
+    result["speaker_sentiments"] = analyze_per_speaker(speaker_texts)
+
     print(f"\nOverall: {result['overall']}")
     print(f"Tones:   {result['tones']}")
     print(f"Segments: {len(result['segments'])}")
     for seg in result["segments"]:
         print(f"  [{seg['index']}] {seg['label']} ({seg['score']}/10) — {seg['preview']}")
     print(f"Critical moments: {len(result['critical_moments'])}")
-    for m in result["critical_moments"]:
-        print(f"  Segment {m['segment_index']}: {m['direction']} ({m['from_score']} → {m['to_score']})")
+    print(f"\nPer-speaker:")
+    for spk, data in result["speaker_sentiments"].items():
+        print(f"  {spk}: {data['label']} ({data['score']}/10) — tones: {data['tones']}")
 
     print("\n--- MARKDOWN OUTPUT ---")
     print(format_sentiment_markdown(result))
+

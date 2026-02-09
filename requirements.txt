@@ -2,3 +2,5 @@ openai-whisper
 watchdog
 textblob
 pyyaml
+# Optional: for per-speaker sentiment (speaker diarization)
+# pyannote.audio
