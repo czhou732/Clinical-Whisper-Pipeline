@@ -1,0 +1,32 @@
+# ============================================================
+# ClinicalWhisper Configuration
+# ============================================================
+
+# Whisper model: tiny.en | base.en | small.en | medium.en | large
+model: "medium.en"
+
+# Folders (relative to this file, or absolute paths)
+input_folder: "./Input"
+processed_folder: "./Processed"
+
+# Where to save Markdown notes
+output_folder: "/Users/peterzhou/Downloads/Obsidian Vault/Inbox"
+
+# Supported audio extensions
+audio_extensions:
+  - ".m4a"
+  - ".mp3"
+  - ".wav"
+  - ".mp4"
+
+# Sentiment analysis
+sentiment:
+  enabled: true
+  sentences_per_segment: 5   # how many sentences per analysis chunk
+
+# Transcript statistics
+statistics:
+  enabled: true               # word count, duration estimate, etc.
+
+# Duplicate protection
+skip_already_processed: true   # skip files that already have a note in output

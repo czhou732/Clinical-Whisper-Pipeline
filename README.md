@@ -10,16 +10,54 @@ This tool leverages OpenAI's **Whisper** model to provide local, air-gapped tran
 - **Privacy-First:** No data leaves the local device.
 - **Obsidian Integration:** Automatically formats transcripts into Markdown with metadata tags.
 - **Archive Management:** Auto-sorts processed audio files.
+- **🆕 Sentiment Analysis:** Automatic per-transcript sentiment scoring (1–10), emotional tone detection, segment-by-segment breakdown, and critical moment identification — powered by TextBlob.
+- **🆕 Transcript Statistics:** Word count, sentence count, and estimated duration for every transcript.
+- **🆕 External Configuration:** All settings in `config.yaml` — no need to edit Python code.
+- **🆕 Duplicate Protection:** Skips files that have already been transcribed.
+- **🆕 Structured Logging:** Timestamped logs with severity levels for easier debugging.
 
 ## Prerequisites
 - Python 3.9+
 - FFmpeg (`brew install ffmpeg`)
 
-## Installation (The Professional Way)
-1. Clone the repo:
-   ```bash
-   git clone [https://github.com/YOUR_USERNAME/Clinical-Whisper-Pipeline.git](https://github.com/YOUR_USERNAME/Clinical-Whisper-Pipeline.git)
-   cd Clinical-Whisper-Pipeline
+## Installation
+```bash
+git clone https://github.com/czhou732/Clinical-Whisper-Pipeline.git
+cd Clinical-Whisper-Pipeline
+python3 -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
+```
+
+## Configuration
+
+Edit `config.yaml` to customize:
+```yaml
+model: "medium.en"           # Whisper model size
+output_folder: "/path/to/obsidian/inbox"
+sentiment:
+  enabled: true
+statistics:
+  enabled: true
+skip_already_processed: true
+```
+
+## Usage
+```bash
+source venv/bin/activate
+python main.py
+```
+
+Drop audio files (`.m4a`, `.mp3`, `.wav`, `.mp4`) into the `Input/` folder.
+Transcripts with sentiment analysis will appear in your configured output folder.
+
+## Output Format
+
+Each transcript note includes:
+1. **Header** — title, date, tags, model used
+2. **Transcript** — full text from Whisper
+3. **📈 Statistics** — word count, sentences, estimated duration
+4. **📊 Sentiment Analysis** — overall score, emotional tones, segment breakdown, critical moments
 
 ## Author
 **Chengdong Zhou** - Undergraduate Researcher, USC

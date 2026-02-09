@@ -1,2 +1,4 @@
 openai-whisper
 watchdog
+textblob
+pyyaml
