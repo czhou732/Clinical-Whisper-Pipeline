@@ -3,7 +3,7 @@ Clinical Intelligence Dashboard
 ────────────────────────────────
 Neuro-Systems Group | Clinical Audio Pipeline
 
-A Streamlit dashboard for offline clinical-audio analysis.
+Enterprise clinical-grade Streamlit dashboard for offline audio analysis.
 Reads JSON exports from ClinicalWhisper or generates demo data.
 
 Run:  streamlit run app.py
@@ -16,7 +16,7 @@ import plotly.express as px
 import plotly.graph_objects as go
 
 # ═══════════════════════════════════════════════════════════════════════════
-# PAGE CONFIG + CUSTOM CSS
+# PAGE CONFIG
 # ═══════════════════════════════════════════════════════════════════════════
 
 st.set_page_config(
@@ -26,109 +26,159 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
+# ═══════════════════════════════════════════════════════════════════════════
+# ENTERPRISE LIGHT-MODE CSS
+# ═══════════════════════════════════════════════════════════════════════════
+
 CUSTOM_CSS = """
 <style>
 /* ── Hide Streamlit chrome ── */
-#MainMenu, header, footer {visibility: hidden;}
-div[data-testid="stToolbar"] {display: none;}
+#MainMenu, header, footer {visibility: hidden !important;}
+div[data-testid="stToolbar"] {display: none !important;}
 
-/* ── Global ── */
-html, body, [data-testid="stAppViewContainer"] {
-    background-color: #0a0e14 !important;
-    color: #d4d4d4;
-    font-family: 'Inter', -apple-system, sans-serif;
+/* ── Force light mode everywhere ── */
+html, body, [data-testid="stAppViewContainer"], [data-testid="stApp"] {
+    background-color: #F8F9FA !important;
+    color: #111827 !important;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif !important;
 }
+
+/* ── Sidebar ── */
 [data-testid="stSidebar"] {
-    background-color: #0d1117 !important;
-    border-right: 1px solid #1a2233;
+    background-color: #FFFFFF !important;
+    border-right: 1px solid #E5E7EB !important;
 }
-[data-testid="stSidebar"] * { color: #c9d1d9; }
+[data-testid="stSidebar"] * { color: #374151 !important; }
+[data-testid="stSidebar"] h1, [data-testid="stSidebar"] h2,
+[data-testid="stSidebar"] h3, [data-testid="stSidebar"] h4 {
+    color: #111827 !important;
+}
 
-/* ── Typography ── */
-h1, h2, h3, h4, h5, h6 { color: #e6edf3 !important; }
+/* ── All text ── */
+h1, h2, h3, h4, h5, h6 { color: #111827 !important; font-weight: 600 !important; }
+p, span, label, div { color: #374151; }
 
-/* ── Metric cards ── */
+/* ── Card containers ── */
 div[data-testid="stMetric"] {
-    background: linear-gradient(145deg, #111820 0%, #0d1117 100%);
-    border: 1px solid #1a2233;
-    border-radius: 10px;
-    padding: 18px 22px;
+    background: #FFFFFF;
+    border: 1px solid #E5E7EB;
+    border-radius: 8px;
+    padding: 16px 20px;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.04);
 }
-div[data-testid="stMetric"] label { color: #7d8590 !important; font-size: 12px !important; }
-div[data-testid="stMetric"] [data-testid="stMetricValue"] { color: #58d5c1 !important; font-weight: 700 !important; }
-div[data-testid="stMetric"] [data-testid="stMetricDelta"] { font-size: 12px !important; }
-
-/* ── Section dividers ── */
-hr { border-color: #1a2233 !important; }
-
-/* ── Chat bubbles ── */
-.chat-bubble {
-    padding: 12px 16px;
-    border-radius: 14px;
-    margin-bottom: 8px;
-    font-size: 14px;
-    line-height: 1.55;
-    max-width: 75%;
-    position: relative;
+div[data-testid="stMetric"] label {
+    color: #6B7280 !important;
+    font-size: 12px !important;
+    font-weight: 500 !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.5px !important;
 }
-.chat-bubble .ts {
-    font-size: 10px;
-    color: #5c6370;
-    margin-top: 4px;
-    display: block;
+div[data-testid="stMetric"] [data-testid="stMetricValue"] {
+    color: #111827 !important;
+    font-weight: 700 !important;
 }
-.chat-left {
-    background: #112233;
-    border: 1px solid #1a3350;
-    color: #b8d4e8;
-    margin-right: auto;
-    border-bottom-left-radius: 4px;
-}
-.chat-right {
-    background: #1a1d23;
-    border: 1px solid #2a2d33;
-    color: #c9cdd2;
-    margin-left: auto;
-    border-bottom-right-radius: 4px;
-}
-.chat-speaker {
-    font-size: 10px;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.8px;
-    margin-bottom: 4px;
-}
-.chat-speaker.clinician { color: #58d5c1; }
-.chat-speaker.patient { color: #8b949e; }
-
-/* ── Plotly container ── */
-.stPlotlyChart { border: 1px solid #1a2233; border-radius: 10px; overflow: hidden; }
-
-/* ── Badge ── */
-.badge {
-    display: inline-block;
-    font-size: 10px;
-    font-weight: 600;
-    letter-spacing: 0.8px;
-    text-transform: uppercase;
-    padding: 4px 12px;
-    border-radius: 20px;
-    border: 1px solid #1a3350;
-    color: #58d5c1;
-    background: rgba(88, 213, 193, 0.06);
-    margin-left: 8px;
+div[data-testid="stMetric"] [data-testid="stMetricDelta"] {
+    font-size: 11px !important;
 }
 
 /* ── Section headers ── */
 .section-head {
-    font-size: 13px;
+    font-size: 11px;
     font-weight: 600;
-    color: #7d8590;
+    color: #9CA3AF;
     letter-spacing: 1px;
     text-transform: uppercase;
-    margin-bottom: 6px;
-    padding-bottom: 6px;
-    border-bottom: 1px solid #1a2233;
+    margin-bottom: 8px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid #E5E7EB;
+}
+
+/* ── White card wrapper ── */
+.card {
+    background: #FFFFFF;
+    border: 1px solid #E5E7EB;
+    border-radius: 8px;
+    padding: 20px 24px;
+    margin-bottom: 12px;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+}
+
+/* ── Page header ── */
+.page-title {
+    font-size: 22px;
+    font-weight: 700;
+    color: #111827;
+    letter-spacing: -0.4px;
+    margin: 0;
+}
+.page-badge {
+    display: inline-block;
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    padding: 3px 10px;
+    border-radius: 4px;
+    border: 1px solid #E5E7EB;
+    color: #6B7280;
+    background: #F9FAFB;
+    margin-right: 6px;
+}
+
+/* ── Clinical transcript record ── */
+.record-line {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 10px 14px;
+    border-bottom: 1px solid #F3F4F6;
+    font-size: 13px;
+    line-height: 1.6;
+    color: #374151;
+    transition: background 0.15s;
+}
+.record-line:hover { background: #FAFBFC; }
+.record-line.critical {
+    background: #FEF2F2;
+    border-left: 3px solid #FCA5A5;
+    padding-left: 11px;
+}
+.record-line.critical:hover { background: #FEE2E2; }
+.record-ts {
+    font-family: 'SF Mono', 'Menlo', 'Consolas', monospace;
+    font-size: 11px;
+    color: #9CA3AF;
+    white-space: nowrap;
+    padding-top: 2px;
+    min-width: 44px;
+}
+.record-speaker {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    white-space: nowrap;
+    padding-top: 2px;
+    min-width: 72px;
+}
+.record-speaker.clinician { color: #2563EB; }
+.record-speaker.patient { color: #6B7280; }
+.record-text { flex: 1; color: #1F2937; }
+
+/* ── Plotly container ── */
+.stPlotlyChart {
+    border: 1px solid #E5E7EB;
+    border-radius: 8px;
+    overflow: hidden;
+    background: #FFFFFF;
+}
+
+/* ── Footer ── */
+.footer-text {
+    font-size: 11px;
+    color: #9CA3AF;
+    text-align: center;
+    padding: 8px 0;
 }
 </style>
 """
@@ -169,9 +219,9 @@ def generate_mock_data() -> list[dict]:
 
 
 def _ts(seconds: float) -> str:
-    """Format seconds → [MM:SS]."""
+    """Format seconds as MM:SS."""
     m, s = divmod(int(seconds), 60)
-    return f"[{m:02d}:{s:02d}]"
+    return f"{m:02d}:{s:02d}"
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -179,21 +229,21 @@ def _ts(seconds: float) -> str:
 # ═══════════════════════════════════════════════════════════════════════════
 
 with st.sidebar:
-    st.markdown("#### 🧠  Neuro-Systems Group")
+    st.markdown("#### Neuro-Systems Group")
     st.caption("Clinical Audio Pipeline · v2.1")
-    st.markdown("---")
+    st.divider()
 
-    demo_mode = st.checkbox("Load De-Identified Sample Data (Patient 042)", value=True)
+    demo_mode = st.checkbox("Load Demo Patient (Patient 042)", value=True)
 
-    st.markdown("---")
+    st.divider()
     uploaded = st.file_uploader(
-        "Upload Analysis (.json)",
+        "Upload Analysis",
         type=["json"],
         help="Upload a JSON export from ClinicalWhisper.",
     )
 
-    st.markdown("---")
-    st.caption("All processing is local. No data leaves this machine.")
+    st.divider()
+    st.caption("All data processed locally. No network egress. HIPAA-compliant architecture.")
 
 # ═══════════════════════════════════════════════════════════════════════════
 # LOAD DATA
@@ -214,7 +264,7 @@ if not data and demo_mode:
     data = generate_mock_data()
 
 if not data:
-    st.markdown("## Upload a JSON file or enable Demo Mode to begin.")
+    st.info("Upload a JSON analysis file or enable Demo Patient to begin.")
     st.stop()
 
 df = pd.DataFrame(data)
@@ -224,15 +274,16 @@ df = pd.DataFrame(data)
 # ═══════════════════════════════════════════════════════════════════════════
 
 st.markdown(
-    '<h2 style="margin-bottom:0;letter-spacing:-0.5px;">Clinical Intelligence Dashboard</h2>'
-    '<span class="badge">Privacy-Preserving</span>'
-    '<span class="badge">Offline-First</span>',
+    '<p class="page-title">Clinical Intelligence Dashboard</p>'
+    '<span class="page-badge">Privacy-Preserving</span>'
+    '<span class="page-badge">Offline-First</span>'
+    '<span class="page-badge">De-Identified</span>',
     unsafe_allow_html=True,
 )
 st.markdown("")
 
 # ═══════════════════════════════════════════════════════════════════════════
-# SECTION 1 — VITALS
+# SECTION 1 — SESSION VITALS
 # ═══════════════════════════════════════════════════════════════════════════
 
 st.markdown('<div class="section-head">Session Vitals</div>', unsafe_allow_html=True)
@@ -245,9 +296,9 @@ dominance_pct = round(clinician_words / total_words * 100, 1) if total_words els
 conflict_events = int((df["sentiment"] <= 3.0).sum())
 
 v1, v2, v3 = st.columns(3)
-v1.metric("Overall Sentiment", f"{overall_sentiment} / 10", delta="Positive" if overall_sentiment >= 5 else "Concern")
+v1.metric("Overall Sentiment", f"{overall_sentiment} / 10", delta="Positive" if overall_sentiment >= 5 else "At Risk")
 v2.metric("Clinician Talk-Time", f"{dominance_pct}%", delta=f"{clinician_words} words")
-v3.metric("Distress Segments", conflict_events, delta="flagged" if conflict_events >= 3 else "low")
+v3.metric("Distress Segments", conflict_events, delta="flagged" if conflict_events >= 3 else "within range")
 
 st.markdown("")
 
@@ -263,101 +314,103 @@ fig = px.line(
     y="sentiment",
     color="speaker",
     markers=True,
-    color_discrete_map={"Clinician": "#58d5c1", "Patient": "#5a6a7a"},
-    labels={"start": "Time (seconds)", "sentiment": "Sentiment Score", "speaker": "Speaker"},
+    color_discrete_map={"Clinician": "#2563EB", "Patient": "#9CA3AF"},
+    labels={"start": "Time (s)", "sentiment": "Sentiment Score", "speaker": "Speaker"},
 )
 
 # Distress threshold
 fig.add_hline(
     y=3.0,
     line_dash="dot",
-    line_color="#ff4d4d",
+    line_color="#EF4444",
     line_width=1,
     annotation_text="Distress Threshold",
     annotation_position="top left",
-    annotation_font_color="#ff4d4d",
+    annotation_font_color="#DC2626",
     annotation_font_size=10,
 )
 
 fig.update_layout(
-    template="plotly_dark",
-    paper_bgcolor="#0d1117",
-    plot_bgcolor="#0d1117",
-    margin=dict(l=40, r=20, t=30, b=40),
-    height=320,
-    font=dict(family="Inter, sans-serif", color="#8b949e", size=11),
+    template="plotly_white",
+    paper_bgcolor="#FFFFFF",
+    plot_bgcolor="#FFFFFF",
+    margin=dict(l=40, r=20, t=24, b=40),
+    height=300,
+    font=dict(family="-apple-system, BlinkMacSystemFont, sans-serif", color="#6B7280", size=11),
     legend=dict(
         orientation="h",
         yanchor="bottom",
         y=1.02,
         xanchor="right",
         x=1,
-        font=dict(size=11),
+        font=dict(size=11, color="#374151"),
     ),
     xaxis=dict(
-        gridcolor="#1a2233",
+        gridcolor="#F3F4F6",
         zeroline=False,
-        title_font=dict(size=11),
+        title_font=dict(size=11, color="#9CA3AF"),
+        linecolor="#E5E7EB",
+        linewidth=1,
     ),
     yaxis=dict(
-        gridcolor="#1a2233",
+        gridcolor="#F3F4F6",
         zeroline=False,
         range=[0, 10],
         dtick=2,
-        title_font=dict(size=11),
+        title_font=dict(size=11, color="#9CA3AF"),
+        linecolor="#E5E7EB",
+        linewidth=1,
     ),
 )
 
 fig.update_traces(
-    line=dict(width=2.5),
-    marker=dict(size=6),
+    line=dict(width=2),
+    marker=dict(size=5),
 )
 
 st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
 
+st.markdown("")
+
 # ═══════════════════════════════════════════════════════════════════════════
-# SECTION 3 — DIARIZED TRANSCRIPT
+# SECTION 3 — CLINICAL TRANSCRIPT RECORD
 # ═══════════════════════════════════════════════════════════════════════════
 
-st.markdown('<div class="section-head">Diarized Transcript</div>', unsafe_allow_html=True)
+st.markdown('<div class="section-head">Session Transcript</div>', unsafe_allow_html=True)
 
-transcript_html = ""
+transcript_html = '<div class="card">'
+
 for _, row in df.iterrows():
     ts = _ts(row["start"])
     text = row["text"]
     speaker = row["speaker"]
+    sentiment = row["sentiment"]
 
-    if speaker == "Clinician":
-        transcript_html += f"""
-        <div style="display:flex;justify-content:flex-start;margin-bottom:6px;">
-            <div class="chat-bubble chat-left">
-                <div class="chat-speaker clinician">Clinician</div>
-                {text}
-                <span class="ts">{ts}</span>
-            </div>
-        </div>"""
-    else:
-        transcript_html += f"""
-        <div style="display:flex;justify-content:flex-end;margin-bottom:6px;">
-            <div class="chat-bubble chat-right">
-                <div class="chat-speaker patient">Patient</div>
-                {text}
-                <span class="ts">{ts}</span>
-            </div>
-        </div>"""
+    is_critical = sentiment < 4.0
+    line_class = "record-line critical" if is_critical else "record-line"
+    speaker_class = "clinician" if speaker == "Clinician" else "patient"
 
-st.markdown(
-    f'<div style="max-height:420px;overflow-y:auto;padding:12px 0;">{transcript_html}</div>',
-    unsafe_allow_html=True,
-)
+    transcript_html += f"""
+    <div class="{line_class}">
+        <span class="record-ts">{ts}</span>
+        <span class="record-speaker {speaker_class}">{speaker}</span>
+        <span class="record-text">{text}</span>
+    </div>"""
+
+transcript_html += "</div>"
+
+st.markdown(transcript_html, unsafe_allow_html=True)
 
 # ═══════════════════════════════════════════════════════════════════════════
 # FOOTER
 # ═══════════════════════════════════════════════════════════════════════════
 
 st.markdown("---")
-st.caption(
-    "Neuro-Systems Group | Clinical Audio Pipeline · "
+st.markdown(
+    '<div class="footer-text">'
+    "Neuro-Systems Group · Clinical Audio Pipeline · "
     "All data processed locally · HIPAA-compliant architecture · "
     "ClinicalWhisper v2.1"
+    "</div>",
+    unsafe_allow_html=True,
 )
