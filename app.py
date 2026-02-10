@@ -125,45 +125,43 @@ div[data-testid="stMetric"] [data-testid="stMetricDelta"] {
     margin-right: 6px;
 }
 
-/* ── Clinical transcript record ── */
+/* ── Clinical transcript record (deposition format) ── */
 .record-line {
     display: flex;
     align-items: flex-start;
     gap: 12px;
-    padding: 10px 14px;
-    border-bottom: 1px solid #F3F4F6;
+    padding: 8px 14px;
+    border-bottom: 1px dotted #E5E7EB;
     font-size: 13px;
-    line-height: 1.6;
+    line-height: 1.4;
     color: #374151;
-    transition: background 0.15s;
 }
 .record-line:hover { background: #FAFBFC; }
 .record-line.critical {
     background: #FEF2F2;
-    border-left: 3px solid #FCA5A5;
-    padding-left: 11px;
+    border-left: 4px solid #EF4444;
+    padding-left: 10px;
 }
 .record-line.critical:hover { background: #FEE2E2; }
 .record-ts {
     font-family: 'SF Mono', 'Menlo', 'Consolas', monospace;
     font-size: 11px;
-    color: #9CA3AF;
+    color: #6B7280;
     white-space: nowrap;
-    padding-top: 2px;
+    padding-top: 1px;
     min-width: 44px;
 }
 .record-speaker {
     font-size: 11px;
     font-weight: 700;
+    color: #111827;
     text-transform: uppercase;
     letter-spacing: 0.5px;
     white-space: nowrap;
-    padding-top: 2px;
+    padding-top: 1px;
     min-width: 72px;
 }
-.record-speaker.clinician { color: #2563EB; }
-.record-speaker.patient { color: #6B7280; }
-.record-text { flex: 1; color: #1F2937; }
+.record-text { flex: 1; color: #374151; }
 
 /* ── Plotly container ── */
 .stPlotlyChart {
@@ -388,12 +386,11 @@ for _, row in df.iterrows():
 
     is_critical = sentiment < 4.0
     line_class = "record-line critical" if is_critical else "record-line"
-    speaker_class = "clinician" if speaker == "Clinician" else "patient"
 
     transcript_html += f"""
     <div class="{line_class}">
-        <span class="record-ts">{ts}</span>
-        <span class="record-speaker {speaker_class}">{speaker}</span>
+        <span class="record-ts">[{ts}]</span>
+        <span class="record-speaker">{speaker.upper()}:</span>
         <span class="record-text">{text}</span>
     </div>"""
 
