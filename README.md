@@ -1,5 +1,11 @@
 # Clinical Whisper Pipeline 
 
+[![Hugging Face Spaces](https://img.shields.io/badge/%F0%9F%A4%97%20Hugging%20Face-Live%20Demo-blue)](https://huggingface.co/spaces/ChengdongPeter/Clinical-Whisper)
+[![Python](https://img.shields.io/badge/Python-3.9%2B-blue)](https://www.python.org/)
+[![License](https://img.shields.io/badge/License-MIT-green)](LICENSE)
+
+**An offline-first, HIPAA-compliant clinical intelligence pipeline for automated speaker diarization and suicide risk assessment.**
+
 An automated, privacy-first data processing pipeline designed for clinical psychology research and sensitive interview transcription.
 
 ## Overview
