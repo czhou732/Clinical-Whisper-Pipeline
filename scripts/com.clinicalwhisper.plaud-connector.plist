@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
+  "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.clinicalwhisper.plaud-connector</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>/Users/peterzhou/Research/Labs/VisionNeuro_Itti/GetBraille/ClinicalWhisper/scripts/plaud_connector.sh</string>
+    </array>
+
+    <key>RunAtLoad</key>
+    <true/>
+
+    <key>KeepAlive</key>
+    <dict>
+        <key>SuccessfulExit</key>
+        <false/>
+    </dict>
+
+    <key>ThrottleInterval</key>
+    <integer>10</integer>
+
+    <key>WorkingDirectory</key>
+    <string>/Users/peterzhou/Research/Labs/VisionNeuro_Itti/GetBraille/ClinicalWhisper</string>
+
+    <key>StandardOutPath</key>
+    <string>/Users/peterzhou/Library/Logs/ClinicalWhisper/plaud_connector.log</string>
+
+    <key>StandardErrorPath</key>
+    <string>/Users/peterzhou/Library/Logs/ClinicalWhisper/plaud_connector.log</string>
+
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>PATH</key>
+        <string>/usr/local/bin:/usr/bin:/bin:/opt/homebrew/bin</string>
+    </dict>
+</dict>
+</plist>

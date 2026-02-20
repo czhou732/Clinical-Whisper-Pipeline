@@ -10,7 +10,7 @@ input_folder: "./Input"
 processed_folder: "./Processed"
 
 # Where to save Markdown notes
-output_folder: "/Users/peterzhou/Downloads/Obsidian Vault/Inbox"
+output_folder: "/Users/peterzhou/Downloads/Obsidian Vault/USC/ClinicalWhisper_Audio"
 
 # Supported audio extensions
 audio_extensions:
@@ -37,6 +37,39 @@ skip_already_processed: true   # skip files that already have a note in output
 # You must also accept terms at https://huggingface.co/pyannote/speaker-diarization-3.1
 diarization:
   enabled: true
-  hf_token: ""                 # leave empty — set HF_TOKEN env var instead (GitHub blocks tokens in repos)
+  hf_token: ""                 # leave empty — set HF_TOKEN env var instead
   min_speakers: 2
   max_speakers: 6
+
+# Async pipeline (ingestion API + queue + background workers)
+pipeline:
+  queue_db_path: "./clinicalwhisper_jobs.db"
+  secure_storage_folder: "./Input/ingestion"
+  analysis_output_folder: "/Users/peterzhou/Downloads/Obsidian Vault/USC/ClinicalWhisper_Audio"
+  poll_interval_seconds: 1.0
+  max_workers: 2
+
+# Plaud Note integration
+plaud:
+  enabled: true
+  # Directories to watch for Plaud audio/transcription files
+  watch_paths:
+    - "/Volumes/PLAUD*"              # USB mount (glob pattern)
+    - "~/Downloads/PlaudExports"     # App export folder
+  # How to submit to Clinical Whisper: "api" or "direct"
+  # "direct" = copies into Input/ for main.py watcher (no API server needed)
+  ingestion_mode: "direct"
+  api_url: "http://127.0.0.1:8000/jobs"
+  # Audio extensions to ingest
+  audio_extensions: [".mp3", ".wav", ".m4a"]
+  # Optional: also ingest text transcription files
+  ingest_transcriptions: false
+  transcript_extensions: [".txt", ".srt"]
+  # Deduplication DB
+  db_path: "./plaud_ingested.db"
+  # Poll interval for USB mount detection (seconds)
+  usb_poll_interval: 5
+  # Archive ingested files instead of leaving them
+  archive_after_ingest: true
+  archive_folder: "./PlaudArchive"
+

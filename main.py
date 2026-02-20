@@ -17,6 +17,7 @@ import yaml
 
 os.chdir(os.path.dirname(os.path.abspath(__file__)))
 
+import torch
 import whisper
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
@@ -184,7 +185,7 @@ class WhisperHandler(FileSystemEventHandler):
             # 1. Transcribe
             log.info("   Transcribing with Whisper (%s)...", MODEL_TYPE)
             t0 = time.time()
-            result = self.model.transcribe(filename)
+            result = self.model.transcribe(filename, fp16=False)
             elapsed = time.time() - t0
             log.info("   ✅ Transcription complete (%.1fs)", elapsed)
 
@@ -267,8 +268,13 @@ class WhisperHandler(FileSystemEventHandler):
 # Entry point
 # ---------------------------------------------------------------------------
 if __name__ == "__main__":
-    log.info("🚀 Loading Whisper model '%s'  (Python: %s)", MODEL_TYPE, sys.executable)
-    model = whisper.load_model(MODEL_TYPE)
+    # Select best available device: Apple Silicon GPU > CPU
+    if torch.backends.mps.is_available():
+        device = "mps"
+    else:
+        device = "cpu"
+    log.info("🚀 Loading Whisper model '%s' on %s  (Python: %s)", MODEL_TYPE, device.upper(), sys.executable)
+    model = whisper.load_model(MODEL_TYPE, device=device)
     log.info("👀 Watching '%s' for audio files...", INPUT_FOLDER)
     log.info("📂 Notes  → %s", OUTPUT_FOLDER)
     log.info("📁 Archive → %s", PROCESSED_FOLDER)

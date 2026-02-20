@@ -2,10 +2,13 @@
 Input/
 Output/
 Processed/
+PlaudArchive/
 .DS_Store
 __pycache__/
 venv/
 *.pyc
+*.db
+.pids/
 
 # Runtime logs
 *.log
