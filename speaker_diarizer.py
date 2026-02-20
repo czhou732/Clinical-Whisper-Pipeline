@@ -20,8 +20,26 @@ log = logging.getLogger("ClinicalWhisper")
 class SpeakerDiarizer:
     """Speaker diarization using pyannote.audio."""
 
+    def _get_hf_token(self, configured_token: Optional[str]) -> Optional[str]:
+        if configured_token:
+            return configured_token
+        if "HF_TOKEN" in os.environ:
+            return os.environ["HF_TOKEN"]
+            
+        import subprocess
+        import getpass
+        try:
+            user = getpass.getuser()
+            result = subprocess.run(
+                ["security", "find-generic-password", "-a", user, "-s", "ClinicalWhisper_HF_TOKEN", "-w"],
+                capture_output=True, text=True, check=True
+            )
+            return result.stdout.strip()
+        except Exception:
+            return None
+
     def __init__(self, hf_token: Optional[str] = None, min_speakers: int = 2, max_speakers: int = 6):
-        self.hf_token = hf_token or os.environ.get("HF_TOKEN")
+        self.hf_token = self._get_hf_token(hf_token)
         self.min_speakers = min_speakers
         self.max_speakers = max_speakers
         self.pipeline = None

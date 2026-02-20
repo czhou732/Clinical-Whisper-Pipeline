@@ -7,14 +7,24 @@ import json
 import logging
 import os
 import shutil
+import subprocess
+import tempfile
 from pathlib import Path
 from typing import Optional
+
+try:
+    import numpy as np
+    import soundfile as sf
+except ImportError:
+    np = None
+    sf = None
 
 import whisper
 from textblob import TextBlob
 
 from cw_config import resolve_path
 from sentiment_analyzer import analyze_per_speaker, analyze_sentiment
+from acoustic_features import AcousticExtractor
 
 log = logging.getLogger("ClinicalWhisper")
 
@@ -40,6 +50,7 @@ class InferencePipeline:
         log.info("Loading Whisper model '%s'...", self.model_name)
         self.model = whisper.load_model(self.model_name)
         self._diarizer = None
+        self._acoustic_extractor = AcousticExtractor() if cfg.get("acoustic_features", {}).get("enabled", False) else None
 
     def _get_diarizer(self):
         if self._diarizer is not None:
@@ -120,6 +131,53 @@ class InferencePipeline:
         shutil.move(str(source_path), str(destination))
         return str(destination)
 
+    def _preprocess_audio(self, source_path: Path) -> Path:
+        """Convert audio to 16kHz mono WAV for Whisper & OpenSMILE."""
+        tmp_wav = Path(tempfile.gettempdir()) / f"{source_path.stem}_16k.wav"
+        cmd = [
+            "ffmpeg", "-y", "-i", str(source_path),
+            "-ar", "16000", "-ac", "1", "-c:a", "pcm_s16le",
+            str(tmp_wav)
+        ]
+        log.info("Preprocessing audio to 16kHz mono WAV...")
+        subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True)
+        return tmp_wav
+
+    def _extract_speaker_acoustics(self, wav_path: Path, segments: list[dict]) -> dict:
+        """Extract acoustic features per speaker using diarization segments."""
+        if not self._acoustic_extractor or not self._acoustic_extractor.is_available():
+            return {}
+        
+        if sf is None or np is None:
+            return {}
+            
+        try:
+            audio_data, sr = sf.read(str(wav_path))
+            speaker_acoustics = {}
+            speaker_audio = {}
+            
+            for seg in segments:
+                speaker = seg.get("speaker", "Speaker 1")
+                start_sample = int(seg.get("start", 0.0) * sr)
+                end_sample = int(seg.get("end", 0.0) * sr)
+                
+                chunk = audio_data[start_sample:end_sample]
+                if len(chunk) > 0:
+                    if speaker not in speaker_audio:
+                        speaker_audio[speaker] = [chunk]
+                    else:
+                        speaker_audio[speaker].append(chunk)
+                        
+            for speaker, chunks in speaker_audio.items():
+                concatenated = np.concatenate(chunks)
+                metrics = self._acoustic_extractor.process_audio_segment(concatenated, sr)
+                speaker_acoustics[speaker] = metrics
+                
+            return speaker_acoustics
+        except Exception as e:
+            log.warning("Failed to extract per-speaker acoustics: %s", e)
+            return {}
+
     def process_job(self, job: dict) -> str:
         """
         Process one queue job and write `[job_id]_analysis.json`.
@@ -135,7 +193,17 @@ class InferencePipeline:
             raise FileNotFoundError(f"Audio file not found: {file_path}")
 
         log.info("Job %s: transcribing %s", job_id, file_path.name)
-        whisper_result = self.model.transcribe(str(file_path))
+        
+        # Preprocess
+        wav_path = file_path
+        tmp_wav = None
+        try:
+            tmp_wav = self._preprocess_audio(file_path)
+            wav_path = tmp_wav
+        except Exception as e:
+            log.warning("Preprocessing failed, using original file: %s", e)
+
+        whisper_result = self.model.transcribe(str(wav_path), word_timestamps=True)
         transcript = (whisper_result.get("text") or "").strip()
 
         diarizer = self._get_diarizer()
@@ -143,7 +211,7 @@ class InferencePipeline:
         speaker_texts = None
         if diarizer:
             try:
-                diar_result = diarizer.diarize(str(file_path))
+                diar_result = diarizer.diarize(str(wav_path))
                 merged_segments = diarizer.merge_with_transcript(whisper_result, diar_result)
                 speaker_texts = diarizer.group_by_speaker(merged_segments)
             except Exception as exc:
@@ -158,6 +226,17 @@ class InferencePipeline:
             sentiment["speaker_sentiments"] = {}
 
         stats = self._compute_statistics(transcript, segments)
+        
+        # Acoustic extraction
+        overall_acoustics = {}
+        speaker_acoustics = {}
+        if self._acoustic_extractor and self._acoustic_extractor.is_available():
+            log.info("Extracting acoustic features...")
+            overall_acoustics = self._acoustic_extractor.process_audio_file(str(wav_path))
+            speaker_acoustics = self._extract_speaker_acoustics(wav_path, segments)
+            
+        if tmp_wav and tmp_wav.exists():
+            os.unlink(str(tmp_wav))
 
         pipeline_cfg = self.cfg.get("pipeline", {})
         output_dir = Path(
@@ -180,9 +259,11 @@ class InferencePipeline:
             },
             "statistics": stats,
             "overall_sentiment": sentiment.get("overall", {}),
+            "overall_acoustics": overall_acoustics,
             "tones": sentiment.get("tones", []),
             "critical_moments": sentiment.get("critical_moments", []),
             "speaker_sentiments": sentiment.get("speaker_sentiments", {}),
+            "speaker_acoustics": speaker_acoustics,
             "segments": segments,
             "transcript": transcript,
         }

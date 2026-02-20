@@ -2,8 +2,9 @@
 # ClinicalWhisper Configuration
 # ============================================================
 
-# Whisper model: tiny.en | base.en | small.en | medium.en | large
-model: "medium.en"
+# Whisper model: tiny.en | base.en | small.en | medium.en | large-v3
+model: "large-v3"
+
 
 # Folders (relative to this file, or absolute paths)
 input_folder: "./Input"
@@ -28,6 +29,10 @@ sentiment:
 statistics:
   enabled: true               # word count, duration estimate, etc.
 
+# Acoustic features
+acoustic_features:
+  enabled: true               # extracts F0, Energy, Zhou Index via OpenSMILE eGeMAPSv02
+
 # Duplicate protection
 skip_already_processed: true   # skip files that already have a note in output
 
@@ -37,7 +42,7 @@ skip_already_processed: true   # skip files that already have a note in output
 # You must also accept terms at https://huggingface.co/pyannote/speaker-diarization-3.1
 diarization:
   enabled: true
-  hf_token: ""                 # leave empty — set HF_TOKEN env var instead
+  hf_token: ""                 # leave empty — set HF_TOKEN env var instead (GitHub blocks tokens in repos)
   min_speakers: 2
   max_speakers: 6
 
@@ -72,4 +77,3 @@ plaud:
   # Archive ingested files instead of leaving them
   archive_after_ingest: true
   archive_folder: "./PlaudArchive"
-

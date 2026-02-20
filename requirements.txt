@@ -2,5 +2,13 @@ openai-whisper
 watchdog
 textblob
 pyyaml
+fastapi
+uvicorn
+python-multipart
+streamlit
+pandas
+plotly
 # Optional: for per-speaker sentiment (speaker diarization)
 # pyannote.audio
+opensmile
+soundfile
