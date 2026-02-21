@@ -94,7 +94,11 @@ class SpeakerDiarizer:
 
         segments = []
         speakers = set()
-        for turn, _, speaker in diarization.itertracks(yield_label=True):
+        
+        # Pyannote 4.x returns a DiarizeOutput object, Pyannote 3.1 returns an Annotation
+        annotation = diarization.speaker_diarization if hasattr(diarization, "speaker_diarization") else diarization
+        
+        for turn, _, speaker in annotation.itertracks(yield_label=True):
             # Rename "SPEAKER_00" → "Speaker 1"
             friendly = f"Speaker {int(speaker.split('_')[-1]) + 1}" if "SPEAKER_" in speaker else speaker
             segments.append({"start": turn.start, "end": turn.end, "speaker": friendly})
