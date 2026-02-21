@@ -128,7 +128,7 @@ def _find_critical_moments(segments: list[dict]) -> list[dict]:
         curr = segments[i]["polarity"]
         shift = curr - prev
 
-        if abs(shift) >= 0.25:
+        if abs(shift) >= 0.15:  # Lowered from 0.25 to capture more subtle 1-point shifts (e.g. 6/10 -> 7/10)
             direction = "improved" if shift > 0 else "declined"
             moments.append({
                 "segment_index": i + 1,
