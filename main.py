@@ -262,6 +262,11 @@ class WhisperHandler(FileSystemEventHandler):
 
         except Exception:
             log.exception("❌ Error processing %s", base_name)
+        finally:
+            # Force PyTorch to release unused GPU memory back to the Mac system RAM
+            import torch
+            if torch.backends.mps.is_available():
+                torch.mps.empty_cache()
 
 
 # ---------------------------------------------------------------------------

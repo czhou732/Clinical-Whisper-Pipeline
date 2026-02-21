@@ -66,6 +66,25 @@ def _split_into_segments(text: str, sentences_per_segment: int = 5) -> list[str]
     return segments or [text]
 
 
+def _adjust_clinical_polarity(text: str, base_polarity: float) -> float:
+    """Adjust TextBlob polarity by detecting clinical negative phrases that simple NLP misses."""
+    lower_text = text.lower()
+    penalty = 0.0
+    
+    # Phrases that TextBlob gets wrong (e.g. negated positive words)
+    negative_phrases = [
+        "can't seem to enjoy", "can't enjoy", "don't enjoy", "exhausted",
+        "can't get out of bed", "feels meh", "anhedonia", "can't get any sleep",
+        "depressed", "hopeless", "not feeling great"
+    ]
+    
+    for phrase in negative_phrases:
+        if phrase in lower_text:
+            penalty += 0.4  # strong clinical negative indicator
+            
+    return max(-1.0, base_polarity - penalty)
+
+
 def _polarity_to_score(polarity: float) -> int:
     """Map TextBlob polarity (-1 … +1) to a 1–10 score."""
     # Linear mapping: -1 → 1, 0 → 5.5, +1 → 10
@@ -73,11 +92,11 @@ def _polarity_to_score(polarity: float) -> int:
 
 
 def _label_from_polarity(polarity: float) -> str:
-    if polarity > 0.15:
+    if polarity > 0.45:
         return "Positive"
-    elif polarity < -0.15:
+    elif polarity < -0.10:
         return "Negative"
-    elif abs(polarity) <= 0.05:
+    elif -0.10 <= polarity <= 0.45:
         return "Neutral"
     else:
         return "Mixed"
@@ -146,7 +165,7 @@ def analyze_sentiment(transcript_text: str) -> dict:
 
     # --- Overall analysis ---
     blob = TextBlob(transcript_text)
-    overall_polarity = blob.sentiment.polarity
+    overall_polarity = _adjust_clinical_polarity(transcript_text, blob.sentiment.polarity)
     overall_subjectivity = blob.sentiment.subjectivity
 
     # --- Segment analysis ---
@@ -154,7 +173,7 @@ def analyze_sentiment(transcript_text: str) -> dict:
     segments = []
     for idx, seg_text in enumerate(raw_segments):
         seg_blob = TextBlob(seg_text)
-        pol = seg_blob.sentiment.polarity
+        pol = _adjust_clinical_polarity(seg_text, seg_blob.sentiment.polarity)
         segments.append({
             "index": idx + 1,
             "score": _polarity_to_score(pol),
