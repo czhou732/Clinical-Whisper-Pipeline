@@ -11,7 +11,7 @@ input_folder: "./Input"
 processed_folder: "./Processed"
 
 # Where to save Markdown notes
-output_folder: "/Users/peterzhou/Downloads/Obsidian Vault/USC/ClinicalWhisper_Audio"
+output_folder: "/Users/peterzhou/Research/Writing/PhDApplications_2026/EducationRecords/Education/USC/USC/ClinicalWhisper_Audio"
 
 # Supported audio extensions
 audio_extensions:
@@ -50,7 +50,7 @@ diarization:
 pipeline:
   queue_db_path: "./clinicalwhisper_jobs.db"
   secure_storage_folder: "./Input/ingestion"
-  analysis_output_folder: "/Users/peterzhou/Downloads/Obsidian Vault/USC/ClinicalWhisper_Audio"
+  analysis_output_folder: "/Users/peterzhou/Research/Writing/PhDApplications_2026/EducationRecords/Education/USC/USC/ClinicalWhisper_Audio"
   poll_interval_seconds: 1.0
   max_workers: 2
 
