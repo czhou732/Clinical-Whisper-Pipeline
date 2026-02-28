@@ -1,8 +1,14 @@
 #!/usr/bin/env python3
-"""Inference worker pipeline for ClinicalWhisper async processing."""
+"""
+Inference worker pipeline for ClinicalWhisper async processing.
+
+Uses MLX Whisper (Apple Silicon native) for 4-10x faster transcription.
+All processing is 100% local — no data ever leaves this machine.
+"""
 
 from __future__ import annotations
 
+import gc
 import json
 import logging
 import os
@@ -19,12 +25,10 @@ except ImportError:
     np = None
     sf = None
 
-import whisper
 from textblob import TextBlob
 
 from cw_config import resolve_path
 from sentiment_analyzer import analyze_per_speaker, analyze_sentiment
-from acoustic_features import AcousticExtractor
 
 log = logging.getLogger("ClinicalWhisper")
 
@@ -41,37 +45,69 @@ def _segment_sentiment_score(text: str) -> int:
     return _polarity_to_score(pol)
 
 
+def _free_ram():
+    """Force garbage collection to release memory."""
+    gc.collect()
+
+
 class InferencePipeline:
-    """Loads models once and processes queued jobs."""
+    """Loads models on-demand per job and unloads after each stage."""
 
     def __init__(self, cfg: dict):
         self.cfg = cfg
-        self.model_name = cfg.get("model", "medium.en")
-        log.info("Loading Whisper model '%s'...", self.model_name)
-        self.model = whisper.load_model(self.model_name)
-        self._diarizer = None
-        self._acoustic_extractor = AcousticExtractor() if cfg.get("acoustic_features", {}).get("enabled", False) else None
+        self.model_name = cfg.get("model", "small.en")
+        self.mlx_model = cfg.get("mlx_model", f"mlx-community/whisper-{self.model_name}")
+        # Models are NOT loaded at init — loaded per-job, unloaded after each stage
+        log.info("InferencePipeline initialized (MLX Whisper: %s)", self.mlx_model)
 
-    def _get_diarizer(self):
-        if self._diarizer is not None:
-            return self._diarizer
+    def _transcribe(self, audio_path: str) -> dict:
+        """Transcribe locally. MLX Whisper on Apple Silicon, falls back to openai-whisper."""
+        try:
+            import mlx_whisper
+            log.info("   📥 Transcribing with MLX Whisper (%s)...", self.mlx_model)
+            return mlx_whisper.transcribe(audio_path, path_or_hf_repo=self.mlx_model, word_timestamps=True)
+        except ImportError:
+            import whisper
+            log.info("   📥 Transcribing with openai-whisper (%s)...", self.model_name)
+            model = whisper.load_model(self.model_name)
+            result = model.transcribe(audio_path, word_timestamps=True, fp16=False)
+            del model
+            _free_ram()
+            return result
 
+    def _load_diarizer(self):
+        """Load diarizer on demand. Returns diarizer or None."""
         diar_cfg = self.cfg.get("diarization", {})
         if not diar_cfg.get("enabled", False):
             return None
 
         try:
             from speaker_diarizer import SpeakerDiarizer
-
-            self._diarizer = SpeakerDiarizer(
+            diarizer = SpeakerDiarizer(
                 hf_token=diar_cfg.get("hf_token"),
                 min_speakers=diar_cfg.get("min_speakers", 2),
                 max_speakers=diar_cfg.get("max_speakers", 6),
             )
-            return self._diarizer
+            return diarizer
         except Exception as exc:
             log.warning("Diarization unavailable, continuing without it: %s", exc)
             return None
+
+    def _unload_diarizer(self, diarizer):
+        """Unload diarizer and free RAM."""
+        if diarizer is None:
+            return
+        del diarizer
+        _free_ram()
+        log.info("   📤 Diarizer unloaded")
+
+    def _load_acoustic_extractor(self):
+        """Load acoustic extractor on demand."""
+        if not self.cfg.get("acoustic_features", {}).get("enabled", False):
+            return None
+        from acoustic_features import AcousticExtractor
+        extractor = AcousticExtractor()
+        return extractor if extractor.is_available() else None
 
     def _build_segments(
         self, whisper_result: dict, merged_segments: Optional[list[dict]]
@@ -143,36 +179,44 @@ class InferencePipeline:
         subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True)
         return tmp_wav
 
-    def _extract_speaker_acoustics(self, wav_path: Path, segments: list[dict]) -> dict:
-        """Extract acoustic features per speaker using diarization segments."""
-        if not self._acoustic_extractor or not self._acoustic_extractor.is_available():
+    def _extract_speaker_acoustics(self, extractor, wav_path: Path, segments: list[dict]) -> dict:
+        """Extract acoustic features per speaker using streaming reads (low RAM)."""
+        if not extractor or sf is None or np is None:
             return {}
-        
-        if sf is None or np is None:
-            return {}
-            
+
         try:
-            audio_data, sr = sf.read(str(wav_path))
+            # Use SoundFile for streaming reads instead of loading entire file
+            with sf.SoundFile(str(wav_path)) as audio_file:
+                sr = audio_file.samplerate
+                speaker_chunks: dict[str, list[np.ndarray]] = {}
+
+                for seg in segments:
+                    speaker = seg.get("speaker", "Speaker 1")
+                    start_sample = int(seg.get("start", 0.0) * sr)
+                    end_sample = int(seg.get("end", 0.0) * sr)
+                    num_frames = end_sample - start_sample
+
+                    if num_frames <= 0:
+                        continue
+
+                    # Seek to segment start and read only the needed frames
+                    audio_file.seek(start_sample)
+                    chunk = audio_file.read(num_frames)
+
+                    if len(chunk) > 0:
+                        speaker_chunks.setdefault(speaker, []).append(chunk)
+
+            # Process each speaker's concatenated audio
             speaker_acoustics = {}
-            speaker_audio = {}
-            
-            for seg in segments:
-                speaker = seg.get("speaker", "Speaker 1")
-                start_sample = int(seg.get("start", 0.0) * sr)
-                end_sample = int(seg.get("end", 0.0) * sr)
-                
-                chunk = audio_data[start_sample:end_sample]
-                if len(chunk) > 0:
-                    if speaker not in speaker_audio:
-                        speaker_audio[speaker] = [chunk]
-                    else:
-                        speaker_audio[speaker].append(chunk)
-                        
-            for speaker, chunks in speaker_audio.items():
+            for speaker, chunks in speaker_chunks.items():
                 concatenated = np.concatenate(chunks)
-                metrics = self._acoustic_extractor.process_audio_segment(concatenated, sr)
+                metrics = extractor.process_audio_segment(concatenated, sr)
                 speaker_acoustics[speaker] = metrics
-                
+                # Free the chunk memory immediately
+                del concatenated
+            del speaker_chunks
+            gc.collect()
+
             return speaker_acoustics
         except Exception as e:
             log.warning("Failed to extract per-speaker acoustics: %s", e)
@@ -181,6 +225,9 @@ class InferencePipeline:
     def process_job(self, job: dict) -> str:
         """
         Process one queue job and write `[job_id]_analysis.json`.
+
+        Models are loaded on-demand per stage and unloaded after each stage
+        to minimize peak RAM usage.
 
         Returns:
             Path to the JSON output file.
@@ -193,8 +240,8 @@ class InferencePipeline:
             raise FileNotFoundError(f"Audio file not found: {file_path}")
 
         log.info("Job %s: transcribing %s", job_id, file_path.name)
-        
-        # Preprocess
+
+        # ── Preprocess ──
         wav_path = file_path
         tmp_wav = None
         try:
@@ -203,10 +250,12 @@ class InferencePipeline:
         except Exception as e:
             log.warning("Preprocessing failed, using original file: %s", e)
 
-        whisper_result = self.model.transcribe(str(wav_path), word_timestamps=True)
+        # ── Stage 1: Transcription (MLX Whisper — native Apple Silicon) ──
+        whisper_result = self._transcribe(str(wav_path))
         transcript = (whisper_result.get("text") or "").strip()
 
-        diarizer = self._get_diarizer()
+        # ── Stage 2: Diarization (load → diarize → unload) ──
+        diarizer = self._load_diarizer()
         merged_segments = None
         speaker_texts = None
         if diarizer:
@@ -216,25 +265,33 @@ class InferencePipeline:
                 speaker_texts = diarizer.group_by_speaker(merged_segments)
             except Exception as exc:
                 log.warning("Job %s: diarization failed: %s", job_id, exc)
+            finally:
+                self._unload_diarizer(diarizer)
 
         segments = self._build_segments(whisper_result, merged_segments)
-        sentiment = analyze_sentiment(transcript)
+        # Free whisper_result now that segments are built
+        whisper_result = None
 
+        # ── Stage 3: Sentiment (TextBlob — lightweight, no unload needed) ──
+        sentiment = analyze_sentiment(transcript)
         if speaker_texts:
             sentiment["speaker_sentiments"] = analyze_per_speaker(speaker_texts)
         else:
             sentiment["speaker_sentiments"] = {}
 
         stats = self._compute_statistics(transcript, segments)
-        
-        # Acoustic extraction
+
+        # ── Stage 4: Acoustic extraction (load → extract → unload) ──
         overall_acoustics = {}
         speaker_acoustics = {}
-        if self._acoustic_extractor and self._acoustic_extractor.is_available():
+        extractor = self._load_acoustic_extractor()
+        if extractor:
             log.info("Extracting acoustic features...")
-            overall_acoustics = self._acoustic_extractor.process_audio_file(str(wav_path))
-            speaker_acoustics = self._extract_speaker_acoustics(wav_path, segments)
-            
+            overall_acoustics = extractor.process_audio_file(str(wav_path))
+            speaker_acoustics = self._extract_speaker_acoustics(extractor, wav_path, segments)
+            del extractor
+            _free_ram()
+
         if tmp_wav and tmp_wav.exists():
             os.unlink(str(tmp_wav))
 
@@ -277,3 +334,4 @@ class InferencePipeline:
 
         log.info("Job %s: wrote %s", job_id, output_path)
         return str(output_path)
+

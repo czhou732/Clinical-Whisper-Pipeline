@@ -4,10 +4,13 @@ ClinicalWhisper — Privacy-first local transcription pipeline
 with automated sentiment analysis.
 
 Watches the Input folder for audio files, transcribes locally via
-OpenAI Whisper, runs sentiment analysis, and saves rich Markdown
-notes to Obsidian.
+MLX Whisper (Apple Silicon native), runs sentiment analysis, and
+saves rich Markdown notes to Obsidian.
+
+All processing is 100% local — no data ever leaves this machine.
 """
 
+import gc
 import sys
 import time
 import os
@@ -17,8 +20,6 @@ import yaml
 
 os.chdir(os.path.dirname(os.path.abspath(__file__)))
 
-import torch
-import whisper
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
 from sentiment_analyzer import analyze_sentiment, analyze_per_speaker, format_sentiment_markdown
@@ -42,7 +43,8 @@ CONFIG_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "config.y
 def load_config() -> dict:
     """Load configuration from config.yaml with sensible defaults."""
     defaults = {
-        "model": "medium.en",
+        "model": "small.en",
+        "mlx_model": "mlx-community/whisper-small.en",
         "input_folder": "./Input",
         "processed_folder": "./Processed",
         "output_folder": "./Output",
@@ -61,7 +63,6 @@ def load_config() -> dict:
     if os.path.exists(CONFIG_PATH):
         with open(CONFIG_PATH, "r") as f:
             user_cfg = yaml.safe_load(f) or {}
-        # Merge — user values override defaults
         for key, value in user_cfg.items():
             if isinstance(value, dict) and key in defaults and isinstance(defaults[key], dict):
                 defaults[key].update(value)
@@ -79,35 +80,59 @@ INPUT_FOLDER = CFG["input_folder"]
 PROCESSED_FOLDER = CFG["processed_folder"]
 OUTPUT_FOLDER = CFG["output_folder"]
 MODEL_TYPE = CFG["model"]
+MLX_MODEL = CFG.get("mlx_model", f"mlx-community/whisper-{MODEL_TYPE}")
 AUDIO_EXTENSIONS = tuple(CFG["audio_extensions"])
 
+
 # ---------------------------------------------------------------------------
-# Speaker diarization (lazy init)
+# MLX Whisper transcription (stateless — no model object to manage)
 # ---------------------------------------------------------------------------
-_diarizer = None
+
+def _transcribe(audio_path: str) -> dict:
+    """Transcribe audio locally. Uses MLX Whisper on Apple Silicon, falls back to openai-whisper."""
+    try:
+        import mlx_whisper
+        return mlx_whisper.transcribe(audio_path, path_or_hf_repo=MLX_MODEL)
+    except ImportError:
+        import whisper
+        model = whisper.load_model(MODEL_TYPE)
+        result = model.transcribe(audio_path, fp16=False)
+        del model
+        gc.collect()
+        return result
 
 
-def get_diarizer():
-    """Lazily initialize the speaker diarizer."""
-    global _diarizer
-    if _diarizer is not None:
-        return _diarizer
+# ---------------------------------------------------------------------------
+# Speaker diarization (on-demand)
+# ---------------------------------------------------------------------------
 
+def _load_diarizer():
+    """Load speaker diarizer on demand. Returns diarizer or None."""
     diar_cfg = CFG.get("diarization", {})
     if not diar_cfg.get("enabled", False):
         return None
 
     try:
         from speaker_diarizer import SpeakerDiarizer
-        _diarizer = SpeakerDiarizer(
+        diarizer = SpeakerDiarizer(
             hf_token=diar_cfg.get("hf_token"),
             min_speakers=diar_cfg.get("min_speakers", 2),
             max_speakers=diar_cfg.get("max_speakers", 6),
         )
-        return _diarizer
+        return diarizer
     except Exception as e:
         log.warning("⚠️  Diarization unavailable: %s — falling back to per-segment", e)
         return None
+
+
+def _unload_diarizer(diarizer):
+    """Explicitly unload diarizer and free RAM."""
+    if diarizer is None:
+        return
+    del diarizer
+    gc.collect()
+    log.info("   📤 Diarizer unloaded")
+
 
 # ---------------------------------------------------------------------------
 # Transcript statistics
@@ -119,7 +144,6 @@ def compute_statistics(text: str) -> str:
     word_count = len(words)
     char_count = len(text)
     sentence_count = sum(1 for c in text if c in ".!?")
-    # Rough speaking-rate estimate: ~150 words per minute
     est_minutes = word_count / 150
 
     lines = []
@@ -139,8 +163,7 @@ def compute_statistics(text: str) -> str:
 # ---------------------------------------------------------------------------
 
 class WhisperHandler(FileSystemEventHandler):
-    def __init__(self, model):
-        self.model = model
+    def __init__(self):
         self._processed_set: set[str] = set()
 
     def on_created(self, event):
@@ -174,7 +197,6 @@ class WhisperHandler(FileSystemEventHandler):
         base_name = os.path.basename(filename)
         name_without_ext = os.path.splitext(base_name)[0]
 
-        # Duplicate protection
         if self._already_processed(name_without_ext):
             log.info("⏭️  Skipping (already processed): %s", base_name)
             return
@@ -182,19 +204,18 @@ class WhisperHandler(FileSystemEventHandler):
         log.info("🎧 New file detected: %s", base_name)
 
         try:
-            # 1. Transcribe
-            log.info("   Transcribing with Whisper (%s)...", MODEL_TYPE)
+            # ── Stage 1: Transcribe (MLX Whisper — native Apple Silicon) ──
+            log.info("   Transcribing with MLX Whisper (%s)...", MLX_MODEL)
             t0 = time.time()
-            result = self.model.transcribe(filename, fp16=False)
+            result = _transcribe(filename)
             elapsed = time.time() - t0
             log.info("   ✅ Transcription complete (%.1fs)", elapsed)
-
             transcript = result["text"]
 
-            # 2. Speaker diarization (if enabled)
-            diarizer = get_diarizer()
+            # ── Stage 2: Diarization (load → diarize → unload) ──
             merged_segments = None
             speaker_texts = None
+            diarizer = _load_diarizer()
 
             if diarizer:
                 try:
@@ -204,12 +225,16 @@ class WhisperHandler(FileSystemEventHandler):
                     log.info("   🗣️  Speakers: %s", ", ".join(diar_result["speakers"]))
                 except Exception as e:
                     log.warning("   ⚠️  Diarization failed: %s — continuing without", e)
+                finally:
+                    _unload_diarizer(diarizer)
 
-            # 3. Build note content
+            result = None  # free Whisper result
+
+            # ── Stage 3: Build note content ──
             note_content = f"# 🎙️ Transcript: {name_without_ext}\n"
             note_content += f"**Date:** {time.strftime('%Y-%m-%d %H:%M')}\n"
             note_content += f"**Tags:** #transcribed #clinical-whisper #sentiment\n"
-            note_content += f"**Model:** `{MODEL_TYPE}`\n"
+            note_content += f"**Model:** `{MLX_MODEL}`\n"
 
             if speaker_texts:
                 speakers_list = ", ".join(speaker_texts.keys())
@@ -217,23 +242,21 @@ class WhisperHandler(FileSystemEventHandler):
 
             note_content += "---\n\n"
 
-            # Use diarized transcript if available, else raw text
             if merged_segments:
                 from speaker_diarizer import SpeakerDiarizer
                 note_content += SpeakerDiarizer.format_transcript_with_speakers(merged_segments)
             else:
                 note_content += transcript
 
-            # 4. Transcript statistics
+            # ── Stage 4: Statistics ──
             if CFG.get("statistics", {}).get("enabled", True):
                 note_content += compute_statistics(transcript)
 
-            # 5. Sentiment analysis
+            # ── Stage 5: Sentiment analysis ──
             if CFG.get("sentiment", {}).get("enabled", True):
                 log.info("   🧠 Running sentiment analysis...")
                 sentiment = analyze_sentiment(transcript)
 
-                # Per-speaker sentiment (if diarization succeeded)
                 if speaker_texts:
                     log.info("   👥 Analyzing per-speaker sentiment...")
                     sentiment["speaker_sentiments"] = analyze_per_speaker(speaker_texts)
@@ -245,14 +268,14 @@ class WhisperHandler(FileSystemEventHandler):
                     sentiment["overall"]["score"],
                 )
 
-            # 5. Save to output
+            # ── Stage 6: Save ──
             os.makedirs(OUTPUT_FOLDER, exist_ok=True)
             destination_path = os.path.join(OUTPUT_FOLDER, f"{name_without_ext}.md")
             with open(destination_path, "w") as f:
                 f.write(note_content)
             log.info("   💾 Note saved: %s", destination_path)
 
-            # 6. Archive audio
+            # ── Stage 7: Archive audio ──
             if os.path.exists(filename):
                 os.makedirs(PROCESSED_FOLDER, exist_ok=True)
                 shutil.move(filename, os.path.join(PROCESSED_FOLDER, base_name))
@@ -263,28 +286,21 @@ class WhisperHandler(FileSystemEventHandler):
         except Exception:
             log.exception("❌ Error processing %s", base_name)
         finally:
-            # Force PyTorch to release unused GPU memory back to the Mac system RAM
-            import torch
-            if torch.backends.mps.is_available():
-                torch.mps.empty_cache()
+            gc.collect()
 
 
 # ---------------------------------------------------------------------------
 # Entry point
 # ---------------------------------------------------------------------------
 if __name__ == "__main__":
-    # Select best available device: Apple Silicon GPU > CPU
-    if torch.backends.mps.is_available():
-        device = "mps"
-    else:
-        device = "cpu"
-    log.info("🚀 Loading Whisper model '%s' on %s  (Python: %s)", MODEL_TYPE, device.upper(), sys.executable)
-    model = whisper.load_model(MODEL_TYPE, device=device)
+    log.info("🚀 ClinicalWhisper started (MLX Whisper: %s, Python: %s)",
+             MLX_MODEL, sys.executable)
+    log.info("   Backend: Apple MLX (native Apple Silicon, 4-10x faster)")
     log.info("👀 Watching '%s' for audio files...", INPUT_FOLDER)
     log.info("📂 Notes  → %s", OUTPUT_FOLDER)
     log.info("📁 Archive → %s", PROCESSED_FOLDER)
 
-    event_handler = WhisperHandler(model)
+    event_handler = WhisperHandler()
     observer = Observer()
     observer.schedule(event_handler, INPUT_FOLDER, recursive=False)
     observer.start()

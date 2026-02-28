@@ -3,7 +3,9 @@
 # ============================================================
 
 # Whisper model: tiny.en | base.en | small.en | medium.en | large-v3
-model: "large-v3"
+model: "small.en"
+# MLX-optimized model repo (Apple Silicon native — 4-10x faster)
+mlx_model: "mlx-community/whisper-small.en"
 
 
 # Folders (relative to this file, or absolute paths)
@@ -31,7 +33,7 @@ statistics:
 
 # Acoustic features
 acoustic_features:
-  enabled: true               # extracts F0, Energy, Zhou Index via OpenSMILE eGeMAPSv02
+  enabled: true               # extracts F0, Energy, VTA via OpenSMILE eGeMAPSv02
 
 # Duplicate protection
 skip_already_processed: true   # skip files that already have a note in output
@@ -52,7 +54,7 @@ pipeline:
   secure_storage_folder: "./Input/ingestion"
   analysis_output_folder: "/Users/peterzhou/Research/Writing/PhDApplications_2026/EducationRecords/Education/USC/USC/ClinicalWhisper_Audio"
   poll_interval_seconds: 1.0
-  max_workers: 2
+  max_workers: 1
 
 # Plaud Note integration
 plaud:
@@ -77,3 +79,19 @@ plaud:
   # Archive ingested files instead of leaving them
   archive_after_ingest: true
   archive_folder: "./PlaudArchive"
+
+# Meeting Intelligence — local LLM meeting summary extraction
+# Run: python meeting_intel.py --file path/to/transcript.md
+meeting_intel:
+  enabled: true
+  # Must be pulled locally first: ollama pull gpt-oss:20b
+  ollama_model: "gpt-oss:20b"
+  ollama_base_url: "http://localhost:11434"
+  # Timeout in seconds — gpt-oss:20b on 4,000-word transcripts takes ~60-120s
+  timeout_seconds: 180
+  # Retry once on timeout (connection errors are not retried)
+  max_retries: 1
+  # Output filename: {original_stem}{summary_suffix}.md
+  summary_suffix: "_summary"
+  # Skip transcripts shorter than this many words
+  min_word_count: 50
