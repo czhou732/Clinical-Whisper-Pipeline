@@ -44,7 +44,7 @@ def load_config() -> dict:
     """Load configuration from config.yaml with sensible defaults."""
     defaults = {
         "model": "small.en",
-        "mlx_model": "mlx-community/whisper-small.en",
+        "mlx_model": "mlx-community/whisper-small.en-mlx",
         "input_folder": "./Input",
         "processed_folder": "./Processed",
         "output_folder": "./Output",

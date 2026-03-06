@@ -53,7 +53,7 @@ Edit `config.yaml` to customize:
 
 ```yaml
 model: "small.en"                        # Whisper model size
-mlx_model: "mlx-community/whisper-small.en"  # MLX model (Apple Silicon)
+mlx_model: "mlx-community/whisper-small.en-mlx"  # MLX model (Apple Silicon)
 output_folder: "/path/to/obsidian/inbox"
 
 sentiment:
