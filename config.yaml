@@ -5,7 +5,7 @@
 # Whisper model: tiny.en | base.en | small.en | medium.en | large-v3
 model: "small.en"
 # MLX-optimized model repo (Apple Silicon native — 4-10x faster)
-mlx_model: "mlx-community/whisper-small.en"
+mlx_model: "mlx-community/whisper-small.en-mlx"
 
 
 # Folders (relative to this file, or absolute paths)
