@@ -14,5 +14,5 @@ venv/
 *.log
 *.err
 
-# Config may contain local paths
-# config.yaml
+# Config contains local paths — use config.example.yaml as template
+config.yaml
