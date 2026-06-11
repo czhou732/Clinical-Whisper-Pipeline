@@ -1,0 +1,51 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.backends._legacy:_Backend"
+
+[project]
+name = "clinicalwhisper"
+version = "3.0.0"
+description = "Privacy-first clinical speech analysis pipeline"
+authors = [
+    { name = "Chengdong Zhou" },
+]
+license = "MIT"
+requires-python = ">=3.9"
+readme = "README.md"
+
+dependencies = [
+    "openai-whisper",
+    "watchdog",
+    "pyyaml",
+    "fastapi",
+    "uvicorn",
+    "python-multipart",
+    "streamlit",
+    "pandas",
+    "plotly",
+    "opensmile",
+    "soundfile",
+    "transformers>=4.35.0",
+    "torch>=2.0.0",
+    "sentencepiece",
+    "nltk",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0",
+    "pytest-cov",
+]
+diarization = [
+    "pyannote.audio",
+]
+
+[project.scripts]
+clinicalwhisper = "main:main"
+
+[project.urls]
+Repository = "https://github.com/czhou732/ClinicalWhisper"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = "test_*.py"

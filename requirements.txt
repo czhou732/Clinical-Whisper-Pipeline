@@ -1,6 +1,5 @@
 openai-whisper
 watchdog
-textblob
 pyyaml
 fastapi
 uvicorn
@@ -12,3 +11,7 @@ plotly
 # pyannote.audio
 opensmile
 soundfile
+transformers>=4.35.0
+torch>=2.0.0
+sentencepiece
+nltk

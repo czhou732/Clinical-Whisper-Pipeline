@@ -11,6 +11,7 @@ from __future__ import annotations
 import gc
 import json
 import logging
+import nltk
 import os
 import shutil
 import subprocess
@@ -25,24 +26,16 @@ except ImportError:
     np = None
     sf = None
 
-from textblob import TextBlob
-
 from cw_config import resolve_path
-from sentiment_analyzer import analyze_per_speaker, analyze_sentiment
+from sentiment_analyzer import analyze_per_speaker, analyze_sentiment, _get_segment_sentiment_score
+
+# Ensure NLTK punkt tokenizer is available
+try:
+    nltk.data.find('tokenizers/punkt_tab')
+except LookupError:
+    nltk.download('punkt_tab', quiet=True)
 
 log = logging.getLogger("ClinicalWhisper")
-
-
-def _polarity_to_score(polarity: float) -> int:
-    """Map TextBlob polarity (-1..1) to a 1..10 score."""
-    return max(1, min(10, round(polarity * 4.5 + 5.5)))
-
-
-def _segment_sentiment_score(text: str) -> int:
-    if not text.strip():
-        return 5
-    pol = TextBlob(text).sentiment.polarity
-    return _polarity_to_score(pol)
 
 
 def _free_ram():
@@ -137,7 +130,7 @@ class InferencePipeline:
                     "end": round(float(seg.get("end", 0.0)), 3),
                     "speaker": seg.get("speaker", "Speaker 1"),
                     "text": text,
-                    "sentiment": _segment_sentiment_score(text),
+                    "sentiment": _get_segment_sentiment_score(text),
                 }
             )
 
@@ -146,7 +139,7 @@ class InferencePipeline:
     @staticmethod
     def _compute_statistics(transcript: str, segments: list[dict]) -> dict:
         words = transcript.split()
-        sentence_count = sum(1 for c in transcript if c in ".!?")
+        sentence_count = len(nltk.tokenize.sent_tokenize(transcript))
         duration_seconds = 0.0
         if segments:
             duration_seconds = max(float(seg["end"]) for seg in segments)
@@ -155,7 +148,7 @@ class InferencePipeline:
             "word_count": len(words),
             "character_count": len(transcript),
             "sentence_count": sentence_count,
-            "estimated_minutes": round(len(words) / 150.0, 2),
+            "estimated_minutes": round(duration_seconds / 60.0, 2) if duration_seconds > 0 else round(len(words) / 150.0, 2),
             "duration_seconds": round(duration_seconds, 2),
         }
 
@@ -185,7 +178,6 @@ class InferencePipeline:
             return {}
 
         try:
-            # Use SoundFile for streaming reads instead of loading entire file
             with sf.SoundFile(str(wav_path)) as audio_file:
                 sr = audio_file.samplerate
                 speaker_chunks: dict[str, list[np.ndarray]] = {}
@@ -199,20 +191,17 @@ class InferencePipeline:
                     if num_frames <= 0:
                         continue
 
-                    # Seek to segment start and read only the needed frames
                     audio_file.seek(start_sample)
                     chunk = audio_file.read(num_frames)
 
                     if len(chunk) > 0:
                         speaker_chunks.setdefault(speaker, []).append(chunk)
 
-            # Process each speaker's concatenated audio
             speaker_acoustics = {}
             for speaker, chunks in speaker_chunks.items():
                 concatenated = np.concatenate(chunks)
                 metrics = extractor.process_audio_segment(concatenated, sr)
                 speaker_acoustics[speaker] = metrics
-                # Free the chunk memory immediately
                 del concatenated
             del speaker_chunks
             gc.collect()
@@ -272,7 +261,7 @@ class InferencePipeline:
         # Free whisper_result now that segments are built
         whisper_result = None
 
-        # ── Stage 3: Sentiment (TextBlob — lightweight, no unload needed) ──
+        # ── Stage 3: Sentiment (Transformer — local RoBERTa, no unload needed) ──
         sentiment = analyze_sentiment(transcript)
         if speaker_texts:
             sentiment["speaker_sentiments"] = analyze_per_speaker(speaker_texts)
@@ -334,4 +323,3 @@ class InferencePipeline:
 
         log.info("Job %s: wrote %s", job_id, output_path)
         return str(output_path)
-

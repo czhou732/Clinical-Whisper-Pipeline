@@ -1,0 +1,33 @@
+{"id": "pos_01", "input_text": "I'm feeling great today! The morning coffee was amazing, and I went for a run and met some friends. It feels like I'm getting back on track.", "expected_sentiment": "positive", "category": "positive"}
+{"id": "pos_02", "input_text": "Everything is going wonderfully. I got a promotion at work and my family is doing well. Life is really good right now.", "expected_sentiment": "positive", "category": "positive"}
+{"id": "pos_03", "input_text": "I had the best weekend! We went hiking, the weather was perfect, and I felt so alive and energized.", "expected_sentiment": "positive", "category": "positive"}
+{"id": "pos_04", "input_text": "Therapy has been incredible. I feel like I'm finally making progress and understanding myself better. Thank you so much.", "expected_sentiment": "positive", "category": "positive"}
+{"id": "pos_05", "input_text": "I woke up feeling hopeful for the first time in months. I actually enjoyed breakfast and went outside to feel the sun.", "expected_sentiment": "positive", "category": "positive"}
+{"id": "neg_01", "input_text": "I can't seem to enjoy anything anymore. Everything feels empty and meaningless. I don't know what's wrong with me.", "expected_sentiment": "negative", "category": "negative"}
+{"id": "neg_02", "input_text": "I've been crying every night. Nothing helps. I feel like a burden to everyone around me.", "expected_sentiment": "negative", "category": "negative"}
+{"id": "neg_03", "input_text": "I'm exhausted all the time. I can't get out of bed most days. My body aches and I have no energy for anything.", "expected_sentiment": "negative", "category": "negative"}
+{"id": "neg_04", "input_text": "Everything is falling apart. I lost my job, my relationship is over, and I don't see a way forward.", "expected_sentiment": "negative", "category": "negative"}
+{"id": "neg_05", "input_text": "I feel hopeless and trapped. Every day is the same miserable routine and nothing ever changes.", "expected_sentiment": "negative", "category": "negative"}
+{"id": "neu_01", "input_text": "The weather forecast says it will be sunny tomorrow. I might go to the store later.", "expected_sentiment": "neutral", "category": "neutral"}
+{"id": "neu_02", "input_text": "I had my regular check-up appointment on Tuesday. The doctor said everything looks normal.", "expected_sentiment": "neutral", "category": "neutral"}
+{"id": "neu_03", "input_text": "I drove to work this morning. Traffic was about average for a weekday. Nothing unusual happened.", "expected_sentiment": "neutral", "category": "neutral"}
+{"id": "neu_04", "input_text": "The meeting is scheduled for 3pm. We need to review the quarterly report and plan next steps.", "expected_sentiment": "neutral", "category": "neutral"}
+{"id": "neu_05", "input_text": "I ate lunch at noon. Had a sandwich and some water. Then went back to my desk.", "expected_sentiment": "neutral", "category": "neutral"}
+{"id": "mask_01", "input_text": "I'm doing fine. Everything is okay I guess. Nothing to worry about really.", "expected_sentiment": "neutral", "category": "clinical_masking"}
+{"id": "mask_02", "input_text": "Yeah I'm alright. Things are fine. I mean, nothing's great but nothing's terrible either, you know?", "expected_sentiment": "neutral", "category": "clinical_masking"}
+{"id": "mask_03", "input_text": "I'm managing. It's fine. People have it worse than me so I shouldn't complain.", "expected_sentiment": "neutral", "category": "clinical_masking"}
+{"id": "mask_04", "input_text": "Things are okay. I'm just tired but that's normal for everyone right? I'm fine.", "expected_sentiment": "neutral", "category": "clinical_masking"}
+{"id": "mask_05", "input_text": "I told my family I'm doing great. I smile at work. Everything is totally fine on the surface.", "expected_sentiment": "neutral", "category": "clinical_masking"}
+{"id": "anh_01", "input_text": "I used to love hiking but now even the view feels meh. Nothing excites me anymore.", "expected_sentiment": "negative", "category": "anhedonia"}
+{"id": "anh_02", "input_text": "My friends invited me out but I just couldn't bring myself to go. I don't enjoy socializing like I used to.", "expected_sentiment": "negative", "category": "anhedonia"}
+{"id": "anh_03", "input_text": "Food tastes bland. Music sounds flat. I used to love cooking and playing guitar but now I feel nothing.", "expected_sentiment": "negative", "category": "anhedonia"}
+{"id": "anh_04", "input_text": "I watched my favorite movie last night and felt absolutely nothing. It used to make me laugh so hard.", "expected_sentiment": "negative", "category": "anhedonia"}
+{"id": "anh_05", "input_text": "Even playing with my kids doesn't bring me joy anymore. I go through the motions but inside I'm empty.", "expected_sentiment": "negative", "category": "anhedonia"}
+{"id": "daic_01", "input_text": "Um, hi Ellie. Yeah things have been, uh, okay I guess. Work is work, you know? Just getting through the days.", "expected_sentiment": "neutral", "category": "daic_woz"}
+{"id": "daic_02", "input_text": "Ellie, uh, I don't know. Since early this week I just can't seem to enjoy anything. I used to love hiking but now even the view feels meh.", "expected_sentiment": "negative", "category": "daic_woz"}
+{"id": "daic_03", "input_text": "Hey Ellie, actually things have been pretty good! I started exercising again and I'm sleeping better. Feeling more like myself.", "expected_sentiment": "positive", "category": "daic_woz"}
+{"id": "daic_04", "input_text": "Ellie, I can't get any sleep. Like every night I lie awake for hours. I feel exhausted during the day and my concentration is off.", "expected_sentiment": "negative", "category": "daic_woz"}
+{"id": "daic_05", "input_text": "Um, yeah, Ellie, I've been keeping busy. Went to the park with the dog. Weather was nice. Nothing too crazy, just wanted to chat.", "expected_sentiment": "neutral", "category": "daic_woz"}
+{"id": "edge_01", "input_text": "Okay.", "expected_sentiment": "neutral", "category": "edge_case"}
+{"id": "edge_02", "input_text": "The medication is working but I still feel empty inside.", "expected_sentiment": "negative", "category": "edge_case"}
+{"id": "edge_03", "input_text": "I don't know.", "expected_sentiment": "neutral", "category": "edge_case"}

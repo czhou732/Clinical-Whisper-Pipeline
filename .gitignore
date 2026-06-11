@@ -16,3 +16,8 @@ venv/
 
 # Config contains local paths — use config.example.yaml as template
 config.yaml
+
+# Test / build artifacts
+tests/__pycache__/
+.pytest_cache/
+*.egg-info/

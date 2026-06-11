@@ -2,7 +2,7 @@
 """
 Acoustic Features Module for ClinicalWhisper
 Extracts acoustic prosody features using OpenSMILE (eGeMAPSv02)
-and computes the Zhou Index for anhedonia classification.
+and computes the VTA for anhedonia classification.
 """
 
 import os
@@ -21,7 +21,7 @@ except ImportError:
 log = logging.getLogger("ClinicalWhisper")
 
 class AcousticExtractor:
-    """Extracts eGeMAPSv02 features and computes custom metrics like the Zhou Index."""
+    """Extracts eGeMAPSv02 features and computes custom metrics like the VTA."""
     
     def __init__(self):
         self.smile = None
@@ -78,7 +78,7 @@ class AcousticExtractor:
     def _extract_metrics(self, features: dict) -> dict:
         """
         Extract specific parameters from the massive eGeMAPSv02 set 
-        and compute the Zhou Index format metrics.
+        and compute the VTA format metrics.
         """
         # F0 variables (Pitch)
         f0_mean = features.get("F0semitoneFrom27.5Hz_sma3nz_amean", 0.0)
@@ -95,9 +95,9 @@ class AcousticExtractor:
         # Speaking rate
         speaking_rate = features.get("equivalentSoundLevel_dBp", 0.0) # fallback
         
-        # Compute Zhou Index
+        # Compute VTA
         # V_anh = -log(CV_F0 * CV_Energy)
-        zhou_index = 0.0
+        vta = 0.0
         if f0_std > 0 and energy_std > 0:
             try:
                 # eGeMAPS returns stddevNorm which is standard deviation normalized by the mean = Coefficient of Variation (CV)
@@ -105,9 +105,9 @@ class AcousticExtractor:
                 cv_energy = float(energy_std)
                 product = cv_f0 * cv_energy
                 if product > 0:
-                    zhou_index = -math.log(product)
+                    vta = -math.log(product)
             except Exception as e:
-                log.warning(f"Failed to compute Zhou Index: {e}")
+                log.warning(f"Failed to compute VTA: {e}")
 
         return {
             "pitch_mean_st": round(float(f0_mean), 3),
@@ -116,5 +116,5 @@ class AcousticExtractor:
             "loudness_cv": round(float(energy_std), 3),
             "jitter": round(float(jitter), 3),
             "shimmer": round(float(shimmer), 3),
-            "zhou_index": round(float(zhou_index), 3)
+            "vta": round(float(vta), 3)
         }
