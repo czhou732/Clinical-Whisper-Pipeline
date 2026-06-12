@@ -4,6 +4,7 @@
 [![Python](https://img.shields.io/badge/Python-3.9%2B-blue)](https://www.python.org/)
 [![License](https://img.shields.io/badge/License-MIT-green)](LICENSE)
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.20559786.svg)](https://doi.org/10.5281/zenodo.20559786)
+[![bioRxiv](https://img.shields.io/badge/bioRxiv-10.64898%2F2026.06.08.728970-b31b1b)](https://doi.org/10.64898/2026.06.08.728970)
 
 **A privacy-first clinical speech analysis pipeline — transcription, diarization, sentiment, and acoustic feature extraction, 100% on-device.**
 
@@ -320,24 +321,48 @@ Higher VTA values indicate flatter, more monotone speech — a potential biomark
 
 ## Author
 
-**Chengdong Zhou** — Undergraduate Researcher, USC
-*Focus: Computational Neuroscience & Clinical AI*
+**Chengdong (Peter) Zhou** — USC Dornsife · NIMH Summer Intern (ETPB)
+*Computational Psychiatry · Clinical AI · Vocal Biomarkers*
 
 - GitHub: [@czhou732](https://github.com/czhou732)
+- ORCID: [coming soon]
+
+**Co-authors:** Meihui (Lily) Wu · Yiming (Dora) Xiang · Laurent Itti
+
+---
+
+## 📄 Publication
+
+This pipeline is described in:
+
+> Zhou, C., Wu, M., Xiang, Y., & Itti, L. (2026). Dopaminergic Vocal Biomarkers of Reward Processing in Clinical Speech. *bioRxiv*. DOI: [10.64898/2026.06.08.728970](https://doi.org/10.64898/2026.06.08.728970)
 
 ---
 
 ## Citation
 
-If you use ClinicalWhisper in your research, please cite:
+If you use ClinicalWhisper in your research, please cite the paper:
 
 ```bibtex
-@software{zhou2025clinicalwhisper,
+@article{zhou2026dopaminergic,
+  title     = {Dopaminergic Vocal Biomarkers of Reward Processing in Clinical Speech},
+  author    = {Zhou, Chengdong and Wu, Meihui and Xiang, Yiming and Itti, Laurent},
+  journal   = {bioRxiv},
+  year      = {2026},
+  doi       = {10.64898/2026.06.08.728970}
+}
+```
+
+To cite the software specifically:
+
+```bibtex
+@software{zhou2026clinicalwhisper,
   author    = {Zhou, Chengdong},
   title     = {ClinicalWhisper: Privacy-First Clinical Speech Analysis Pipeline},
-  year      = {2025},
-  publisher = {GitHub},
-  url       = {https://github.com/czhou732/ClinicalWhisper}
+  year      = {2026},
+  publisher = {GitHub / Zenodo},
+  doi       = {10.5281/zenodo.20559786},
+  url       = {https://github.com/czhou732/Clinical-Whisper-Pipeline}
 }
 ```
 
