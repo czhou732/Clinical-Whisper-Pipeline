@@ -6,15 +6,27 @@
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.20559786.svg)](https://doi.org/10.5281/zenodo.20559786)
 [![bioRxiv](https://img.shields.io/badge/bioRxiv-10.64898%2F2026.06.08.728970-b31b1b)](https://doi.org/10.64898/2026.06.08.728970)
 
-**A privacy-first clinical speech analysis pipeline — transcription, diarization, sentiment, and acoustic feature extraction, 100% on-device.**
+**A privacy-first clinical speech analysis and screening pipeline — transcription, diarization, sentiment, acoustic biomarkers, LLM-powered clinical scoring, and question detection. 100% on-device.**
 
 ClinicalWhisper processes clinical audio recordings entirely on the local machine. No data ever leaves the device, making it suitable for HIPAA/GDPR-regulated environments.
 
 ---
 
-## What's New in v3.0
+## What's New in v4.0
 
-- 🧠 **Transformer-based sentiment** — Replaced TextBlob with `cardiffnlp/twitter-roberta-base-sentiment-latest` for state-of-the-art clinical sentiment scoring
+- 🧠 **LLM clinical scoring** — Ollama-powered structured assessment: hesitancy, affect flatness, engagement, elaboration, psychomotor indicators (0–10 scale)
+- 🏷️ **Clinical question detection** — Automatically categorizes interviewer probes (positive affect, negative affect, PTSD screen, suicidal ideation, etc.) with coverage analysis
+- 🎤 **Structured transcripts** — Auto-detects Interviewer vs Subject roles and formats `[MM:SS] Interviewer: ...` transcripts
+- 🔊 **Acoustic context injection** — Serializes prosodic features into natural language for LLM prompt augmentation
+- 📐 **LLM embedding extraction** — Sentence-transformer hidden-state vectors per segment, exportable as CSV/NumPy for downstream ML
+- 🏗️ **7-stage pipeline** — Expanded from 4 stages with config-gated LLM features
+
+### Previous releases
+
+<details>
+<summary>v3.0 — Transformer Sentiment</summary>
+
+- 🧠 **Transformer-based sentiment** — Replaced TextBlob with `cardiffnlp/twitter-roberta-base-sentiment-latest`
 - 🧪 **Full test suite** — 20+ pytest tests covering sentiment, acoustics, pipeline integration, and the Zhou Index
 - 📊 **Batch processing** — Process an entire directory of audio files into a single summary CSV
 - 📈 **Longitudinal tracking** — Track patient metrics across sessions with automatic trend detection
@@ -22,6 +34,8 @@ ClinicalWhisper processes clinical audio recordings entirely on the local machin
 - 🔄 **GitHub Actions CI** — Automated testing on every push and pull request
 - 🔧 **NLTK sentence tokenization** — Handles abbreviations and edge cases that regex-based splitting misses
 - 📋 **CSV/SPSS export** — Flatten analysis JSONs into R/SPSS-compatible tabular data
+
+</details>
 
 ---
 
@@ -31,14 +45,18 @@ ClinicalWhisper processes clinical audio recordings entirely on the local machin
 |---|---|
 | **Transcription** | MLX Whisper on Apple Silicon (4–10× faster), OpenAI Whisper fallback |
 | **Speaker Diarization** | pyannote.audio — per-speaker identification and labeling |
+| **Structured Transcripts** | Auto-detects Interviewer/Subject roles, merges consecutive turns |
 | **Sentiment Analysis** | Transformer-based scoring (1–10), tone detection, critical moment identification |
 | **Acoustic Features** | OpenSMILE eGeMAPSv02 — pitch, loudness, jitter, shimmer, Zhou Index (VTA) |
+| **LLM Clinical Scoring** | Hesitancy, affect flatness, engagement, elaboration, psychomotor (0–10) via Ollama |
+| **Question Detection** | 10-category clinical probe classification with coverage analysis |
+| **LLM Embeddings** | Sentence-transformer feature vectors for downstream ML classifiers |
 | **Batch Processing** | Directory → CSV pipeline with per-file error handling |
 | **Longitudinal Tracking** | Cross-session trend detection via linear regression |
 | **Meeting Intelligence** | Ollama-powered local LLM summaries (optional) |
 | **Plaud Integration** | Auto-ingest from Plaud Note devices via USB or export folder |
 | **Privacy** | 100% local processing — zero network calls, zero cloud dependencies |
-| **Output** | Markdown (Obsidian-compatible), JSON analysis, CSV export |
+| **Output** | Markdown (Obsidian-compatible), JSON analysis, CSV export, embeddings |
 
 ---
 
@@ -48,33 +66,26 @@ ClinicalWhisper processes clinical audio recordings entirely on the local machin
 Audio File (.m4a/.mp3/.wav/.mp4)
     │
     ▼
-┌─────────────────────────────────────────────────────────┐
-│                    ClinicalWhisper                       │
-│                                                         │
-│  ┌──────────┐   ┌─────────────┐   ┌──────────────────┐ │
-│  │ Preprocess│──▶│ MLX Whisper │──▶│ Speaker          │ │
-│  │ (FFmpeg)  │   │ / OpenAI    │   │ Diarization      │ │
-│  └──────────┘   └──────┬──────┘   │ (pyannote.audio)  │ │
-│                        │          └────────┬─────────┘ │
-│                        ▼                   │           │
-│              ┌─────────────────┐           │           │
-│              │ Segment Builder │◀──────────┘           │
-│              └────────┬────────┘                       │
-│                       │                                │
-│          ┌────────────┼────────────┐                   │
-│          ▼            ▼            ▼                   │
-│  ┌──────────────┐ ┌────────┐ ┌───────────┐            │
-│  │ Sentiment    │ │ Stats  │ │ Acoustic  │            │
-│  │ (RoBERTa)    │ │        │ │ (OpenSMILE│            │
-│  │              │ │        │ │  eGeMAPS) │            │
-│  └──────┬───────┘ └───┬────┘ └─────┬─────┘            │
-│         └─────────────┼────────────┘                   │
-│                       ▼                                │
-│              ┌─────────────────┐                       │
-│              │  JSON + Markdown│                       │
-│              │  Output         │                       │
-│              └─────────────────┘                       │
-└─────────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────────┐
+│                      ClinicalWhisper v4.0                        │
+│                                                                  │
+│  Stage 1: Preprocess ──▶ MLX Whisper Transcription                │
+│  Stage 2: Speaker Diarization (pyannote.audio)                    │
+│  Stage 3: Sentiment Analysis (RoBERTa transformer)                │
+│  Stage 4: Acoustic Features (OpenSMILE eGeMAPSv02)                │
+│  Stage 5: Structured Transcript (Interviewer/Subject detection)   │
+│                                                                  │
+│         ┌─────────────────┼─────────────────┐                    │
+│         ▼                 ▼                 ▼                    │
+│  ┌─────────────┐  ┌──────────────┐  ┌──────────────┐            │
+│  │ LLM Clinical│  │ Question     │  │ Embedding    │            │
+│  │ Scoring     │  │ Detection    │  │ Extraction   │            │
+│  │ (Ollama)    │  │ (Ollama)     │  │ (HuggingFace)│            │
+│  └──────┬──────┘  └──────┬───────┘  └──────┬───────┘            │
+│         └────────────────┼─────────────────┘                    │
+│                          ▼                                      │
+│               JSON + Markdown + Embeddings                       │
+└──────────────────────────────────────────────────────────────────┘
     │
     ▼
 ┌───────────────────────┐
@@ -123,8 +134,11 @@ export HF_TOKEN="your_token_here"
 # Acoustic features
 pip install opensmile soundfile
 
-# Meeting intelligence
+# LLM clinical analysis (v4.0)
 # Install Ollama from https://ollama.ai, then:
+ollama pull qwen2:7b
+
+# Meeting intelligence
 ollama pull gpt-oss:20b
 ```
 
@@ -239,7 +253,19 @@ diarization:
 acoustic_features:
   enabled: true                          # Requires opensmile
 
-audio_extensions: [".m4a", ".mp3", ".wav", ".mp4"]
+# v4.0 LLM features (requires Ollama)
+llm_scoring:
+  enabled: false                         # Enable for clinical scoring
+  ollama_model: "qwen2:7b"
+
+question_detection:
+  enabled: false                         # Enable for probe categorization
+  ollama_model: "qwen2:7b"
+
+embeddings:
+  enabled: false                         # Enable for ML feature export
+  model: "sentence-transformers/all-MiniLM-L6-v2"
+  export_format: "csv"                   # or "npy"
 ```
 
 See [config.yaml](config.yaml) for all options including Plaud integration, Meeting Intelligence, and pipeline settings.
@@ -281,6 +307,7 @@ JSON structure:
 {
   "job_id": "batch_a1b2c3d4e5f6",
   "model": "small.en",
+  "pipeline_version": "4.0",
   "statistics": {
     "word_count": 1247,
     "duration_seconds": 423.5
@@ -296,6 +323,26 @@ JSON structure:
     "loudness_mean_db": 65.2,
     "vta": 3.41
   },
+  "speaker_roles": {
+    "Speaker 1": "Interviewer",
+    "Speaker 2": "Subject"
+  },
+  "structured_transcript": "[00:00 - 00:15] Interviewer: How have you been?\n...",
+  "llm_clinical_scoring": {
+    "hesitancy_score": 6,
+    "affect_flatness": 7,
+    "engagement_level": 4,
+    "elaboration_positive": 3,
+    "elaboration_negative": 8,
+    "psychomotor_indicators": 5,
+    "key_observations": ["Subject shows reduced prosodic variation..."],
+    "clinical_impression": "The subject demonstrates..."
+  },
+  "clinical_probes": {
+    "probes": [{"text": "How have you been?", "category": "rapport_building"}],
+    "coverage": {"categories_covered": 7, "coverage_pct": 70}
+  },
+  "embeddings_file": "batch_a1b2c3d4e5f6_embeddings.csv",
   "segments": [...],
   "speaker_acoustics": {...}
 }
