@@ -1,8 +1,16 @@
 #!/usr/bin/env python3
 """
-Inference worker pipeline for ClinicalWhisper async processing.
+Inference worker pipeline for ClinicalWhisper v4.0.
 
-Uses MLX Whisper (Apple Silicon native) for 4-10x faster transcription.
+Pipeline stages:
+  1. Transcription (MLX Whisper — Apple Silicon native)
+  2. Speaker diarization (Pyannote)
+  3. Sentiment analysis (RoBERTa transformer)
+  4. Acoustic feature extraction (eGeMAPSv02 via OpenSMILE)
+  5. Structured transcript formatting (Interviewer/Subject role detection)
+  6. LLM clinical scoring + question detection (Ollama, local)
+  7. LLM embedding extraction (HuggingFace, local)
+
 All processing is 100% local — no data ever leaves this machine.
 """
 
@@ -284,6 +292,100 @@ class InferencePipeline:
         if tmp_wav and tmp_wav.exists():
             os.unlink(str(tmp_wav))
 
+        # ── Stage 5: Structured Transcript (role detection + formatting) ──
+        structured_result = {}
+        try:
+            from transcript_formatter import process_segments
+            structured_result = process_segments(segments)
+            log.info("Job %s: structured transcript — roles: %s",
+                     job_id, structured_result.get("roles", {}))
+        except Exception as exc:
+            log.warning("Job %s: structured transcript failed: %s", job_id, exc)
+
+        structured_transcript = structured_result.get("structured_transcript", "")
+        speaker_roles = structured_result.get("roles", {})
+        speaker_stats = structured_result.get("speaker_stats", {})
+
+        # ── Stage 6a: Acoustic Context Serialization ──
+        acoustic_context = ""
+        try:
+            from acoustic_context import build_acoustic_prompt_context
+            acoustic_context = build_acoustic_prompt_context(
+                overall_acoustics, speaker_acoustics
+            )
+        except Exception as exc:
+            log.warning("Job %s: acoustic context serialization failed: %s", job_id, exc)
+
+        # ── Stage 6b: LLM Clinical Scoring (Ollama — local) ──
+        llm_scoring = {}
+        llm_cfg = self.cfg.get("llm_scoring", {})
+        if llm_cfg.get("enabled", False) and structured_transcript:
+            try:
+                from llm_clinical_scorer import score_transcript
+                log.info("Job %s: running LLM clinical scoring...", job_id)
+                llm_scoring = score_transcript(
+                    structured_transcript, acoustic_context, self.cfg
+                )
+                log.info("Job %s: LLM scoring complete", job_id)
+            except Exception as exc:
+                log.warning("Job %s: LLM clinical scoring failed: %s", job_id, exc)
+
+        # ── Stage 6c: Clinical Question Detection (Ollama — local) ──
+        probe_results = {}
+        qd_cfg = self.cfg.get("question_detection", {})
+        if qd_cfg.get("enabled", False) and segments and speaker_roles:
+            try:
+                from question_detector import (
+                    detect_probes, tag_segments_with_probes,
+                    summarize_probe_coverage
+                )
+                log.info("Job %s: detecting clinical probes...", job_id)
+                probe_tags = detect_probes(segments, speaker_roles, self.cfg)
+                if probe_tags:
+                    segments = tag_segments_with_probes(segments, probe_tags)
+                    probe_results = {
+                        "probes": probe_tags,
+                        "coverage": summarize_probe_coverage(segments),
+                    }
+                log.info("Job %s: detected %d clinical probes", job_id, len(probe_tags))
+            except Exception as exc:
+                log.warning("Job %s: question detection failed: %s", job_id, exc)
+
+        # ── Stage 7: LLM Embedding Extraction (HuggingFace — local) ──
+        embeddings_path = ""
+        emb_cfg = self.cfg.get("embeddings", {})
+        if emb_cfg.get("enabled", False) and segments:
+            try:
+                from llm_embeddings import (
+                    extract_segment_embeddings, export_embeddings, unload_model
+                )
+                emb_model = emb_cfg.get("model", "sentence-transformers/all-MiniLM-L6-v2")
+                pooling = emb_cfg.get("pooling", "mean")
+                fmt = emb_cfg.get("export_format", "csv")
+
+                log.info("Job %s: extracting embeddings (%s)...", job_id, emb_model)
+                emb_array = extract_segment_embeddings(
+                    segments, model_name=emb_model, pooling=pooling
+                )
+                pipeline_cfg_emb = self.cfg.get("pipeline", {})
+                emb_output_dir = Path(
+                    resolve_path(
+                        pipeline_cfg_emb.get(
+                            "analysis_output_folder",
+                            self.cfg.get("output_folder", "./Output")
+                        )
+                    )
+                )
+                emb_out = emb_output_dir / f"{job_id}_embeddings.{fmt}"
+                export_embeddings(emb_array, str(emb_out), format=fmt)
+                embeddings_path = str(emb_out)
+                unload_model(emb_model)
+                _free_ram()
+                log.info("Job %s: embeddings exported to %s", job_id, emb_out.name)
+            except Exception as exc:
+                log.warning("Job %s: embedding extraction failed: %s", job_id, exc)
+
+        # ── Assemble output payload ──
         pipeline_cfg = self.cfg.get("pipeline", {})
         output_dir = Path(
             resolve_path(
@@ -299,6 +401,7 @@ class InferencePipeline:
             "job_id": job_id,
             "status": "completed",
             "model": self.model_name,
+            "pipeline_version": "4.0",
             "source_audio": {
                 "original_filename": original_filename,
                 "stored_path": str(file_path),
@@ -310,16 +413,22 @@ class InferencePipeline:
             "critical_moments": sentiment.get("critical_moments", []),
             "speaker_sentiments": sentiment.get("speaker_sentiments", {}),
             "speaker_acoustics": speaker_acoustics,
+            "speaker_roles": speaker_roles,
+            "speaker_stats": speaker_stats,
+            "structured_transcript": structured_transcript,
+            "llm_clinical_scoring": llm_scoring,
+            "clinical_probes": probe_results,
+            "embeddings_file": embeddings_path,
             "segments": segments,
             "transcript": transcript,
         }
 
-        output_path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+        output_path.write_text(json.dumps(payload, indent=2, default=str), encoding="utf-8")
         os.chmod(output_path, 0o600)
 
         archived_path = self._archive_audio(job_id, file_path, original_filename)
         payload["source_audio"]["archived_path"] = archived_path
-        output_path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+        output_path.write_text(json.dumps(payload, indent=2, default=str), encoding="utf-8")
 
         log.info("Job %s: wrote %s", job_id, output_path)
         return str(output_path)

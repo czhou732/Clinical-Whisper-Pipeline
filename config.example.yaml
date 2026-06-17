@@ -93,3 +93,35 @@ meeting_intel:
   max_retries: 1
   summary_suffix: "_summary"
   min_word_count: 50
+
+# ============================================================
+# v4.0 — LLM Clinical Analysis (requires Ollama running locally)
+# ============================================================
+
+# LLM Clinical Scoring — structured interview assessment
+# Scores hesitancy, affect flatness, engagement, elaboration, psychomotor indicators
+# Requires: ollama pull qwen2:7b (or any compatible model)
+llm_scoring:
+  enabled: false
+  ollama_model: "qwen2:7b"
+  ollama_base_url: "http://localhost:11434"
+  timeout_seconds: 300
+  max_retries: 1
+
+# Clinical Question Detection — categorizes interviewer probes
+# Categories: positive_affect, negative_affect, ptsd_screen, social_functioning,
+#   daily_functioning, coping_strategies, suicidal_ideation, rapport_building, follow_up
+question_detection:
+  enabled: false
+  ollama_model: "qwen2:7b"
+  ollama_base_url: "http://localhost:11434"
+  timeout_seconds: 300
+
+# LLM Embedding Extraction — deep feature vectors for downstream ML
+# Exports segment embeddings as CSV or NumPy files for researchers
+embeddings:
+  enabled: false                 # off by default (research feature)
+  model: "sentence-transformers/all-MiniLM-L6-v2"
+  pooling: "mean"                # or "cls"
+  export_format: "csv"           # or "npy"
+
