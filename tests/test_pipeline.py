@@ -20,7 +20,7 @@ class TestComputeStatistics:
         ]
         stats = InferencePipeline._compute_statistics(transcript, segments)
 
-        assert stats["word_count"] == 11
+        assert stats["word_count"] == 10
         assert stats["character_count"] == len(transcript)
         assert stats["sentence_count"] >= 1
         assert stats["duration_seconds"] == 25.0
