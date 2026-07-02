@@ -1,3 +1,13 @@
+---
+title: Clinical Whisper
+emoji: 🧠
+colorFrom: blue
+colorTo: green
+sdk: streamlit
+sdk_version: 1.35.0
+app_file: app.py
+pinned: false
+---
 # ClinicalWhisper
 
 [![Hugging Face Spaces](https://img.shields.io/badge/%F0%9F%A4%97%20Hugging%20Face-Live%20Demo-blue)](https://huggingface.co/spaces/ChengdongPeter/Clinical-Whisper)
