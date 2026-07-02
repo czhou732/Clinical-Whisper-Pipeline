@@ -455,8 +455,9 @@ transcript_html = '<div class="transcript-doc">'
 
 for _, row in df.iterrows():
     ts = _ts(row["start"])
-    text = row["text"]
-    speaker = row["speaker"]
+    text = str(row["text"]) if str(row["text"]) != "nan" else ""
+    speaker_val = str(row["speaker"])
+    speaker = speaker_val if speaker_val != "nan" else "UNKNOWN"
     sentiment = row["sentiment"]
     probe = row.get("clinical_probe")
 
