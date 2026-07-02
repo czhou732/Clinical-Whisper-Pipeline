@@ -463,7 +463,7 @@ for _, row in df.iterrows():
     flag = "[!] " if sentiment < 4.0 else ""
     
     badge = ""
-    if probe:
+    if isinstance(probe, str) and probe.strip():
         badge = f'<span style="background-color: #E6F4F1; border: 1px solid #005a70; color: #005a70; font-size: 10px; font-weight: bold; padding: 2px 6px; margin-left: 8px; border-radius: 4px; font-family: \'Helvetica Neue\', Helvetica, Arial, sans-serif;">{probe.upper()}</span>'
 
     transcript_html += (
