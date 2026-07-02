@@ -176,33 +176,43 @@ st.markdown(CUSTOM_CSS, unsafe_allow_html=True)
 # MOCK DATA
 # ═══════════════════════════════════════════════════════════════════════════
 
-def generate_mock_data() -> list[dict]:
+def generate_mock_data() -> dict:
     """
     Simulates a ~3-minute de-identified clinical interview
     about sleep patterns and anhedonia (Patient 042).
+    Outputs v4.0 compatible JSON structure.
     """
-    return [
-        {"start": 0.0,  "end": 5.2,  "speaker": "Clinician", "text": "Good morning. I'd like to start by checking in on your sleep patterns since our last session. How have the nights been?", "sentiment": 7.5},
-        {"start": 5.5,  "end": 12.8, "speaker": "Patient",   "text": "Honestly, not great. I've been waking up around three or four in the morning and then I just can't get back to sleep. I end up lying there staring at the ceiling.", "sentiment": 3.2},
-        {"start": 13.0, "end": 18.0, "speaker": "Clinician", "text": "That early-morning waking pattern is something we should track carefully. When you wake at three, what's going through your mind?", "sentiment": 6.8},
-        {"start": 18.5, "end": 27.3, "speaker": "Patient",   "text": "It's mostly just this heavy feeling. Like dread, I guess. Not about anything specific. I just feel like the day ahead doesn't have anything I'm looking forward to.", "sentiment": 2.1},
-        {"start": 27.5, "end": 34.0, "speaker": "Clinician", "text": "That sounds like it could be related to the anhedonia we discussed. The difficulty finding pleasure or motivation in activities you used to enjoy. Does that still feel accurate?", "sentiment": 6.5},
-        {"start": 34.5, "end": 43.0, "speaker": "Patient",   "text": "Yeah, very much so. I used to play guitar every day. Now I see it in the corner and I don't even want to pick it up. It's like the connection just isn't there anymore.", "sentiment": 2.5},
-        {"start": 43.5, "end": 52.0, "speaker": "Clinician", "text": "I appreciate you sharing that. The guitar example is helpful — it gives us a concrete marker to track. Are there any activities that still bring some sense of engagement, even small ones?", "sentiment": 7.2},
-        {"start": 52.5, "end": 60.0, "speaker": "Patient",   "text": "Walking the dog, maybe. I don't feel excited about it, but once I'm outside, the fresh air helps a little. It doesn't fix anything but it's... less heavy.", "sentiment": 4.8},
-        {"start": 60.5, "end": 68.0, "speaker": "Clinician", "text": "That's actually a meaningful observation. The fact that environmental change produces even a small shift in affect is a positive sign. It suggests your capacity for engagement is still there, just suppressed.", "sentiment": 8.0},
-        {"start": 68.5, "end": 78.0, "speaker": "Patient",   "text": "I hadn't thought of it that way. I keep feeling like something is broken. But maybe it's more like it's... muted?", "sentiment": 5.5},
-        {"start": 78.5, "end": 87.0, "speaker": "Clinician", "text": "Muted is a very good word for it. And importantly, muted is not permanent. Let's talk about the sleep hygiene adjustments we discussed. Have you been able to limit screen time before bed?", "sentiment": 7.8},
-        {"start": 87.5, "end": 96.0, "speaker": "Patient",   "text": "Some nights, yes. But when I can't sleep, I end up reaching for my phone, which I know makes it worse. It's a cycle.", "sentiment": 3.8},
-        {"start": 96.5, "end": 105.0,"speaker": "Clinician", "text": "Cycles are breakable. Let's think about what we could put in place of the phone. What about the breathing exercises we practiced? Even two or three minutes can help downregulate the nervous system.", "sentiment": 7.5},
-        {"start": 105.5,"end": 115.0,"speaker": "Patient",   "text": "I tried them a couple of times. It felt awkward at first, but the second time I actually fell back asleep within twenty minutes. That was kind of surprising.", "sentiment": 6.2},
-        {"start": 115.5,"end": 125.0,"speaker": "Clinician", "text": "That's significant progress. The fact that it worked even once shows your system is responsive to those interventions. I'd like you to try it consistently for the next two weeks. Can we make that a goal?", "sentiment": 8.5},
-        {"start": 125.5,"end": 133.0,"speaker": "Patient",   "text": "Yeah, I think I can do that. It's a small enough thing that it doesn't feel overwhelming.", "sentiment": 6.8},
-        {"start": 133.5,"end": 142.0,"speaker": "Clinician", "text": "Good. Small and sustainable is exactly the approach here. We're not trying to fix everything at once — just finding the levers that help. Let's also schedule a follow-up in ten days.", "sentiment": 8.2},
-        {"start": 142.5,"end": 150.0,"speaker": "Patient",   "text": "Okay. I actually feel a bit better about things after talking through this. Not fixed, but... clearer, maybe.", "sentiment": 6.5},
-        {"start": 150.5,"end": 158.0,"speaker": "Clinician", "text": "Clearer is exactly where we want to be heading. You're doing the work, and I want you to recognize that. Same time next week works?", "sentiment": 8.0},
-        {"start": 158.5,"end": 162.0,"speaker": "Patient",   "text": "Yes, that works. Thank you.", "sentiment": 7.0},
-    ]
+    return {
+        "llm_clinical_scoring": {
+            "Hesitancy": 6.5,
+            "Affect Flatness": 7.0,
+            "Engagement": 3.5,
+            "Elaboration": 4.0,
+            "Psychomotor Retardation": 5.5
+        },
+        "segments": [
+            {"start": 0.0,  "end": 5.2,  "speaker": "Clinician", "text": "Good morning. I'd like to start by checking in on your sleep patterns since our last session. How have the nights been?", "sentiment": 7.5, "clinical_probe": "Sleep Disturbance Probe"},
+            {"start": 5.5,  "end": 12.8, "speaker": "Patient",   "text": "Honestly, not great. I've been waking up around three or four in the morning and then I just can't get back to sleep. I end up lying there staring at the ceiling.", "sentiment": 3.2},
+            {"start": 13.0, "end": 18.0, "speaker": "Clinician", "text": "That early-morning waking pattern is something we should track carefully. When you wake at three, what's going through your mind?", "sentiment": 6.8, "clinical_probe": "Cognitive Probe"},
+            {"start": 18.5, "end": 27.3, "speaker": "Patient",   "text": "It's mostly just this heavy feeling. Like dread, I guess. Not about anything specific. I just feel like the day ahead doesn't have anything I'm looking forward to.", "sentiment": 2.1},
+            {"start": 27.5, "end": 34.0, "speaker": "Clinician", "text": "That sounds like it could be related to the anhedonia we discussed. The difficulty finding pleasure or motivation in activities you used to enjoy. Does that still feel accurate?", "sentiment": 6.5, "clinical_probe": "Anhedonia Screen"},
+            {"start": 34.5, "end": 43.0, "speaker": "Patient",   "text": "Yeah, very much so. I used to play guitar every day. Now I see it in the corner and I don't even want to pick it up. It's like the connection just isn't there anymore.", "sentiment": 2.5},
+            {"start": 43.5, "end": 52.0, "speaker": "Clinician", "text": "I appreciate you sharing that. The guitar example is helpful — it gives us a concrete marker to track. Are there any activities that still bring some sense of engagement, even small ones?", "sentiment": 7.2, "clinical_probe": "Positive Affect Probe"},
+            {"start": 52.5, "end": 60.0, "speaker": "Patient",   "text": "Walking the dog, maybe. I don't feel excited about it, but once I'm outside, the fresh air helps a little. It doesn't fix anything but it's... less heavy.", "sentiment": 4.8},
+            {"start": 60.5, "end": 68.0, "speaker": "Clinician", "text": "That's actually a meaningful observation. The fact that environmental change produces even a small shift in affect is a positive sign. It suggests your capacity for engagement is still there, just suppressed.", "sentiment": 8.0, "clinical_probe": "Psychoeducation"},
+            {"start": 68.5, "end": 78.0, "speaker": "Patient",   "text": "I hadn't thought of it that way. I keep feeling like something is broken. But maybe it's more like it's... muted?", "sentiment": 5.5},
+            {"start": 78.5, "end": 87.0, "speaker": "Clinician", "text": "Muted is a very good word for it. And importantly, muted is not permanent. Let's talk about the sleep hygiene adjustments we discussed. Have you been able to limit screen time before bed?", "sentiment": 7.8, "clinical_probe": "Behavioral Intervention Probe"},
+            {"start": 87.5, "end": 96.0, "speaker": "Patient",   "text": "Some nights, yes. But when I can't sleep, I end up reaching for my phone, which I know makes it worse. It's a cycle.", "sentiment": 3.8},
+            {"start": 96.5, "end": 105.0,"speaker": "Clinician", "text": "Cycles are breakable. Let's think about what we could put in place of the phone. What about the breathing exercises we practiced? Even two or three minutes can help downregulate the nervous system.", "sentiment": 7.5, "clinical_probe": "Coping Strategy Screen"},
+            {"start": 105.5,"end": 115.0,"speaker": "Patient",   "text": "I tried them a couple of times. It felt awkward at first, but the second time I actually fell back asleep within twenty minutes. That was kind of surprising.", "sentiment": 6.2},
+            {"start": 115.5,"end": 125.0,"speaker": "Clinician", "text": "That's significant progress. The fact that it worked even once shows your system is responsive to those interventions. I'd like you to try it consistently for the next two weeks. Can we make that a goal?", "sentiment": 8.5, "clinical_probe": "Goal Setting"},
+            {"start": 125.5,"end": 133.0,"speaker": "Patient",   "text": "Yeah, I think I can do that. It's a small enough thing that it doesn't feel overwhelming.", "sentiment": 6.8},
+            {"start": 133.5,"end": 142.0,"speaker": "Clinician", "text": "Good. Small and sustainable is exactly the approach here. We're not trying to fix everything at once — just finding the levers that help. Let's also schedule a follow-up in ten days.", "sentiment": 8.2, "clinical_probe": "Logistical"},
+            {"start": 142.5,"end": 150.0,"speaker": "Patient",   "text": "Okay. I actually feel a bit better about things after talking through this. Not fixed, but... clearer, maybe.", "sentiment": 6.5},
+            {"start": 150.5,"end": 158.0,"speaker": "Clinician", "text": "Clearer is exactly where we want to be heading. You're doing the work, and I want you to recognize that. Same time next week works?", "sentiment": 8.0, "clinical_probe": "Logistical"},
+            {"start": 158.5,"end": 162.0,"speaker": "Patient",   "text": "Yes, that works. Thank you.", "sentiment": 7.0},
+        ]
+    }
 
 
 def _ts(seconds: float) -> str:
@@ -217,7 +227,7 @@ def _ts(seconds: float) -> str:
 
 with st.sidebar:
     st.markdown("#### Neuro-Systems Group")
-    st.caption("Clinical Audio Pipeline · v2.1")
+    st.caption("Clinical Audio Pipeline · v4.0")
     st.divider()
 
     demo_mode = st.checkbox("Load Demo Patient (Patient 042)", value=True)
@@ -236,25 +246,31 @@ with st.sidebar:
 # LOAD DATA
 # ═══════════════════════════════════════════════════════════════════════════
 
-data: list[dict] = []
+data: dict = {}
+segments: list = []
+llm_scoring: dict = {}
 
 if uploaded is not None:
     try:
-        data = json.load(uploaded)
-        if not isinstance(data, list):
-            data = data.get("segments", [])
+        raw = json.load(uploaded)
+        if isinstance(raw, list):
+            segments = raw
+        else:
+            segments = raw.get("segments", [])
+            llm_scoring = raw.get("llm_clinical_scoring", {})
     except Exception as e:
         st.sidebar.error(f"Error reading file: {e}")
-        data = []
 
-if not data and demo_mode:
+if not segments and demo_mode:
     data = generate_mock_data()
+    segments = data.get("segments", [])
+    llm_scoring = data.get("llm_clinical_scoring", {})
 
-if not data:
+if not segments:
     st.info("Upload a JSON analysis file or enable Demo Patient to begin.")
     st.stop()
 
-df = pd.DataFrame(data)
+df = pd.DataFrame(segments)
 
 # ═══════════════════════════════════════════════════════════════════════════
 # HEADER
@@ -359,10 +375,81 @@ st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
 st.markdown("")
 
 # ═══════════════════════════════════════════════════════════════════════════
-# SECTION 3 — SESSION TRANSCRIPT
+# SECTION 3 — LLM CLINICAL SCORING (RADAR)
 # ═══════════════════════════════════════════════════════════════════════════
 
-st.markdown('<div class="section-rule">III. Session Transcript</div>', unsafe_allow_html=True)
+st.markdown('<div class="section-rule">III. LLM Clinical Scoring</div>', unsafe_allow_html=True)
+
+if llm_scoring:
+    categories = list(llm_scoring.keys())
+    values = list(llm_scoring.values())
+    
+    # Close the polygon
+    categories = categories + [categories[0]]
+    values = values + [values[0]]
+    
+    fig2 = go.Figure()
+    fig2.add_trace(go.Scatterpolar(
+        r=values,
+        theta=categories,
+        fill='toself',
+        fillcolor='rgba(0, 0, 128, 0.2)',
+        line=dict(color='#000080', width=2),
+        marker=dict(size=6, color='#000080')
+    ))
+    
+    fig2.update_layout(
+        polar=dict(
+            radialaxis=dict(visible=True, range=[0, 10], tickfont=dict(family="Times New Roman", size=10), gridcolor="#CCCCCC", linecolor="#000000"),
+            angularaxis=dict(tickfont=dict(family="Times New Roman", size=12, color="black"), linecolor="#000000", gridcolor="#CCCCCC")
+        ),
+        showlegend=False,
+        height=350,
+        margin=dict(l=40, r=40, t=20, b=20),
+        paper_bgcolor="#FFFFFF",
+        plot_bgcolor="#FFFFFF",
+        font=dict(family="Times New Roman", color="black")
+    )
+    
+    st.plotly_chart(fig2, use_container_width=True, config={"displayModeBar": False})
+else:
+    st.info("No LLM clinical scoring data available in this JSON.")
+
+st.markdown("")
+
+# ═══════════════════════════════════════════════════════════════════════════
+# SECTION 4 — QUESTION DETECTION
+# ═══════════════════════════════════════════════════════════════════════════
+
+st.markdown('<div class="section-rule">IV. Clinical Question Detection</div>', unsafe_allow_html=True)
+
+probes = [row.get("clinical_probe") for _, row in df.iterrows() if row.get("clinical_probe")]
+if probes:
+    probe_counts = pd.Series(probes).value_counts().reset_index()
+    probe_counts.columns = ["Category", "Count"]
+    
+    fig3 = px.bar(probe_counts, x="Count", y="Category", orientation='h', color_discrete_sequence=["#000080"])
+    fig3.update_layout(
+        template="plotly_white",
+        paper_bgcolor="#FFFFFF",
+        plot_bgcolor="#FFFFFF",
+        margin=dict(l=20, r=20, t=20, b=20),
+        height=200,
+        font=dict(family="Times New Roman", size=13, color="black"),
+        xaxis=dict(showgrid=True, gridcolor="#EEEEEE", zeroline=False, linecolor="#000000", title_font=dict(size=12), tickfont=dict(size=11)),
+        yaxis=dict(showgrid=False, zeroline=False, linecolor="#000000", title="", tickfont=dict(size=12, color="black"))
+    )
+    st.plotly_chart(fig3, use_container_width=True, config={"displayModeBar": False})
+else:
+    st.info("No clinical probes detected in this session.")
+
+st.markdown("")
+
+# ═══════════════════════════════════════════════════════════════════════════
+# SECTION 5 — SESSION TRANSCRIPT
+# ═══════════════════════════════════════════════════════════════════════════
+
+st.markdown('<div class="section-rule">V. Structured Session Transcript</div>', unsafe_allow_html=True)
 
 transcript_html = '<div class="transcript-doc">'
 
@@ -371,8 +458,13 @@ for _, row in df.iterrows():
     text = row["text"]
     speaker = row["speaker"]
     sentiment = row["sentiment"]
+    probe = row.get("clinical_probe")
 
     flag = "[!] " if sentiment < 4.0 else ""
+    
+    badge = ""
+    if probe:
+        badge = f'<span style="background-color: #E6F4F1; border: 1px solid #005a70; color: #005a70; font-size: 10px; font-weight: bold; padding: 2px 6px; margin-left: 8px; border-radius: 4px; font-family: \'Helvetica Neue\', Helvetica, Arial, sans-serif;">{probe.upper()}</span>'
 
     transcript_html += (
         f'<div class="record-line">'
@@ -380,6 +472,7 @@ for _, row in df.iterrows():
         f'<span class="record-speaker">{speaker.upper()}:</span> '
         f'{flag}'
         f'<span class="record-text">{text}</span>'
+        f'{badge}'
         f'</div>'
     )
 
@@ -395,7 +488,7 @@ st.markdown(
     '<div class="footer-text">'
     "Neuro-Systems Group · Clinical Audio Pipeline · "
     "All data processed locally · HIPAA-compliant architecture · "
-    "ClinicalWhisper v2.1 · "
+    "ClinicalWhisper v4.0 · "
     "This document is confidential and intended solely for authorized clinical personnel."
     "</div>",
     unsafe_allow_html=True,
