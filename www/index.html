@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ClinicalWhisper Processing UI</title>
+    <!-- No remote font/CDN requests: this app must work fully offline, and a
+         clinical tool should not phone out to Google while handling PHI.
+         style.css falls back to system faces (Avenir Next, Didot, SFMono). -->
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>ClinicalWhisper</h1>
+            <p class="subtitle">Offline Audio Processing Pipeline</p>
+        </header>
+
+        <main>
+            <div class="panel">
+                <div class="upload-zone" id="drop-zone">
+                    <div class="upload-content">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                            <polyline points="17 8 12 3 7 8"></polyline>
+                            <line x1="12" y1="3" x2="12" y2="15"></line>
+                        </svg>
+                        <p><strong>Drag & Drop</strong> your clinical audio file here</p>
+                        <p class="text-sm">or click to select file (.wav, .m4a, .mp3)</p>
+                    </div>
+                    <input type="file" id="file-input" accept=".wav,.m4a,.mp3" hidden>
+                </div>
+
+                <div class="selected-file hidden" id="file-info">
+                    <span id="file-name">filename.wav</span>
+                    <button class="btn-clear" id="btn-clear">✕</button>
+                </div>
+
+                <button class="btn-primary" id="btn-process" disabled>Process Audio</button>
+            </div>
+
+            <div class="result-panel hidden" id="result-panel">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--space-4);">
+                    <h3 style="margin: 0;">Clinical Analysis Results</h3>
+                    <button class="btn-secondary" id="btn-save-output">Save CSV...</button>
+                </div>
+                <div id="result-content" class="result-grid"></div>
+            </div>
+
+            <div class="console-panel hidden" id="console-panel">
+                <div class="console-header">
+                    <span class="status-indicator processing" id="status-dot"></span>
+                    <span id="status-text">Processing Pipeline...</span>
+                </div>
+                <div class="console-output" id="console-output">
+                    <!-- Logs will appear here -->
+                </div>
+            </div>
+        </main>
+    </div>
+    
+    <script src="script.js"></script>
+</body>
+</html>

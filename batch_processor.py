@@ -39,15 +39,19 @@ def _extract_row(analysis_path: str, audio_filename: str) -> dict:
         data: dict = json.load(fh)
 
     stats = data.get("statistics", {})
-    sentiment = data.get("overall_sentiment", {})
+    llm_scores = data.get("llm_clinical_scoring", {})
     acoustics = data.get("overall_acoustics", {})
 
     return {
         "filename": audio_filename,
         "word_count": stats.get("word_count", 0),
         "duration_minutes": round(stats.get("duration_seconds", 0.0) / 60.0, 2),
-        "sentiment_score": sentiment.get("score", None),
-        "sentiment_label": sentiment.get("label", None),
+        "hesitancy_score": llm_scores.get("hesitancy_score", None),
+        "affect_flatness": llm_scores.get("affect_flatness", None),
+        "engagement_level": llm_scores.get("engagement_level", None),
+        "elaboration_positive": llm_scores.get("elaboration_positive", None),
+        "elaboration_negative": llm_scores.get("elaboration_negative", None),
+        "psychomotor_indicators": llm_scores.get("psychomotor_indicators", None),
         "vta": acoustics.get("vta", None),
         "pitch_mean_st": acoustics.get("pitch_mean_st", None),
         "pitch_cv": acoustics.get("pitch_cv", None),

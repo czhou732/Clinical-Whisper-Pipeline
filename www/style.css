@@ -1,0 +1,345 @@
+/* Impeccable Design Language CSS */
+/* Rules applied: OKLCH colors, 8px spatial grid, fluid typography (clamp), no bouncy motion, no AI gradients, minimal card nesting */
+
+:root {
+    /* Black & White Monochrome Palette */
+    --color-bg: oklch(15% 0 0); /* very dark gray */
+    --color-surface: oklch(20% 0 0);
+    --color-border: oklch(35% 0 0);
+    --color-text: oklch(98% 0 0); /* near white */
+    --color-text-muted: oklch(70% 0 0);
+    
+    --color-primary: oklch(98% 0 0); /* white */
+    --color-primary-hover: oklch(85% 0 0); /* light gray */
+    --color-danger: oklch(60% 0.15 25); /* Muted red for errors */
+    --color-success: oklch(80% 0 0); /* light gray for success */
+
+    /* 8px Spatial Grid */
+    --space-1: 0.25rem; /* 4px */
+    --space-2: 0.5rem;  /* 8px */
+    --space-3: 1rem;    /* 16px */
+    --space-4: 1.5rem;  /* 24px */
+    --space-5: 2rem;    /* 32px */
+    --space-6: 3rem;    /* 48px */
+    --space-8: 4rem;    /* 64px */
+
+    /* Typography */
+    --font-heading: 'Didot', 'Bodoni MT', 'Times New Roman', serif;
+    --font-sans: 'Avenir Next', 'Avenir', -apple-system, BlinkMacSystemFont, sans-serif;
+    --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, monospace;
+    
+    /* Fluid Type Scale using clamp */
+    --text-sm: clamp(0.8rem, 0.17vw + 0.76rem, 0.89rem);
+    --text-base: clamp(1rem, 0.34vw + 0.91rem, 1.19rem);
+    --text-lg: clamp(1.25rem, 0.61vw + 1.1rem, 1.58rem);
+    --text-xl: clamp(1.56rem, 1vw + 1.31rem, 2.11rem);
+    --text-2xl: clamp(1.95rem, 1.56vw + 1.56rem, 2.81rem);
+
+    /* Motion (Linear / ease-out only, no bounce) */
+    --transition-fast: 150ms ease-out;
+    --transition-base: 250ms ease-out;
+}
+
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    font-family: var(--font-sans);
+    font-size: var(--text-base);
+    color: var(--color-text);
+    background-color: var(--color-bg);
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+    padding: var(--space-4) var(--space-3);
+    /* Avoid excessive centering, keep content natural flow but bounded */
+    max-width: 800px;
+    margin: 0 auto;
+}
+
+/* Typography */
+h1 {
+    font-family: var(--font-heading);
+    font-size: var(--text-2xl);
+    font-weight: 400;
+    line-height: 1.1;
+    letter-spacing: -0.01em;
+    margin-bottom: var(--space-1);
+}
+
+.subtitle {
+    font-size: var(--text-lg);
+    color: var(--color-text-muted);
+    margin-bottom: var(--space-8);
+    font-weight: 400;
+}
+
+/* Layout - No cards inside cards */
+.panel {
+    margin-bottom: var(--space-6);
+}
+
+/* Forms */
+.form-group {
+    margin-bottom: var(--space-5);
+}
+
+label {
+    display: block;
+    font-size: var(--text-sm);
+    font-weight: 500;
+    margin-bottom: var(--space-2);
+}
+
+input[type="text"],
+input[type="password"] {
+    width: 100%;
+    padding: var(--space-3);
+    font-size: var(--text-base);
+    font-family: var(--font-mono);
+    border: 1px solid var(--color-border);
+    background-color: var(--color-surface);
+    border-radius: 4px; /* Minimal radius */
+    color: var(--color-text);
+    transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+input:focus {
+    outline: none;
+    border-color: var(--color-primary);
+    box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.2); /* White focus ring */
+}
+
+.help-text {
+    display: block;
+    font-size: var(--text-sm);
+    color: var(--color-text-muted);
+    margin-top: var(--space-1);
+}
+
+/* Upload Zone */
+.upload-zone {
+    border: 1px dashed var(--color-border);
+    background-color: var(--color-bg);
+    padding: var(--space-6) var(--space-4);
+    text-align: center; /* Exception: logical for dropzones */
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background-color var(--transition-fast), border-color var(--transition-fast);
+    margin-bottom: var(--space-5);
+}
+
+.upload-zone:hover, .upload-zone.dragover {
+    background-color: var(--color-surface);
+    border-color: var(--color-text-muted);
+}
+
+.upload-content p {
+    margin-top: var(--space-2);
+}
+
+.upload-content strong {
+    font-weight: 600;
+}
+
+.selected-file {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: var(--space-3);
+    background-color: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: 4px;
+    margin-bottom: var(--space-5);
+    font-family: var(--font-mono);
+    font-size: var(--text-sm);
+}
+
+.selected-file.hidden {
+    display: none;
+}
+
+.btn-clear {
+    background: none;
+    border: none;
+    color: var(--color-text-muted);
+    cursor: pointer;
+    font-size: var(--text-base);
+    transition: color var(--transition-fast);
+}
+
+.btn-clear:hover {
+    color: var(--color-danger);
+}
+
+/* Buttons */
+.btn-primary {
+    width: 100%;
+    padding: var(--space-3);
+    font-size: var(--text-base);
+    font-weight: 500;
+    color: var(--color-bg);
+    background-color: var(--color-primary);
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background-color var(--transition-fast), transform var(--transition-fast), opacity var(--transition-fast);
+}
+
+.btn-primary:hover:not(:disabled) {
+    background-color: var(--color-primary-hover);
+}
+
+.btn-primary:active:not(:disabled) {
+    transform: translateY(1px); /* Linear transform, no bounce */
+}
+
+.btn-primary:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+/* Console Panel */
+.console-panel {
+    border-top: 1px solid var(--color-border);
+    padding-top: var(--space-5);
+}
+
+.console-panel.hidden {
+    display: none;
+}
+
+.console-header {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    margin-bottom: var(--space-3);
+    font-size: var(--text-sm);
+    font-weight: 500;
+}
+
+.status-indicator {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background-color: var(--color-text-muted);
+}
+
+.status-indicator.processing {
+    background-color: var(--color-primary);
+    animation: pulse 2s ease-out infinite;
+}
+
+.status-indicator.success {
+    background-color: var(--color-success);
+}
+
+.status-indicator.error {
+    background-color: var(--color-danger);
+}
+
+@keyframes pulse {
+    0% { opacity: 1; }
+    50% { opacity: 0.5; }
+    100% { opacity: 1; }
+}
+
+.console-output {
+    background-color: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: 4px;
+    padding: var(--space-3);
+    font-family: var(--font-mono);
+    font-size: var(--text-sm);
+    color: var(--color-text-muted);
+    min-height: 120px;
+    white-space: pre-wrap;
+    overflow-y: auto;
+}
+
+/* Folder Selection */
+.folder-select {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    margin-bottom: var(--space-5);
+}
+
+.btn-secondary {
+    padding: var(--space-2) var(--space-3);
+    font-size: var(--text-sm);
+    font-weight: 500;
+    color: var(--color-text);
+    background-color: transparent;
+    border: 1px solid var(--color-border);
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background-color var(--transition-fast);
+}
+
+.btn-secondary:hover {
+    background-color: var(--color-surface);
+}
+
+/* Results Panel */
+.result-panel {
+    margin-top: var(--space-5);
+    padding: var(--space-4);
+    background-color: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: 4px;
+}
+
+.result-panel.hidden {
+    display: none;
+}
+
+.result-panel h3 {
+    margin-bottom: var(--space-4);
+    font-size: var(--text-lg);
+    font-family: var(--font-heading);
+}
+
+.result-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: var(--space-3);
+}
+
+.result-item {
+    display: flex;
+    flex-direction: column;
+}
+
+/* Shown when a pipeline stage failed but the run still produced a CSV —
+   the blank columns must not read as measured zeros. */
+.result-warning {
+    grid-column: 1 / -1;
+    padding: var(--space-3);
+    margin-bottom: var(--space-2);
+    border-left: 3px solid #b45309;
+    background: rgba(180, 83, 9, 0.08);
+    font-size: var(--text-sm);
+    line-height: 1.5;
+    border-radius: 2px;
+}
+
+.result-label {
+    font-size: var(--text-sm);
+    color: var(--color-text-muted);
+}
+
+.result-val {
+    font-size: var(--text-base);
+    font-family: var(--font-mono);
+    color: var(--color-text);
+}
+
+/* Utilities */
+.text-sm {
+    font-size: var(--text-sm);
+    color: var(--color-text-muted);
+}
+

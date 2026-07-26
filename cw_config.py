@@ -3,6 +3,8 @@
 
 from __future__ import annotations
 
+import os
+import sys
 from copy import deepcopy
 from pathlib import Path
 from typing import Any, Optional, Union
@@ -11,6 +13,25 @@ import yaml
 
 PROJECT_ROOT = Path(__file__).resolve().parent
 DEFAULT_CONFIG_PATH = PROJECT_ROOT / "config.yaml"
+
+
+def _default_data_root() -> Path:
+    """Where Input/Output/Processed live.
+
+    When running from source this is the repo directory. Inside a frozen .app
+    bundle ``PROJECT_ROOT`` points into the read-only bundle, so relative paths
+    are anchored to a user-visible folder instead — otherwise results are
+    written where nobody can find (or write) them.
+    """
+    override = os.environ.get("CLINICALWHISPER_DATA_DIR")
+    if override:
+        return Path(override).expanduser()
+    if getattr(sys, "frozen", False):
+        return Path.home() / "Documents" / "ClinicalWhisper"
+    return PROJECT_ROOT
+
+
+DATA_ROOT = _default_data_root()
 
 DEFAULT_CONFIG: dict[str, Any] = {
     "model": "medium.en",
@@ -53,10 +74,10 @@ def _deep_merge(base: dict[str, Any], updates: dict[str, Any]) -> dict[str, Any]
 
 
 def resolve_path(path_value: Union[str, Path]) -> str:
-    """Resolve a config path relative to the project root."""
+    """Resolve a config path relative to the data root."""
     path = Path(path_value).expanduser()
     if not path.is_absolute():
-        path = PROJECT_ROOT / path
+        path = DATA_ROOT / path
     return str(path)
 
 

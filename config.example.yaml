@@ -100,13 +100,32 @@ meeting_intel:
 
 # LLM Clinical Scoring — structured interview assessment
 # Scores hesitancy, affect flatness, engagement, elaboration, psychomotor indicators
-# Requires: ollama pull qwen2:7b (or any compatible model)
+# Runs fully on-device: MLX on Apple Silicon, HuggingFace transformers elsewhere.
+# Weights (~4.5 GB) download to ~/.cache/huggingface on first use.
 llm_scoring:
-  enabled: false
-  ollama_model: "qwen2:7b"
-  ollama_base_url: "http://localhost:11434"
+  enabled: true
+  mlx_model: "mlx-community/Meta-Llama-3-8B-Instruct-4bit"   # Apple Silicon
+  hf_model: "NousResearch/Meta-Llama-3-8B-Instruct"          # Windows/Linux/Intel (ungated)
   timeout_seconds: 300
   max_retries: 1
+
+# ============================================================
+# v5.0 — MOSS transcription + OpenMED de-identification
+# ============================================================
+
+# Joint transcription and diarization. Public model, no HF token required.
+# Weights (~1.7 GB) download to ~/.cache/huggingface on first use.
+moss:
+  model: "OpenMOSS-Team/MOSS-Transcribe-Diarize"
+  device: "auto"        # auto | mps | cuda | cpu
+
+# HIPAA Safe Harbor de-identification of the transcript.
+# strict: true means a scrubber failure aborts the job rather than emitting
+# an unscrubbed transcript.
+pii_scrubbing:
+  enabled: true
+  confidence_threshold: 0.7
+  strict: true
 
 # Clinical Question Detection — categorizes interviewer probes
 # Categories: positive_affect, negative_affect, ptsd_screen, social_functioning,

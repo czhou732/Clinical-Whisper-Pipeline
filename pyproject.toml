@@ -10,7 +10,7 @@ authors = [
     { name = "Chengdong Zhou" },
 ]
 license = "MIT"
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 readme = "README.md"
 
 dependencies = [
@@ -29,6 +29,10 @@ dependencies = [
     "torch>=2.0.0",
     "sentencepiece",
     "nltk",
+    "openmed>=1.9.0",
+    "mlx-lm",
+    "torchaudio",
+    "pywebview",
 ]
 
 [project.optional-dependencies]
@@ -37,7 +41,7 @@ dev = [
     "pytest-cov",
 ]
 diarization = [
-    "pyannote.audio",
+    "moss-transcribe-diarize @ git+https://github.com/OpenMOSS/MOSS-Transcribe-Diarize.git",
 ]
 
 [project.scripts]
@@ -49,3 +53,8 @@ Repository = "https://github.com/czhou732/ClinicalWhisper"
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 python_files = "test_*.py"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["*"]
+exclude = ["www*", "evals*", "tests*", "scripts*", "Input*", "Output*", "Processed*"]

@@ -41,7 +41,20 @@ import time
 from pathlib import Path
 from typing import Any, Optional
 
-import requests
+try:
+    import mlx.core as mx
+    from mlx_lm import load, generate
+except ImportError:
+    mx = None
+    load = None
+    generate = None
+
+try:
+    import torch
+    from transformers import pipeline
+except ImportError:
+    torch = None
+    pipeline = None
 
 # ---------------------------------------------------------------------------
 # Project imports
@@ -229,8 +242,8 @@ def _load_scoring_config(
 
     defaults = {
         "enabled": True,
-        "ollama_model": "qwen2:7b",
-        "ollama_base_url": "http://localhost:11434",
+        "mlx_model": "mlx-community/Meta-Llama-3-8B-Instruct-4bit",
+        "hf_model": "NousResearch/Meta-Llama-3-8B-Instruct",
         "timeout_seconds": 300,
         "max_retries": 1,
     }
@@ -242,102 +255,68 @@ def _load_scoring_config(
 
 
 # ===================================================================
-# Ollama integration
+# MLX integration
 # ===================================================================
 
-def call_ollama(
+_MODEL_CACHE = {}
+
+def call_local_lm(
     prompt: str,
-    model: str = "qwen2:7b",
-    base_url: str = "http://localhost:11434",
+    model_name: str = "mlx-community/Meta-Llama-3-8B-Instruct-4bit",
     timeout: int = 300,
-    max_retries: int = 1,
+    hf_model_name: str = "NousResearch/Meta-Llama-3-8B-Instruct",
 ) -> str:
     """
-    POST a prompt to the local Ollama /api/generate endpoint.
-
-    Parameters
-    ----------
-    prompt : str
-        The full prompt to send.
-    model : str
-        Ollama model name (e.g. 'qwen2:7b', 'llama3:8b').
-    base_url : str
-        Ollama server base URL.
-    timeout : int
-        Request timeout in seconds.
-    max_retries : int
-        Number of retries on timeout (0 = no retries).
-
-    Returns
-    -------
-    str
-        The raw text response from the LLM.
-
-    Raises
-    ------
-    requests.exceptions.ConnectionError
-        If Ollama is not running.
-    requests.exceptions.Timeout
-        If the request exceeds timeout after all retries.
-    RuntimeError
-        If Ollama returns done=False or an empty response.
+    Generate text using a local LLM. Tries mlx-lm first (Apple Silicon),
+    falls back to HuggingFace transformers (Windows/Linux/Intel Mac).
     """
-    url = base_url.rstrip("/") + OLLAMA_GENERATE_ENDPOINT
-    payload = {
-        "model": model,
-        "prompt": prompt,
-        "stream": False,
-        "options": {
-            "temperature": 0.1,
-            "num_predict": 4096,
-        },
-    }
+    formatted_prompt = f"<|begin_of_text|><|start_header_id|>user<|end_header_id|>\n\n{prompt}<|eot_id|><|start_header_id|>assistant<|end_header_id|>\n\n"
 
-    last_exc: Optional[Exception] = None
-    for attempt in range(max_retries + 1):
-        if attempt > 0:
-            log.info(
-                "Retrying Ollama call (attempt %d/%d)...",
-                attempt + 1,
-                max_retries + 1,
-            )
-            time.sleep(3)
+    # Try MLX first
+    if load is not None and sys.platform == "darwin":
+        log.info(f"Loading MLX model {model_name}...")
+        
+        if model_name not in _MODEL_CACHE:
+            model, tokenizer = load(model_name)
+            _MODEL_CACHE[model_name] = (model, tokenizer)
+        else:
+            model, tokenizer = _MODEL_CACHE[model_name]
 
-        try:
-            log.info(
-                "Calling Ollama (model=%s, timeout=%ds)...", model, timeout
-            )
-            t0 = time.time()
-            resp = requests.post(url, json=payload, timeout=timeout)
-            elapsed = time.time() - t0
-            resp.raise_for_status()
+        log.info("Generating response with MLX...")
+        
+        response = generate(
+            model, 
+            tokenizer, 
+            prompt=formatted_prompt, 
+            max_tokens=4096, 
+            verbose=False
+        )
+        return response
 
-            data = resp.json()
-            if not data.get("done", False):
-                raise RuntimeError(
-                    "Ollama returned done=False — generation incomplete."
-                )
+    # Fallback to Transformers
+    log.info("MLX not available or not on Apple Silicon. Falling back to Transformers...")
+    if pipeline is None:
+        raise RuntimeError("Transformers library is not installed. Please pip install transformers torch")
+        
+    # NousResearch mirrors Llama-3-8B-Instruct without the gated-repo licence
+    # click-through, so Windows/Linux users need no Hugging Face account.
+    log.info(f"Loading HF model {hf_model_name}...")
 
-            log.info("Ollama response received (%.1fs)", elapsed)
-            content = data.get("response", "")
-            if not content.strip():
-                raise RuntimeError("Ollama returned an empty response.")
-            return content
+    if hf_model_name not in _MODEL_CACHE:
+        device_map = "auto" if torch.cuda.is_available() else None
+        generator = pipeline(
+            "text-generation",
+            model=hf_model_name,
+            device_map=device_map,
+            dtype=torch.float16 if torch.cuda.is_available() else torch.float32,
+        )
+        _MODEL_CACHE[hf_model_name] = generator
+    else:
+        generator = _MODEL_CACHE[hf_model_name]
 
-        except requests.exceptions.ConnectionError:
-            log.error(
-                "Ollama is not running at %s. Start it with: ollama serve",
-                base_url,
-            )
-            raise  # non-retryable
-
-        except (requests.exceptions.Timeout, RuntimeError) as exc:
-            log.warning(
-                "Ollama call failed (attempt %d): %s", attempt + 1, exc
-            )
-            last_exc = exc
-
-    raise last_exc  # type: ignore[misc]
+    log.info("Generating response with Transformers...")
+    outputs = generator(formatted_prompt, max_new_tokens=4096, return_full_text=False)
+    return outputs[0]["generated_text"]
 
 
 # ===================================================================
@@ -489,10 +468,9 @@ def score_transcript(
         config = _load_scoring_config()
 
     sc_cfg = config.get("llm_scoring", {})
-    model = sc_cfg.get("ollama_model", "qwen2:7b")
-    base_url = sc_cfg.get("ollama_base_url", "http://localhost:11434")
+    model = sc_cfg.get("mlx_model", "mlx-community/Meta-Llama-3-8B-Instruct-4bit")
+    hf_model = sc_cfg.get("hf_model", "NousResearch/Meta-Llama-3-8B-Instruct")
     timeout = sc_cfg.get("timeout_seconds", 300)
-    max_retries = sc_cfg.get("max_retries", 1)
 
     # Build the full prompt
     prompt = CLINICAL_SCORING_PROMPT.format(
@@ -515,27 +493,17 @@ def score_transcript(
             acoustic_context=acoustic_context,
         )
 
-    # Call Ollama
+    # Call MLX
     t0 = time.time()
     try:
-        raw_response = call_ollama(
+        raw_response = call_local_lm(
             prompt=prompt,
-            model=model,
-            base_url=base_url,
+            model_name=model,
             timeout=timeout,
-            max_retries=max_retries,
+            hf_model_name=hf_model,
         )
-    except requests.exceptions.ConnectionError:
-        log.error("Cannot reach Ollama. Is it running? Try: ollama serve")
-        result = dict(DEFAULT_SCORES)
-        result["_meta"] = {
-            "model": model,
-            "elapsed_seconds": round(time.time() - t0, 1),
-            "error": "connection_refused",
-        }
-        return result
     except Exception as exc:
-        log.error("Ollama call failed: %s", exc)
+        log.error("LLM generation failed: %s", exc)
         result = dict(DEFAULT_SCORES)
         result["_meta"] = {
             "model": model,
