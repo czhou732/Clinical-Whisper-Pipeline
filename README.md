@@ -1,4 +1,4 @@
-# ClinicalWhisper V2
+# ClinicalWhisper
 
 [![Hugging Face Spaces](https://img.shields.io/badge/%F0%9F%A4%97%20Hugging%20Face-Live%20Demo-blue)](https://huggingface.co/spaces/ChengdongPeter/Clinical-Whisper)
 [![Python](https://img.shields.io/badge/Python-3.10%2B-blue)](https://www.python.org/)
@@ -12,7 +12,7 @@ ClinicalWhisper V2 processes clinical audio recordings entirely on the local mac
 
 ---
 
-## What's New in V2 (The Computational Psychiatry Upgrade)
+## What's New in V5
 
 - 🗣️ **MOSS-Transcribe-Diarize** — End-to-end multimodal diarization replacing Whisper + Pyannote, highly robust in multi-speaker scenarios.
 - 🛡️ **OpenMED PII Scrubbing** — Local-first healthcare AI for clinical entity recognition and HIPAA PII de-identification.
