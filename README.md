@@ -18,7 +18,6 @@ ClinicalWhisper V2 processes clinical audio recordings entirely on the local mac
 - 🛡️ **OpenMED PII Scrubbing** — Local-first healthcare AI for clinical entity recognition and HIPAA PII de-identification.
 - 🧠 **Native MLX LLM Scoring** — Llama-3-8B-Instruct runs natively on Apple Silicon via `mlx-lm`. **No external software (like Ollama) required!** Models are cached automatically on first run.
 - 🎶 **Deep SSL Acoustic Embeddings** — Added WavLM/HuBERT embeddings alongside OpenSMILE to map temporal acoustic trajectories.
-- 🤖 **RL Mechanistic Modeling** — Engineered to output topic-segmented features for reinforcement learning (RL) parameter estimation ($\delta, \alpha, \rho, \gamma$) to model reward processing in anhedonia.
 
 ### Previous releases
 
