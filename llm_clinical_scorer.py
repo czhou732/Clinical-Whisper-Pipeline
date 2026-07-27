@@ -313,7 +313,7 @@ def call_local_lm(
                 buffer = "".join(chunks)
                 if '"clinical_impression"' not in buffer:
                     continue
-                candidate = _first_json_object(buffer)
+                candidate = _first_json_object(buffer, quiet=True)
                 if not candidate:
                     continue
                 try:
@@ -364,7 +364,7 @@ def call_local_lm(
 # Response parsing
 # ===================================================================
 
-def _first_json_object(text: str) -> Optional[str]:
+def _first_json_object(text: str, quiet: bool = False) -> Optional[str]:
     """Return the first balanced ``{...}`` object in *text*, or None.
 
     Brace counting is string-aware so that braces inside quoted values (and
@@ -420,7 +420,7 @@ def _first_json_object(text: str) -> Optional[str]:
     # Ran out of text with containers still open. Llama-3 routinely emits the
     # whole body and then stops without the final "}", so close what is open
     # rather than discarding scores that did arrive.
-    return _repair_truncated_json(text, start, stack, in_string, last_value_end)
+    return _repair_truncated_json(text, start, stack, in_string, last_value_end, quiet)
 
 
 def _repair_truncated_json(
@@ -429,6 +429,7 @@ def _repair_truncated_json(
     stack: list[str],
     in_string: bool,
     last_value_end: int,
+    quiet: bool = False,
 ) -> Optional[str]:
     """Close an unterminated JSON object so the complete keys survive."""
     if not stack:
@@ -457,10 +458,11 @@ def _repair_truncated_json(
     except json.JSONDecodeError:
         return None
 
-    log.warning(
-        "LLM response did not close its JSON object; repaired it to recover "
-        "the scores. Raise llm_scoring.max_tokens if this recurs."
-    )
+    if not quiet:
+        # Silenced while streaming: the probe runs on every chunk, and this is
+        # the expected shape of a Llama-3 answer, not an anomaly worth a line
+        # per token in the user-facing console.
+        log.debug("Repaired an unterminated JSON object from the LLM response.")
     return fragment
 
 
