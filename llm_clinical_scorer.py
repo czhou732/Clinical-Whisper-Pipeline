@@ -43,11 +43,12 @@ from typing import Any, Optional
 
 try:
     import mlx.core as mx
-    from mlx_lm import load, generate
+    from mlx_lm import load, generate, stream_generate
 except ImportError:
     mx = None
     load = None
     generate = None
+    stream_generate = None
 
 try:
     import torch
@@ -285,15 +286,53 @@ def call_local_lm(
             model, tokenizer = _MODEL_CACHE[model_name]
 
         log.info("Generating response with MLX...")
-        
-        response = generate(
-            model, 
-            tokenizer, 
-            prompt=formatted_prompt, 
+
+        # Stop as soon as the JSON object closes. Left to run, Llama-3 writes
+        # its ~1100-character answer and then keeps going — fresh assistant
+        # turns, repeated chatter — until it hits the cap. The parser discards
+        # that tail but it is paid for in full: roughly 80% of generation time,
+        # and it is what pushed responses past the cap and left objects
+        # unterminated in the first place.
+        if stream_generate is not None:
+            chunks: list[str] = []
+            checks = 0
+            for part in stream_generate(
+                model, tokenizer, prompt=formatted_prompt, max_tokens=max_tokens
+            ):
+                chunks.append(part.text)
+
+                # clinical_impression is the last field, so only start testing
+                # once it appears — otherwise the repair would happily close
+                # the object after the first observation and truncate the
+                # answer. Waiting for a literal "}" does not work: this model
+                # usually ends the impression string and emits EOS without ever
+                # closing the object.
+                checks += 1
+                if checks % 8 and '"}' not in part.text:
+                    continue
+                buffer = "".join(chunks)
+                if '"clinical_impression"' not in buffer:
+                    continue
+                candidate = _first_json_object(buffer)
+                if not candidate:
+                    continue
+                try:
+                    data = json.loads(candidate)
+                except json.JSONDecodeError:
+                    continue
+                if all(k in data for k in REQUIRED_SCORE_KEYS) and data.get(
+                    "clinical_impression"
+                ):
+                    break
+            return "".join(chunks)
+
+        return generate(
+            model,
+            tokenizer,
+            prompt=formatted_prompt,
             max_tokens=max_tokens,
-            verbose=False
+            verbose=False,
         )
-        return response
 
     # Fallback to Transformers
     log.info("MLX not available or not on Apple Silicon. Falling back to Transformers...")
