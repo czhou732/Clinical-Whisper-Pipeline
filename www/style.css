@@ -343,3 +343,207 @@ input:focus {
     color: var(--color-text-muted);
 }
 
+
+/* ==========================================================================
+   Batch processing, transcript/JSON views, and multi-format export
+   ========================================================================== */
+
+/* --- Selected file list --- */
+.selected-files {
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: 4px;
+    padding: var(--space-3);
+    margin-bottom: var(--space-3);
+}
+
+.selected-files.hidden,
+.result-view.hidden {
+    display: none;
+}
+
+.file-list-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: var(--space-2);
+    font-size: var(--text-sm);
+    color: var(--color-text-muted);
+}
+
+.file-list {
+    list-style: none;
+    max-height: 220px;
+    overflow-y: auto;
+}
+
+.file-row {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    padding: var(--space-2) 0;
+    border-top: 1px solid var(--color-border);
+    font-size: var(--text-sm);
+}
+
+.file-row-name {
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.file-row-size {
+    color: var(--color-text-muted);
+    font-family: var(--font-mono);
+}
+
+.btn-remove {
+    background: none;
+    border: none;
+    color: var(--color-text-muted);
+    cursor: pointer;
+    font-size: var(--text-base);
+    line-height: 1;
+    padding: 0 var(--space-1);
+    transition: color var(--transition-fast);
+}
+
+.btn-remove:hover { color: var(--color-text); }
+
+/* --- Batch progress --- */
+.progress-count {
+    margin-left: auto;
+    font-family: var(--font-mono);
+    font-size: var(--text-sm);
+    color: var(--color-text-muted);
+}
+
+.progress-track {
+    height: 2px;
+    background: var(--color-border);
+    margin: var(--space-2) 0 var(--space-3);
+}
+
+.progress-bar {
+    height: 100%;
+    width: 0;
+    background: var(--color-primary);
+    transition: width var(--transition-base);
+}
+
+/* --- Result header and export --- */
+.result-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: var(--space-3);
+    margin-bottom: var(--space-4);
+    flex-wrap: wrap;
+}
+
+.result-header h3 {
+    margin: 0;
+    font-size: var(--text-lg);
+    font-family: var(--font-heading);
+}
+
+.export-group {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+}
+
+/* --- Per-file tabs (batches of 2+) --- */
+.result-tabs {
+    display: flex;
+    gap: var(--space-1);
+    overflow-x: auto;
+    margin-bottom: var(--space-3);
+}
+
+.result-tab {
+    background: none;
+    border: 1px solid var(--color-border);
+    border-radius: 3px;
+    color: var(--color-text-muted);
+    cursor: pointer;
+    font-family: var(--font-sans);
+    font-size: var(--text-sm);
+    padding: var(--space-1) var(--space-3);
+    white-space: nowrap;
+    transition: all var(--transition-fast);
+}
+
+.result-tab:hover { color: var(--color-text); }
+
+.result-tab.active {
+    background: var(--color-surface);
+    border-color: var(--color-text-muted);
+    color: var(--color-text);
+}
+
+.result-tab.failed { border-color: var(--color-danger); }
+
+/* --- Scores / Transcript / JSON switch --- */
+.view-switch {
+    display: flex;
+    gap: var(--space-4);
+    border-bottom: 1px solid var(--color-border);
+    margin-bottom: var(--space-4);
+}
+
+.view-btn {
+    background: none;
+    border: none;
+    border-bottom: 2px solid transparent;
+    color: var(--color-text-muted);
+    cursor: pointer;
+    font-family: var(--font-sans);
+    font-size: var(--text-sm);
+    padding: var(--space-2) 0;
+    transition: all var(--transition-fast);
+}
+
+.view-btn:hover { color: var(--color-text); }
+
+.view-btn.active {
+    color: var(--color-text);
+    border-bottom-color: var(--color-text);
+}
+
+/* --- Transcript and JSON panes --- */
+.text-block {
+    background: var(--color-bg);
+    border: 1px solid var(--color-border);
+    border-radius: 3px;
+    color: var(--color-text);
+    font-family: var(--font-mono);
+    font-size: var(--text-sm);
+    line-height: 1.6;
+    max-height: 420px;
+    overflow: auto;
+    padding: var(--space-3);
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+
+/* --- Clinical narrative --- */
+#impression-block h4 {
+    font-family: var(--font-heading);
+    font-size: var(--text-base);
+    margin: var(--space-4) 0 var(--space-2);
+}
+
+.impression {
+    color: var(--color-text-muted);
+    font-size: var(--text-sm);
+    line-height: 1.7;
+}
+
+.observations {
+    color: var(--color-text-muted);
+    font-size: var(--text-sm);
+    line-height: 1.7;
+    padding-left: var(--space-4);
+}

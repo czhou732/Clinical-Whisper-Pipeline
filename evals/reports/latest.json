@@ -1,0 +1,575 @@
+{
+  "model": "mlx-community/Meta-Llama-3-8B-Instruct-4bit",
+  "gate": 0.85,
+  "accuracy": 0.8,
+  "passed": false,
+  "total_checks": 45,
+  "passed_checks": 36,
+  "elapsed_seconds": 38.8,
+  "cases": [
+    {
+      "id": "mask_01",
+      "category": "clinical_masking",
+      "description": "Subject deflects with 'I'm fine' while acoustics show flat prosody; distress is present but never elaborated.",
+      "error": null,
+      "scores": {
+        "hesitancy_score": 4,
+        "affect_flatness": 6,
+        "engagement_level": 3,
+        "elaboration_positive": 2,
+        "elaboration_negative": 5,
+        "psychomotor_indicators": 3
+      },
+      "checks": [
+        {
+          "kind": "band",
+          "dimension": "affect_flatness",
+          "expected": "[5, 10]",
+          "actual": 6,
+          "passed": true,
+          "deviation": 0.0
+        },
+        {
+          "kind": "band",
+          "dimension": "elaboration_negative",
+          "expected": "[0, 4]",
+          "actual": 5,
+          "passed": false,
+          "deviation": 1.0
+        },
+        {
+          "kind": "band",
+          "dimension": "elaboration_positive",
+          "expected": "[0, 4]",
+          "actual": 2,
+          "passed": true,
+          "deviation": 0.0
+        },
+        {
+          "kind": "band",
+          "dimension": "engagement_level",
+          "expected": "[0, 4]",
+          "actual": 3,
+          "passed": true,
+          "deviation": 0.0
+        }
+      ],
+      "passed_checks": 3
+    },
+    {
+      "id": "mask_02",
+      "category": "clinical_masking",
+      "description": "Minimisation by comparison \u2014 'people have it worse' \u2014 with explicit performance of wellness for others.",
+      "error": null,
+      "scores": {
+        "hesitancy_score": 6,
+        "affect_flatness": 8,
+        "engagement_level": 4,
+        "elaboration_positive": 2,
+        "elaboration_negative": 6,
+        "psychomotor_indicators": 5
+      },
+      "checks": [
+        {
+          "kind": "band",
+          "dimension": "affect_flatness",
+          "expected": "[4, 10]",
+          "actual": 8,
+          "passed": true,
+          "deviation": 0.0
+        },
+        {
+          "kind": "band",
+          "dimension": "elaboration_negative",
+          "expected": "[0, 4]",
+          "actual": 6,
+          "passed": false,
+          "deviation": 2.0
+        },
+        {
+          "kind": "band",
+          "dimension": "engagement_level",
+          "expected": "[0, 5]",
+          "actual": 4,
+          "passed": true,
+          "deviation": 0.0
+        }
+      ],
+      "passed_checks": 2
+    },
+    {
+      "id": "mask_03",
+      "category": "clinical_masking",
+      "description": "Normalising fatigue as universal \u2014 'that's normal for everyone right?' \u2014 deflecting a direct symptom probe.",
+      "error": null,
+      "scores": {
+        "hesitancy_score": 4,
+        "affect_flatness": 6,
+        "engagement_level": 3,
+        "elaboration_positive": 2,
+        "elaboration_negative": 4,
+        "psychomotor_indicators": 3
+      },
+      "checks": [
+        {
+          "kind": "band",
+          "dimension": "affect_flatness",
+          "expected": "[4, 10]",
+          "actual": 6,
+          "passed": true,
+          "deviation": 0.0
+        },
+        {
+          "kind": "band",
+          "dimension": "elaboration_negative",
+          "expected": "[0, 4]",
+          "actual": 4,
+          "passed": true,
+          "deviation": 0.0
+        },
+        {
+          "kind": "band",
+          "dimension": "elaboration_positive",
+          "expected": "[0, 4]",
+          "actual": 2,
+          "passed": true,
+          "deviation": 0.0
+        },
+        {
+          "kind": "band",
+          "dimension": "engagement_level",
+          "expected": "[0, 5]",
+          "actual": 3,
+          "passed": true,
+          "deviation": 0.0
+        }
+      ],
+      "passed_checks": 4
+    },
+    {
+      "id": "anh_01",
+      "category": "anhedonia",
+      "description": "Explicit loss of pleasure in a previously enjoyed activity \u2014 the anh_04 case the sentiment gate scored 9/10 positive.",
+      "error": null,
+      "scores": {
+        "hesitancy_score": 8,
+        "affect_flatness": 9,
+        "engagement_level": 4,
+        "elaboration_positive": 2,
+        "elaboration_negative": 9,
+        "psychomotor_indicators": 6
+      },
+      "checks": [
+        {
+          "kind": "band",
+          "dimension": "affect_flatness",
+          "expected": "[6, 10]",
+          "actual": 9,
+          "passed": true,
+          "deviation": 0.0
+        },
+        {
+          "kind": "band",
+          "dimension": "elaboration_negative",
+          "expected": "[4, 10]",
+          "actual": 9,
+          "passed": true,
+          "deviation": 0.0
+        },
+        {
+          "kind": "band",
+          "dimension": "elaboration_positive",
+          "expected": "[0, 4]",
+          "actual": 2,
+          "passed": true,
+          "deviation": 0.0
+        },
+        {
+          "kind": "relation",
+          "dimension": "elaboration_negative > elaboration_positive",
+          "expected": "elaboration_negative > elaboration_positive",
+          "actual": "9 vs 2",
+          "passed": true,
+          "deviation": null
+        }
+      ],
+      "passed_checks": 4
+    },
+    {
+      "id": "anh_02",
+      "category": "anhedonia",
+      "description": "Social withdrawal and loss of pleasure in parenting, described without affective language.",
+      "error": "unparseable LLM response: No JSON object found in LLM response. Preview: '{\\n  \"hesitancy_score\": 8,\\n  \"affect_flatness\": 9,\\n  \"engagement_level\": 4,\\n  \"elaboration_positive\": 2,\\n  \"elaboration_negative\": 9,\\n  \"psychomotor_indicators\": 6,\\n  \"key_observations\": [\\n    \"Subject uses frequent fillers: \\'I just couldn\\'t bring myself to go\\', \\'I don\\'t enjoy socializing like I used'",
+      "scores": {
+        "hesitancy_score": 0,
+        "affect_flatness": 0,
+        "engagement_level": 5,
+        "elaboration_positive": 5,
+        "elaboration_negative": 5,
+        "psychomotor_indicators": 0
+      },
+      "checks": [
+        {
+          "kind": "scorer",
+          "dimension": "affect_flatness",
+          "expected": "valid score",
+          "actual": "scorer failure",
+          "passed": false,
+          "deviation": null
+        },
+        {
+          "kind": "scorer",
+          "dimension": "elaboration_positive",
+          "expected": "valid score",
+          "actual": "scorer failure",
+          "passed": false,
+          "deviation": null
+        },
+        {
+          "kind": "scorer",
+          "dimension": "engagement_level",
+          "expected": "valid score",
+          "actual": "scorer failure",
+          "passed": false,
+          "deviation": null
+        },
+        {
+          "kind": "scorer",
+          "dimension": "elaboration_negative > elaboration_positive",
+          "expected": "valid score",
+          "actual": "scorer failure",
+          "passed": false,
+          "deviation": null
+        }
+      ],
+      "passed_checks": 0
+    },
+    {
+      "id": "ctrl_01",
+      "category": "engaged_control",
+      "description": "Engaged, expressive subject with situational work stress and preserved positive capacity \u2014 the discriminating negative control.",
+      "error": null,
+      "scores": {
+        "hesitancy_score": 2,
+        "affect_flatness": 1,
+        "engagement_level": 8,
+        "elaboration_positive": 7,
+        "elaboration_negative": 8,
+        "psychomotor_indicators": 1
+      },
+      "checks": [
+        {
+          "kind": "band",
+          "dimension": "affect_flatness",
+          "expected": "[0, 3]",
+          "actual": 1,
+          "passed": true,
+          "deviation": 0.0
+        },
+        {
+          "kind": "band",
+          "dimension": "elaboration_negative",
+          "expected": "[5, 10]",
+          "actual": 8,
+          "passed": true,
+          "deviation": 0.0
+        },
+        {
+          "kind": "band",
+          "dimension": "elaboration_positive",
+          "expected": "[5, 10]",
+          "actual": 7,
+          "passed": true,
+          "deviation": 0.0
+        },
+        {
+          "kind": "band",
+          "dimension": "engagement_level",
+          "expected": "[6, 10]",
+          "actual": 8,
+          "passed": true,
+          "deviation": 0.0
+        },
+        {
+          "kind": "band",
+          "dimension": "hesitancy_score",
+          "expected": "[0, 3]",
+          "actual": 2,
+          "passed": true,
+          "deviation": 0.0
+        }
+      ],
+      "passed_checks": 5
+    },
+    {
+      "id": "ctrl_02",
+      "category": "engaged_control",
+      "description": "Recovering subject reporting genuine improvement with concrete supporting detail.",
+      "error": null,
+      "scores": {
+        "hesitancy_score": 2,
+        "affect_flatness": 1,
+        "engagement_level": 8,
+        "elaboration_positive": 8,
+        "elaboration_negative": 2,
+        "psychomotor_indicators": 1
+      },
+      "checks": [
+        {
+          "kind": "band",
+          "dimension": "affect_flatness",
+          "expected": "[0, 3]",
+          "actual": 1,
+          "passed": true,
+          "deviation": 0.0
+        },
+        {
+          "kind": "band",
+          "dimension": "elaboration_positive",
+          "expected": "[6, 10]",
+          "actual": 8,
+          "passed": true,
+          "deviation": 0.0
+        },
+        {
+          "kind": "band",
+          "dimension": "engagement_level",
+          "expected": "[6, 10]",
+          "actual": 8,
+          "passed": true,
+          "deviation": 0.0
+        },
+        {
+          "kind": "band",
+          "dimension": "hesitancy_score",
+          "expected": "[0, 3]",
+          "actual": 2,
+          "passed": true,
+          "deviation": 0.0
+        },
+        {
+          "kind": "relation",
+          "dimension": "elaboration_positive > elaboration_negative",
+          "expected": "elaboration_positive > elaboration_negative",
+          "actual": "8 vs 2",
+          "passed": true,
+          "deviation": null
+        }
+      ],
+      "passed_checks": 5
+    },
+    {
+      "id": "hes_01",
+      "category": "hesitancy_psychomotor",
+      "description": "Heavy filler use, false starts and self-correction with intact emotional content.",
+      "error": null,
+      "scores": {
+        "hesitancy_score": 8,
+        "affect_flatness": 5,
+        "engagement_level": 4,
+        "elaboration_positive": 2,
+        "elaboration_negative": 6,
+        "psychomotor_indicators": 3
+      },
+      "checks": [
+        {
+          "kind": "band",
+          "dimension": "affect_flatness",
+          "expected": "[0, 5]",
+          "actual": 5,
+          "passed": true,
+          "deviation": 0.0
+        },
+        {
+          "kind": "band",
+          "dimension": "elaboration_negative",
+          "expected": "[4, 10]",
+          "actual": 6,
+          "passed": true,
+          "deviation": 0.0
+        },
+        {
+          "kind": "band",
+          "dimension": "hesitancy_score",
+          "expected": "[6, 10]",
+          "actual": 8,
+          "passed": true,
+          "deviation": 0.0
+        }
+      ],
+      "passed_checks": 3
+    },
+    {
+      "id": "flat_01",
+      "category": "flat_affect",
+      "description": "Monosyllabic, disengaged responses with no emotional vocabulary at all.",
+      "error": null,
+      "scores": {
+        "hesitancy_score": 6,
+        "affect_flatness": 8,
+        "engagement_level": 2,
+        "elaboration_positive": 1,
+        "elaboration_negative": 2,
+        "psychomotor_indicators": 4
+      },
+      "checks": [
+        {
+          "kind": "band",
+          "dimension": "affect_flatness",
+          "expected": "[6, 10]",
+          "actual": 8,
+          "passed": true,
+          "deviation": 0.0
+        },
+        {
+          "kind": "band",
+          "dimension": "elaboration_negative",
+          "expected": "[0, 3]",
+          "actual": 2,
+          "passed": true,
+          "deviation": 0.0
+        },
+        {
+          "kind": "band",
+          "dimension": "elaboration_positive",
+          "expected": "[0, 3]",
+          "actual": 1,
+          "passed": true,
+          "deviation": 0.0
+        },
+        {
+          "kind": "band",
+          "dimension": "engagement_level",
+          "expected": "[0, 3]",
+          "actual": 2,
+          "passed": true,
+          "deviation": 0.0
+        }
+      ],
+      "passed_checks": 4
+    },
+    {
+      "id": "psy_01",
+      "category": "hesitancy_psychomotor",
+      "description": "Marked response latency and trailing off \u2014 psychomotor retardation rather than mere hesitancy.",
+      "error": null,
+      "scores": {
+        "hesitancy_score": 8,
+        "affect_flatness": 9,
+        "engagement_level": 3,
+        "elaboration_positive": 2,
+        "elaboration_negative": 6,
+        "psychomotor_indicators": 6
+      },
+      "checks": [
+        {
+          "kind": "band",
+          "dimension": "affect_flatness",
+          "expected": "[5, 10]",
+          "actual": 9,
+          "passed": true,
+          "deviation": 0.0
+        },
+        {
+          "kind": "band",
+          "dimension": "engagement_level",
+          "expected": "[0, 4]",
+          "actual": 3,
+          "passed": true,
+          "deviation": 0.0
+        },
+        {
+          "kind": "band",
+          "dimension": "psychomotor_indicators",
+          "expected": "[5, 10]",
+          "actual": 6,
+          "passed": true,
+          "deviation": 0.0
+        }
+      ],
+      "passed_checks": 3
+    },
+    {
+      "id": "daic_01",
+      "category": "clinical_masking",
+      "description": "DAIC-WoZ style opening: non-committal, mildly hesitant, no clinical content volunteered.",
+      "error": "unparseable LLM response: No JSON object found in LLM response. Preview: '{\\n  \"hesitancy_score\": 5,\\n  \"affect_flatness\": 4,\\n  \"engagement_level\": 4,\\n  \"elaboration_positive\": 3,\\n  \"elaboration_negative\": 4,\\n  \"psychomotor_indicators\": 3,\\n  \"key_observations\": [\\n    \"Subject uses fillers (\\'Um\\', \\'uh\\') and hesitates (\\'Yeah things have been, uh, okay I guess\\')\",\\n    \"Some ela'",
+      "scores": {
+        "hesitancy_score": 0,
+        "affect_flatness": 0,
+        "engagement_level": 5,
+        "elaboration_positive": 5,
+        "elaboration_negative": 5,
+        "psychomotor_indicators": 0
+      },
+      "checks": [
+        {
+          "kind": "scorer",
+          "dimension": "elaboration_negative",
+          "expected": "valid score",
+          "actual": "scorer failure",
+          "passed": false,
+          "deviation": null
+        },
+        {
+          "kind": "scorer",
+          "dimension": "elaboration_positive",
+          "expected": "valid score",
+          "actual": "scorer failure",
+          "passed": false,
+          "deviation": null
+        },
+        {
+          "kind": "scorer",
+          "dimension": "hesitancy_score",
+          "expected": "valid score",
+          "actual": "scorer failure",
+          "passed": false,
+          "deviation": null
+        }
+      ],
+      "passed_checks": 0
+    },
+    {
+      "id": "edge_01",
+      "category": "edge_case",
+      "description": "Near-empty session \u2014 subject answers in two words and the interview stalls.",
+      "error": null,
+      "scores": {
+        "hesitancy_score": 8,
+        "affect_flatness": 9,
+        "engagement_level": 1,
+        "elaboration_positive": 1,
+        "elaboration_negative": 2,
+        "psychomotor_indicators": 6
+      },
+      "checks": [
+        {
+          "kind": "band",
+          "dimension": "elaboration_negative",
+          "expected": "[0, 2]",
+          "actual": 2,
+          "passed": true,
+          "deviation": 0.0
+        },
+        {
+          "kind": "band",
+          "dimension": "elaboration_positive",
+          "expected": "[0, 2]",
+          "actual": 1,
+          "passed": true,
+          "deviation": 0.0
+        },
+        {
+          "kind": "band",
+          "dimension": "engagement_level",
+          "expected": "[0, 3]",
+          "actual": 1,
+          "passed": true,
+          "deviation": 0.0
+        }
+      ],
+      "passed_checks": 3
+    }
+  ]
+}

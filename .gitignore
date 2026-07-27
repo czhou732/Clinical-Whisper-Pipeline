@@ -32,3 +32,6 @@ dist/
 .venv/
 test_output.csv
 test_results.csv
+
+# Clinical eval scorer cache (regenerated on demand; keyed by model+prompt hash)
+evals/.cache/

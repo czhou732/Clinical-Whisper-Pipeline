@@ -212,6 +212,7 @@ class InferencePipeline:
                     "model", "OpenMOSS-Team/MOSS-Transcribe-Diarize"
                 ),
                 device=self.cfg.get("moss", {}).get("device"),
+                dtype=self.cfg.get("moss", {}).get("dtype"),
             )
             if not moss.is_available:
                 raise RuntimeError(

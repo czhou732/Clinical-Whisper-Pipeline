@@ -244,6 +244,7 @@ def _load_scoring_config(
         "enabled": True,
         "mlx_model": "mlx-community/Meta-Llama-3-8B-Instruct-4bit",
         "hf_model": "NousResearch/Meta-Llama-3-8B-Instruct",
+        "max_tokens": 1200,
         "timeout_seconds": 300,
         "max_retries": 1,
     }
@@ -265,6 +266,7 @@ def call_local_lm(
     model_name: str = "mlx-community/Meta-Llama-3-8B-Instruct-4bit",
     timeout: int = 300,
     hf_model_name: str = "NousResearch/Meta-Llama-3-8B-Instruct",
+    max_tokens: int = 1200,
 ) -> str:
     """
     Generate text using a local LLM. Tries mlx-lm first (Apple Silicon),
@@ -288,7 +290,7 @@ def call_local_lm(
             model, 
             tokenizer, 
             prompt=formatted_prompt, 
-            max_tokens=4096, 
+            max_tokens=max_tokens,
             verbose=False
         )
         return response
@@ -315,13 +317,113 @@ def call_local_lm(
         generator = _MODEL_CACHE[hf_model_name]
 
     log.info("Generating response with Transformers...")
-    outputs = generator(formatted_prompt, max_new_tokens=4096, return_full_text=False)
+    outputs = generator(formatted_prompt, max_new_tokens=max_tokens, return_full_text=False)
     return outputs[0]["generated_text"]
 
 
 # ===================================================================
 # Response parsing
 # ===================================================================
+
+def _first_json_object(text: str) -> Optional[str]:
+    """Return the first balanced ``{...}`` object in *text*, or None.
+
+    Brace counting is string-aware so that braces inside quoted values (and
+    escaped quotes) do not throw off the depth.
+
+    If the text ends before the object closes — which happens whenever the
+    token cap truncates a long ``key_observations`` list — the open containers
+    are closed so the scores that *did* arrive are still usable. A truncated
+    response is far more useful repaired than discarded, because discarding it
+    silently substitutes default scores.
+    """
+    # Chat special tokens mark where the model stopped answering and started
+    # a fresh turn. Everything after the first one is not part of the object.
+    cut = re.search(r"<\|(?:eot_id|start_header_id|end_of_text)\|>", text)
+    if cut:
+        text = text[: cut.start()]
+
+    start = text.find("{")
+    if start == -1:
+        return None
+
+    stack: list[str] = []
+    in_string = False
+    escaped = False
+    last_value_end = -1  # last index at which a complete value could end
+
+    for i in range(start, len(text)):
+        ch = text[i]
+
+        if in_string:
+            if escaped:
+                escaped = False
+            elif ch == "\\":
+                escaped = True
+            elif ch == '"':
+                in_string = False
+                last_value_end = i
+            continue
+
+        if ch == '"':
+            in_string = True
+        elif ch in "{[":
+            stack.append(ch)
+        elif ch in "}]":
+            if stack:
+                stack.pop()
+            last_value_end = i
+            if not stack:
+                return text[start:i + 1]
+        elif ch.isdigit() or ch in "eE+-.":
+            last_value_end = i
+
+    # Ran out of text with containers still open. Llama-3 routinely emits the
+    # whole body and then stops without the final "}", so close what is open
+    # rather than discarding scores that did arrive.
+    return _repair_truncated_json(text, start, stack, in_string, last_value_end)
+
+
+def _repair_truncated_json(
+    text: str,
+    start: int,
+    stack: list[str],
+    in_string: bool,
+    last_value_end: int,
+) -> Optional[str]:
+    """Close an unterminated JSON object so the complete keys survive."""
+    if not stack:
+        return None
+
+    if in_string:
+        # Cut back to the last complete value; a half-written string is not
+        # worth guessing at.
+        if last_value_end <= start:
+            return None
+        fragment = text[start:last_value_end + 1]
+    else:
+        fragment = text[start:max(last_value_end, start) + 1]
+
+    # Drop a dangling trailing comma, or an orphaned key left by the cut —
+    # either `"key":` with no value, or a bare `"key"` with no colon yet.
+    fragment = re.sub(r",\s*$", "", fragment.rstrip())
+    fragment = re.sub(r",?\s*\"[^\"]*\"\s*:\s*$", "", fragment.rstrip())
+    fragment = re.sub(r",\s*\"[^\"]*\"\s*$", "", fragment.rstrip())
+
+    for opener in reversed(stack):
+        fragment += "]" if opener == "[" else "}"
+
+    try:
+        json.loads(fragment)
+    except json.JSONDecodeError:
+        return None
+
+    log.warning(
+        "LLM response did not close its JSON object; repaired it to recover "
+        "the scores. Raise llm_scoring.max_tokens if this recurs."
+    )
+    return fragment
+
 
 def parse_scoring_response(raw: str) -> dict[str, Any]:
     """
@@ -360,17 +462,16 @@ def parse_scoring_response(raw: str) -> dict[str, Any]:
     if fence_match:
         cleaned = fence_match.group(1).strip()
 
-    # Find the JSON object boundaries
-    start = cleaned.find("{")
-    end = cleaned.rfind("}") + 1
+    # Take the FIRST balanced object. Spanning first "{" to last "}" swallowed
+    # any commentary or second object the model appended after its answer,
+    # which then failed to parse and silently fell back to default scores.
+    json_str = _first_json_object(cleaned)
 
-    if start == -1 or end == 0:
+    if json_str is None:
         raise ValueError(
             f"No JSON object found in LLM response. "
             f"Preview: {raw[:300]!r}"
         )
-
-    json_str = cleaned[start:end]
 
     try:
         data = json.loads(json_str)
@@ -470,6 +571,7 @@ def score_transcript(
     sc_cfg = config.get("llm_scoring", {})
     model = sc_cfg.get("mlx_model", "mlx-community/Meta-Llama-3-8B-Instruct-4bit")
     hf_model = sc_cfg.get("hf_model", "NousResearch/Meta-Llama-3-8B-Instruct")
+    max_tokens = sc_cfg.get("max_tokens", 1200)
     timeout = sc_cfg.get("timeout_seconds", 300)
 
     # Build the full prompt
@@ -501,6 +603,7 @@ def score_transcript(
             model_name=model,
             timeout=timeout,
             hf_model_name=hf_model,
+            max_tokens=max_tokens,
         )
     except Exception as exc:
         log.error("LLM generation failed: %s", exc)

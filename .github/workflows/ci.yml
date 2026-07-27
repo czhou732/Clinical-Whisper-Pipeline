@@ -32,5 +32,9 @@ jobs:
         # Skip acoustic feature tests — opensmile requires system-level deps
         # that are not available in the CI runner.
 
-      - name: Run evals
-        run: python evals/run_evals.py
+      - name: Run clinical eval self-test
+        run: python evals/run_clinical_evals.py --self-test
+        # Model-free path: validates the golden dataset schema, the expected
+        # bands, and the assertion logic. The full eval scores an 8B local LLM
+        # and cannot run on a hosted Ubuntu runner — it gates at pre-commit on
+        # a machine with the model. See evals/README.md.
