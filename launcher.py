@@ -11,6 +11,12 @@ import multiprocessing
 
 multiprocessing.freeze_support()
 
+# Must run before uvicorn/gui_server pull in transformers or huggingface_hub:
+# both read HF_* from the environment at import time.
+import bundled_models  # noqa: E402
+
+bundled_models.configure()
+
 import atexit  # noqa: E402
 import os  # noqa: E402
 import socket  # noqa: E402

@@ -16,9 +16,15 @@ import logging
 from typing import Optional
 
 try:
-    from openmed import deidentify
+    from openmed import OpenMedConfig, deidentify
 except ImportError:  # pragma: no cover - exercised only when openmed is missing
+    OpenMedConfig = None
     deidentify = None
+
+try:
+    import bundled_models
+except ImportError:  # pragma: no cover
+    bundled_models = None
 
 log = logging.getLogger("ClinicalWhisper")
 
@@ -44,6 +50,14 @@ class PIIScrubber:
         self.is_available = deidentify is not None
         self.entity_count = 0
 
+        # When the app ships its own weights, point OpenMED at them so it never
+        # looks in ~/.cache or reaches for the network.
+        self._config = None
+        cache_dir = bundled_models.openmed_cache_dir() if bundled_models else None
+        if cache_dir and OpenMedConfig is not None:
+            self._config = OpenMedConfig(cache_dir=cache_dir, local_only=True)
+            log.info("Using bundled OpenMED weights.")
+
         if not self.is_available:
             log.warning("openmed package not found. PII scrubbing is disabled.")
 
@@ -63,6 +77,7 @@ class PIIScrubber:
                 method="mask",
                 model_name=self.model_name,
                 confidence_threshold=self.confidence_threshold,
+                config=self._config,
             )
             self.entity_count += len(getattr(result, "pii_entities", []) or [])
             return result.deidentified_text

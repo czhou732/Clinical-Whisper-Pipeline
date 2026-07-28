@@ -25,6 +25,12 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 
+import bundled_models
+
+# Harmless when running from source; redirects to the in-bundle weights when
+# frozen. Runs before the pipeline imports transformers.
+bundled_models.configure()
+
 from cw_config import DATA_ROOT, load_config
 
 app = FastAPI(title="ClinicalWhisper GUI Server")

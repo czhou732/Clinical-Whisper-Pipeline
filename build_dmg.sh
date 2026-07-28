@@ -7,6 +7,43 @@ uv pip install pyinstaller pywebview fastapi uvicorn python-multipart
 echo "Cleaning up previous builds..."
 rm -rf build dist ClinicalWhisper.dmg ClinicalWhisper.spec
 
+echo "Staging model weights for the bundle..."
+# Ship the models inside the app so a fresh machine needs nothing but the DMG.
+# The HF cache stores snapshots/ as symlinks into blobs/; dereferencing both
+# would double 6.6 GB, so copy the dereferenced snapshots and drop the blobs.
+# Verified: the loaders read this layout read-only with HF_HUB_OFFLINE=1.
+STAGE=".model_stage"   # outside build/ so cleanup does not force a 7 GB re-copy
+mkdir -p "$STAGE/hub"
+
+HF_HUB="$HOME/.cache/huggingface/hub"
+MODELS="models--OpenMOSS-Team--MOSS-Transcribe-Diarize \
+        models--mlx-community--Meta-Llama-3-8B-Instruct-4bit \
+        models--OpenMed--OpenMed-PII-SuperClinical-Small-44M-v1"
+
+for m in $MODELS; do
+    if [ ! -d "$HF_HUB/$m" ]; then
+        echo "ERROR: $m is not in the local cache."
+        echo "Process one audio file first so the weights download, then rebuild."
+        exit 1
+    fi
+    if [ -d "$STAGE/hub/$m/snapshots" ]; then
+        echo "  reusing staged $m"
+        continue
+    fi
+    echo "  staging $m ($(du -sh "$HF_HUB/$m" | cut -f1))"
+    mkdir -p "$STAGE/hub/$m"
+    cp -R "$HF_HUB/$m/refs" "$STAGE/hub/$m/" 2>/dev/null || true
+    rsync -aL "$HF_HUB/$m/snapshots" "$STAGE/hub/$m/"
+done
+
+# OpenMED keeps an MLX-converted copy; its HF-form duplicate is already in hub/.
+if [ -d "$HOME/.cache/openmed" ]; then
+    echo "  staging openmed MLX cache"
+    rsync -aL --exclude 'models--*' "$HOME/.cache/openmed/" "$STAGE/openmed/"
+fi
+
+echo "  staged total: $(du -sh "$STAGE" | cut -f1)"
+
 echo "Building ClinicalWhisper.app with PyInstaller..."
 # --collect-all, not --hidden-import: hidden imports only add .py modules to the
 # archive. These packages also ship data files and native binaries — OpenSMILE's
@@ -18,6 +55,7 @@ uv run pyinstaller --noconfirm \
     --icon "clinicalwhisper.icns" \
     --add-data "www:www" \
     --add-data "config.example.yaml:." \
+    --add-data ".model_stage:models" \
     --collect-all opensmile \
     --collect-all audresample \
     --collect-all audobject \
@@ -52,6 +90,10 @@ for pkg in opensmile/core/bin opensmile/core/config audresample/core/bin \
 done
 
 # Every native lib these packages need must actually be inside the bundle.
+if [ ! -d dist/ClinicalWhisper.app/Contents/Resources/models/hub ]; then
+    MISSING="$MISSING bundled-models"
+fi
+
 for dylib in libSMILEapi.dylib libaudresample.dylib; do
     if ! find dist/ClinicalWhisper.app/Contents -name "$dylib" | grep -q .; then
         MISSING="$MISSING $dylib"
@@ -67,8 +109,13 @@ echo "All ML backends present."
 echo "Creating DMG..."
 # Check if hdiutil is available (macOS)
 if command -v hdiutil &> /dev/null; then
+    rm -rf dist/dmg_folder
     mkdir -p dist/dmg_folder
-    cp -r dist/ClinicalWhisper.app dist/dmg_folder/
+    # ditto, not cp -r: BSD cp follows symlinks, which dereferenced the 126
+    # Frameworks -> Resources links and duplicated the whole 7.2 GB model set
+    # (an 18 GB folder from an 8.3 GB app). It also preserves the ad-hoc code
+    # signature PyInstaller applies.
+    ditto dist/ClinicalWhisper.app dist/dmg_folder/ClinicalWhisper.app
     ln -s /Applications dist/dmg_folder/Applications
 
     echo "Running hdiutil to package .app into .dmg..."
@@ -79,9 +126,9 @@ if command -v hdiutil &> /dev/null; then
 
     echo "Successfully created ClinicalWhisper.dmg in the current directory!"
     echo
-    echo "NOTE: model weights are NOT bundled. On first run the app downloads"
-    echo "      ~1.7 GB (MOSS) + ~4.5 GB (Llama-3 4-bit) + ~0.2 GB (OpenMED)."
-    echo "      ffmpeg must also be installed on the target machine."
+    echo "This DMG is self-contained: model weights are inside the app, and"
+    echo "audio decoding uses PyAV, so the target machine needs no Hugging Face"
+    echo "download, no account, and no ffmpeg install."
 else
     echo "hdiutil not found. DMG creation skipped (are you on macOS?). The .app is available in the dist/ folder."
 fi

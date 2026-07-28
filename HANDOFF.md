@@ -1,121 +1,82 @@
 # ClinicalWhisper — Handoff Guide
 
-For giving ClinicalWhisper to a collaborator on a machine that has never run it.
+Giving ClinicalWhisper to a collaborator over a call, with no setup on their end.
 
 ---
 
-## Short answer: no, the DMG alone is not enough
+## What you send
 
-The `.app` is 1.3 GB, but the model weights are **not** inside it. On a machine
-with an empty cache, the DMG on its own will download ~6.4 GB the first time
-someone processes a file, and will fail outright if `ffmpeg` is not installed.
+**One file: `ClinicalWhisper.dmg` (~8 GB).**
 
-Three things have to be on the target machine:
+The app carries its own model weights and its own audio decoder, so the machine
+receiving it needs no Hugging Face account, no downloads, no Homebrew, and no
+Terminal. It also works with the network off.
 
-| | What | Size | Why |
-|---|---|---|---|
-| 1 | `ClinicalWhisper.app` | 1.3 GB | the application |
-| 2 | Model weights in `~/.cache` | ~7.7 GB | MOSS, Llama-3, OpenMED |
-| 3 | `ffmpeg` on PATH | ~80 MB | decodes and resamples every input file |
+Too large to send through Zoom chat — upload it to Google Drive, Dropbox, or
+WeTransfer and share the link. Start that upload well before the call; 8 GB
+takes a while on most connections.
 
-`prepare_offline_bundle.sh` packages all three so nothing downloads on the day.
+### The one thing to check first
 
----
-
-## Hardware requirement — check this first
-
-**Apple Silicon Mac (M1 or newer).** Have them run this in Terminal:
+**Apple Silicon Mac (M1 or newer.)** Ask them to run this in Terminal, or check
+ > About This Mac:
 
 ```bash
 uname -m
 ```
 
-- `arm64` → good, proceed.
-- `x86_64` → Intel Mac. The app runs, but clinical scoring falls back to CPU and
-  takes roughly 10–20x longer. Not viable for a live demo.
-- Windows or Linux → the DMG does not apply at all; they need the command-line
-  install from the README instead.
+- `arm64` → good.
+- `x86_64` → Intel Mac. The bundled binaries are arm64-only; the app will not
+  run. They need the command-line install from the README instead.
+- Windows or Linux → the DMG does not apply.
 
-The bundled OpenSMILE and MLX binaries are `arm64`-only. This is not a soft
-preference — check before the meeting, not during it.
-
----
-
-## Preparing the drive (do this beforehand, on your machine)
-
-Use a **16 GB or larger** USB drive formatted **APFS or exFAT**. FAT32 cannot
-hold the individual model files.
-
-```bash
-cd ~/Research/Labs/VisionNeuro_Itti/GetBraille/ClinicalWhisper
-./build_dmg.sh
-./scripts/prepare_offline_bundle.sh /Volumes/YOUR_DRIVE/ClinicalWhisper
-```
-
-The script copies the DMG, all three model caches, and `ffmpeg`, then writes
-`install.sh` and `READ_ME_FIRST.txt` into the folder. It refuses to run if any
-model is missing from your local cache — so process at least one file on your
-machine first.
-
-**One caveat it will warn you about:** if your `ffmpeg` came from Homebrew it
-links against `/opt/homebrew` libraries and will not run on a machine without
-Homebrew. If you see that warning, download a static build from
-<https://evermeet.cx/ffmpeg/> and replace `bin/ffmpeg` in the bundle.
-
-Verify before you hand it over:
-
-```bash
-du -sh /Volumes/YOUR_DRIVE/ClinicalWhisper     # expect ~9 GB
-ls /Volumes/YOUR_DRIVE/ClinicalWhisper          # ClinicalWhisper.dmg, models/, bin/, install.sh
-```
+This is worth confirming before you spend an hour uploading 8 GB.
 
 ---
 
 ## Instructions for the recipient
 
-> ### Setting up ClinicalWhisper
+> ### Installing ClinicalWhisper
 >
-> **1. Install the app**
-> Open `ClinicalWhisper.dmg` and drag **ClinicalWhisper** into your Applications
-> folder. Eject the disk image when it finishes copying.
+> **1.** Download `ClinicalWhisper.dmg` and double-click it.
 >
-> **2. Run the setup script**
-> Open Terminal (⌘-Space, type "Terminal"). Type `bash ` — with a space — then
-> drag `install.sh` from the folder into the Terminal window and press Return.
+> **2.** Drag **ClinicalWhisper** into your Applications folder, then eject the
+> disk image.
 >
-> It installs the models and clears the macOS security warning on the app. It
-> will ask for your Mac password once, to place `ffmpeg`.
+> **3.** The first time only: go to your Applications folder, **right-click**
+> ClinicalWhisper and choose **Open**, then confirm.
 >
-> **3. Open the app**
-> Launch ClinicalWhisper from Applications.
+> Double-clicking will not work the first time — macOS blocks apps that are not
+> notarized by Apple. If you get "cannot be opened because the developer cannot
+> be verified", open System Settings → Privacy & Security, scroll to Security,
+> and click **Open Anyway**.
 >
-> If macOS says the developer cannot be verified: open System Settings →
-> Privacy & Security, scroll to Security, and click **Open Anyway**. This is
-> expected — the app is not notarized by Apple.
+> That is the whole setup. Nothing to install, nothing to download.
 >
 > ### Using it
 >
-> Drag one or more audio files onto the window and click **Process**. Supported:
-> `.wav`, `.m4a`, `.mp3`, `.mp4`.
+> Drag one or more audio files onto the window and click **Process**.
+> Supported: `.wav`, `.m4a`, `.mp3`, `.mp4`.
 >
-> While it runs you will see each stage: transcription, PII scrubbing, acoustic
+> Each stage is shown as it runs: transcription, PII scrubbing, acoustic
 > extraction, clinical scoring.
 >
-> When it finishes there are three views:
-> - **Scores** — the clinical scores, acoustic measures, and clinical impression
-> - **Transcript** — the de-identified transcript with speaker labels
+> When it finishes there are three tabs:
+> - **Scores** — clinical scores, acoustic measures, and the clinical impression
+> - **Transcript** — de-identified, with speaker labels
 > - **JSON** — the complete analysis record
 >
-> Use **CSV**, **JSON**, or **Report** at the top right to save wherever you like.
-> Nothing is uploaded; everything stays on this Mac. A copy is also written to
-> `~/Documents/ClinicalWhisper/Output/`.
+> Save with **CSV**, **JSON**, or **Report** at the top right. A copy is also
+> written to `~/Documents/ClinicalWhisper/Output/`.
+>
+> Nothing is uploaded. Everything runs on this Mac, including with Wi-Fi off.
 >
 > ### What to expect
 >
-> The first file after opening the app takes about 30 seconds longer while the
-> models load. After that, roughly 20–40 seconds per short clip. A full-length
-> interview takes several minutes — the transcription stage scales with how much
-> speech is in the recording.
+> The first file after opening the app takes about 15 seconds longer while the
+> models load. After that, roughly a minute per short clip. Longer interviews
+> take proportionally longer — transcription scales with how much speech is in
+> the recording.
 >
 > Processing several files at once is faster than one at a time: the models load
 > once and stay loaded for the whole batch.
@@ -124,16 +85,15 @@ ls /Volumes/YOUR_DRIVE/ClinicalWhisper          # ClinicalWhisper.dmg, models/, 
 
 ## Known limits worth stating up front
 
-- **Very quiet recordings.** Transcription runs on a loudness-normalized copy,
-  which handles the faint pilot recordings. Genuinely silent audio produces a
-  clear error rather than an empty result.
-- **Speaker labels are anonymous.** MOSS emits `S01`, `S02`, …; the app then
-  guesses Interviewer vs Subject from turn length and question ratio. On a
-  single-speaker recording it labels everything `Subject`.
 - **The clinical scores are model output, not a diagnosis.** They are a research
   instrument and should be reported as such.
-- **The app is not notarized.** Every recipient will hit the Gatekeeper warning
-  once. `install.sh` clears it; otherwise it is the System Settings step above.
+- **Speaker labels are anonymous.** The model emits `S01`, `S02`, …; the app then
+  guesses Interviewer vs Subject from turn length and question ratio. On a
+  single-speaker recording it labels everything `Subject`.
+- **Very quiet recordings** are handled — transcription runs on a level-normalized
+  copy, while acoustic features use the original gain. Genuinely silent audio
+  produces a clear error rather than an empty result.
+- **The app is not notarized**, hence the one-time right-click → Open.
 
 ---
 
@@ -141,11 +101,24 @@ ls /Volumes/YOUR_DRIVE/ClinicalWhisper          # ClinicalWhisper.dmg, models/, 
 
 | Symptom | Cause | Fix |
 |---|---|---|
-| "ffmpeg was not found" | ffmpeg missing or Homebrew-linked | `brew install ffmpeg`, or replace `bin/ffmpeg` with a static build |
+| App will not open at all | Intel Mac, or Gatekeeper | check `uname -m`; right-click → Open |
 | "MOSS returned an empty transcript" | audio is silent or not speech | check the recording plays |
-| Stuck on the first file for minutes | first launch — macOS is scanning the 1.3 GB bundle | wait; subsequent launches are fast |
-| Acoustic fields blank, warning banner shown | OpenSMILE failed | the banner names the reason; scores from other stages are still valid |
 | A file in a batch fails | that file only | the batch continues; the failed tab shows the error |
+| Acoustic fields blank, warning banner | OpenSMILE failed | the banner names the reason; other scores are still valid |
 
-Results and logs live in `~/Documents/ClinicalWhisper/`. Send that folder's
-`Output/` contents when reporting a problem.
+Results and logs are in `~/Documents/ClinicalWhisper/`. Send the `Output/`
+contents when reporting a problem.
+
+---
+
+## Rebuilding the DMG
+
+```bash
+./build_dmg.sh
+```
+
+The script stages the model weights out of your local Hugging Face cache into
+the bundle, so process at least one file on your machine first — it refuses to
+build if a model is missing. It also verifies every ML backend and the bundled
+weights landed in the `.app`, and aborts rather than producing a DMG that
+launches but cannot analyze anything.

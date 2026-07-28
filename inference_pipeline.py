@@ -19,7 +19,6 @@ import json
 import logging
 import os
 import shutil
-import subprocess
 import tempfile
 from pathlib import Path
 from typing import Optional
@@ -35,11 +34,19 @@ except ImportError:
     nltk = None
 
 try:
+    import av
     import numpy as np
     import soundfile as sf
 except ImportError:
+    av = None
     np = None
     sf = None
+
+# Everything downstream (MOSS, OpenSMILE) expects 16 kHz mono.
+TARGET_SR = 16000
+# Level targets for the transcription copy only.
+TARGET_RMS_DBFS = -20.0
+TARGET_PEAK_DBFS = -1.5
 
 from cw_config import resolve_path
 
@@ -67,50 +74,96 @@ class InferencePipeline:
         return str(destination)
 
     @staticmethod
-    def _require_ffmpeg() -> str:
-        """Locate ffmpeg, checking the GUI-app PATH gaps on macOS."""
-        found = shutil.which("ffmpeg")
-        if found:
-            return found
-        for candidate in ("/opt/homebrew/bin/ffmpeg", "/usr/local/bin/ffmpeg"):
-            if Path(candidate).exists():
-                return candidate
-        raise FileNotFoundError(
-            "ffmpeg was not found. Install it with `brew install ffmpeg` "
-            "(macOS) or from https://ffmpeg.org/download.html."
+    def _decode_to_mono16k(source_path: Path) -> "np.ndarray":
+        """Decode any container to float32 mono at 16 kHz using PyAV.
+
+        PyAV ships its own ffmpeg libraries inside the wheel, so this works in a
+        packaged .app with nothing installed on the host. Shelling out to an
+        external `ffmpeg` binary was the last thing forcing users through a
+        Homebrew install.
+        """
+        resampler = av.audio.resampler.AudioResampler(
+            format="s16", layout="mono", rate=TARGET_SR
         )
+        blocks: list[np.ndarray] = []
+
+        with av.open(str(source_path)) as container:
+            if not container.streams.audio:
+                raise ValueError(f"No audio track found in {source_path.name}")
+            stream = container.streams.audio[0]
+            for frame in container.decode(stream):
+                for resampled in resampler.resample(frame):
+                    blocks.append(resampled.to_ndarray().reshape(-1))
+            # Flush the resampler's internal buffer.
+            for resampled in resampler.resample(None):
+                blocks.append(resampled.to_ndarray().reshape(-1))
+
+        if not blocks:
+            raise ValueError(f"Decoded no audio from {source_path.name}")
+
+        samples = np.concatenate(blocks).astype(np.float32) / 32768.0
+        return samples
+
+    @staticmethod
+    def _normalise_for_asr(samples: "np.ndarray") -> "np.ndarray":
+        """Bring quiet speech up to a consistent level for the ASR model.
+
+        Replaces ffmpeg's `loudnorm` filter with RMS normalisation to
+        TARGET_RMS_DBFS, backed off so the peak stays under TARGET_PEAK_DBFS.
+        Only the transcription copy is touched.
+        """
+        rms = float(np.sqrt(np.mean(np.square(samples))))
+        if rms <= 0.0:
+            return samples
+
+        # Reference the 99.9th percentile rather than the absolute maximum. A
+        # single door slam or mic bump has a crest factor high enough to hold
+        # the whole recording ~10 dB below target, which is exactly the quiet
+        # audio MOSS returns an empty transcript on. The few samples above the
+        # ceiling are clipped instead.
+        peak_ref = float(np.percentile(np.abs(samples), 99.9))
+        if peak_ref <= 0.0:
+            peak_ref = float(np.max(np.abs(samples)))
+        if peak_ref <= 0.0:
+            return samples
+
+        gain = min(
+            (10.0 ** (TARGET_RMS_DBFS / 20.0)) / rms,
+            (10.0 ** (TARGET_PEAK_DBFS / 20.0)) / peak_ref,
+        )
+
+        return np.clip(samples * gain, -1.0, 1.0).astype(np.float32)
 
     def _preprocess_audio(self, source_path: Path) -> tuple[Path, Path]:
         """Produce the two 16 kHz mono WAVs the pipeline needs.
 
         Returns ``(asr_wav, acoustic_wav)``:
 
-        * ``asr_wav`` is loudness-normalised. Clinical recordings are often very
+        * ``asr_wav`` is level-normalised. Clinical recordings are often very
           quiet (the pilot recordings here average about -35 dBFS), and MOSS
           emits an immediate EOS — an empty transcript — on faint audio.
         * ``acoustic_wav`` keeps the original gain, because OpenSMILE's loudness
           and VTA features are amplitude-dependent and normalisation would
           invalidate them.
         """
-        ffmpeg = self._require_ffmpeg()
+        if av is None or sf is None or np is None:
+            raise RuntimeError(
+                "Audio decoding requires PyAV, soundfile and numpy. "
+                "Reinstall dependencies with `uv pip install -e .`"
+            )
+
         tmp_dir = Path(tempfile.gettempdir())
         acoustic_wav = tmp_dir / f"{source_path.stem}_16k.wav"
         asr_wav = tmp_dir / f"{source_path.stem}_16k_norm.wav"
 
-        log.info("Preprocessing audio to 16kHz mono WAV...")
-        subprocess.run(
-            [ffmpeg, "-y", "-i", str(source_path),
-             "-ar", "16000", "-ac", "1", "-c:a", "pcm_s16le", str(acoustic_wav)],
-            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True,
-        )
+        log.info("Decoding audio to 16kHz mono...")
+        samples = self._decode_to_mono16k(source_path)
+        sf.write(str(acoustic_wav), samples, TARGET_SR, subtype="PCM_16")
 
-        log.info("Building loudness-normalised copy for transcription...")
-        subprocess.run(
-            [ffmpeg, "-y", "-i", str(acoustic_wav),
-             "-af", "loudnorm=I=-16:TP=-1.5:LRA=11",
-             "-ar", "16000", "-ac", "1", "-c:a", "pcm_s16le", str(asr_wav)],
-            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True,
-        )
+        log.info("Building level-normalised copy for transcription...")
+        sf.write(str(asr_wav), self._normalise_for_asr(samples), TARGET_SR, subtype="PCM_16")
+        del samples
+        _free_ram()
 
         return asr_wav, acoustic_wav
 
@@ -192,7 +245,7 @@ class InferencePipeline:
         log.info("Job %s: Processing %s", job_id, file_path.name)
 
         # ── Preprocess ──
-        # ffmpeg is a hard requirement: MOSS needs normalised audio and
+        # Decoding is a hard requirement: MOSS needs level-normalised audio and
         # OpenSMILE needs 16 kHz mono PCM. Falling back to the raw file here
         # used to produce silently-empty analyses.
         asr_wav, acoustic_wav = self._preprocess_audio(file_path)
