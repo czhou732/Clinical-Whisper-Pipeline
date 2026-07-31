@@ -547,3 +547,63 @@ input:focus {
     line-height: 1.7;
     padding-left: var(--space-4);
 }
+
+/* --- Stop button, stage line, and speaker-role correction --- */
+.btn-cancel {
+    background: none;
+    border: 1px solid var(--color-border);
+    border-radius: 3px;
+    color: var(--color-text-muted);
+    cursor: pointer;
+    font-family: var(--font-sans);
+    font-size: var(--text-sm);
+    margin-left: var(--space-2);
+    padding: 2px var(--space-2);
+    transition: all var(--transition-fast);
+}
+
+.btn-cancel:hover:not(:disabled) {
+    border-color: var(--color-danger);
+    color: var(--color-danger);
+}
+
+.btn-cancel:disabled { opacity: 0.4; cursor: not-allowed; }
+
+.stage-line {
+    display: flex;
+    justify-content: space-between;
+    font-family: var(--font-mono);
+    font-size: var(--text-sm);
+    color: var(--color-text-muted);
+    margin-top: var(--space-2);
+}
+
+.roles-bar {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    padding: var(--space-2) 0 var(--space-3);
+    flex-wrap: wrap;
+}
+
+.roles-bar.hidden { display: none; }
+
+.roles-summary {
+    font-family: var(--font-mono);
+    font-size: var(--text-sm);
+    color: var(--color-text);
+}
+
+/* --- Optional study identifiers --- */
+.study-meta {
+    display: flex;
+    gap: var(--space-2);
+    margin-bottom: var(--space-3);
+}
+
+.study-meta input {
+    flex: 1;
+    padding: var(--space-2) var(--space-3);
+    font-family: var(--font-mono);
+    font-size: var(--text-sm);
+}

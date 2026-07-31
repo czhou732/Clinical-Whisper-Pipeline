@@ -13,6 +13,12 @@ document.addEventListener('DOMContentLoaded', () => {
     const statusDot = document.getElementById('status-dot');
     const progressCount = document.getElementById('progress-count');
     const progressBar = document.getElementById('progress-bar');
+    const btnCancel = document.getElementById('btn-cancel');
+    const stageLabel = document.getElementById('stage-label');
+    const stageDetail = document.getElementById('stage-detail');
+    const rolesBar = document.getElementById('roles-bar');
+    const rolesSummary = document.getElementById('roles-summary');
+    const btnSwapRoles = document.getElementById('btn-swap-roles');
 
     const resultPanel = document.getElementById('result-panel');
     const resultTabs = document.getElementById('result-tabs');
@@ -104,6 +110,62 @@ document.addEventListener('DOMContentLoaded', () => {
         renderFileList();
     });
 
+    // --- Stop a running batch ---
+
+    btnCancel.addEventListener('click', async () => {
+        if (!currentBatchId) return;
+        btnCancel.disabled = true;
+        btnCancel.textContent = 'Stopping...';
+        try {
+            await fetch(`/api/cancel/${currentBatchId}`, { method: 'POST' });
+            appendLog('Stopping after the current step...');
+        } catch (e) {
+            appendLog(`Could not stop: ${e.message}`);
+        }
+    });
+
+    // --- Correct speaker roles and re-score (no re-transcription) ---
+
+    btnSwapRoles.addEventListener('click', async () => {
+        const f = batchFiles[activeIndex];
+        if (!f || !currentBatchId) return;
+
+        const roles = f.speaker_roles || {};
+        const swapped = {};
+        Object.keys(roles).forEach(spk => {
+            const r = roles[spk];
+            swapped[spk] = r === 'Interviewer' ? 'Subject'
+                         : r === 'Subject' ? 'Interviewer' : r;
+        });
+
+        btnSwapRoles.disabled = true;
+        btnSwapRoles.textContent = 'Re-scoring...';
+        try {
+            const res = await fetch(`/api/rescore/${currentBatchId}/${activeIndex}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ roles: swapped })
+            });
+            const data = await res.json();
+            if (data.status === 'success') {
+                batchFiles[activeIndex] = Object.assign({}, f, {
+                    result: data.result,
+                    structured_transcript: data.structured_transcript,
+                    speaker_roles: data.speaker_roles
+                });
+                renderActive();
+                appendLog('Re-scored with corrected speaker roles.');
+            } else {
+                appendLog(`Re-score failed: ${data.message}`);
+            }
+        } catch (e) {
+            appendLog(`Re-score failed: ${e.message}`);
+        } finally {
+            btnSwapRoles.disabled = false;
+            btnSwapRoles.textContent = 'Swap roles & re-score';
+        }
+    });
+
     // --- Export ---
 
     document.querySelectorAll('.export-group .btn-secondary').forEach(btn => {
@@ -143,10 +205,18 @@ document.addEventListener('DOMContentLoaded', () => {
         statusText.textContent = 'Processing Pipeline...';
         statusDot.className = 'status-indicator processing';
         progressBar.style.width = '0%';
+        btnCancel.disabled = false;
+        btnCancel.textContent = 'Stop';
         currentBatchId = null;
 
         const formData = new FormData();
         selectedFiles.forEach(f => formData.append('files', f));
+        // Carried into every analysis and the summary CSV, so results can be
+        // grouped by participant rather than by filename.
+        formData.append('participant_id',
+            document.getElementById('participant-id').value || '');
+        formData.append('session_label',
+            document.getElementById('session-label').value || '');
 
         try {
             const res = await fetch('/api/upload', { method: 'POST', body: formData });
@@ -178,14 +248,27 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 if (data.total) {
                     progressCount.textContent = `${data.done}/${data.total}`;
-                    progressBar.style.width = `${(data.done / data.total) * 100}%`;
+                    // Within-file stage progress, so a long transcription does
+                    // not look frozen between files.
+                    const perFile = 100 / data.total;
+                    const inner = typeof data.stage_fraction === 'number'
+                        ? data.stage_fraction * perFile : 0;
+                    progressBar.style.width = `${(data.done * perFile) + inner}%`;
                 }
+
+                stageLabel.textContent = data.stage || '';
+                stageDetail.textContent = data.stage_detail || '';
 
                 const finished = data.status.startsWith('COMPLETED');
                 const errored = data.status.startsWith('ERROR');
+                const cancelled = data.status.startsWith('CANCELLED');
 
-                if (finished || errored) {
+                if (finished || errored || cancelled) {
                     clearInterval(pollInterval);
+                    btnCancel.disabled = true;
+                    btnCancel.textContent = 'Stop';
+                    stageLabel.textContent = '';
+                    stageDetail.textContent = '';
                     batchFiles = data.files || [];
                     const anyDone = batchFiles.some(f => f.state === 'done');
 
@@ -194,10 +277,16 @@ document.addEventListener('DOMContentLoaded', () => {
                         return;
                     }
 
+                    if (cancelled) {
+                        statusText.textContent = 'Stopped';
+                        statusDot.className = 'status-indicator';
+                        if (!anyDone) { enableInputs(); return; }
+                    }
+
                     const failed = batchFiles.filter(f => f.state === 'error').length;
                     const warned = batchFiles.some(f => (f.warnings || []).length);
 
-                    statusText.textContent = failed || warned
+                    if (!cancelled) statusText.textContent = failed || warned
                         ? `Completed — ${failed} failed`.replace(' — 0 failed', ' with warnings')
                         : 'Completed';
                     statusDot.className = 'status-indicator ' + (failed || warned ? 'error' : 'success');
@@ -248,6 +337,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
         resultContent.innerHTML = '';
         impressionBlock.innerHTML = '';
+
+        const roles = f.speaker_roles || {};
+        const roleEntries = Object.keys(roles);
+        if (roleEntries.length && f.state === 'done') {
+            rolesSummary.textContent = roleEntries.map(k => `${k} → ${roles[k]}`).join(', ');
+            rolesBar.classList.remove('hidden');
+        } else {
+            rolesBar.classList.add('hidden');
+        }
 
         if (f.state === 'error') {
             const div = document.createElement('div');

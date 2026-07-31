@@ -58,13 +58,20 @@ This is worth confirming before you spend an hour uploading 8 GB.
 > Drag one or more audio files onto the window and click **Process**.
 > Supported: `.wav`, `.m4a`, `.mp3`, `.mp4`.
 >
-> Each stage is shown as it runs: transcription, PII scrubbing, acoustic
-> extraction, clinical scoring.
+> Optionally fill in a Participant ID and Session before processing — they are
+> carried into the results so a CSV can be grouped by participant.
+>
+> Each stage is shown as it runs — transcription, PII scrubbing, acoustic
+> extraction, clinical scoring — with a progress bar during transcription, which
+> is the long one. **Stop** cancels a run in progress.
 >
 > When it finishes there are three tabs:
 > - **Scores** — clinical scores, acoustic measures, and the clinical impression
 > - **Transcript** — de-identified, with speaker labels
 > - **JSON** — the complete analysis record
+>
+> If the Interviewer/Subject labels came out backwards, **Swap roles & re-score**
+> fixes them in a few seconds without re-transcribing.
 >
 > Save with **CSV**, **JSON**, or **Report** at the top right. A copy is also
 > written to `~/Documents/ClinicalWhisper/Output/`.

@@ -17,7 +17,7 @@ no Hugging Face token is required — but the ~1.7 GB weights are downloaded to
 from __future__ import annotations
 
 import logging
-from typing import Optional
+from typing import Callable, Optional
 
 import torch
 
@@ -40,6 +40,33 @@ except ImportError:  # pragma: no cover - exercised only when deps are missing
 log = logging.getLogger("ClinicalWhisper")
 
 DEFAULT_MODEL_ID = "OpenMOSS-Team/MOSS-Transcribe-Diarize"
+
+
+class _Cancelled(Exception):
+    """Raised out of the token callback to stop generation early."""
+
+
+def build_prompt(base_prompt: str, hotwords: Optional[list]) -> str:
+    """Append domain hotwords in the form the model card documents.
+
+    Clinical audio is full of drug names and instrument names that a general
+    transcriber mangles; MOSS accepts a hotword hint appended to the prompt.
+    """
+    terms = [str(w).strip() for w in (hotwords or []) if str(w).strip()]
+    if not terms:
+        return base_prompt
+    return f"{base_prompt}热词提示：{', '.join(terms)}"
+
+
+def _audio_duration(path: str) -> Optional[float]:
+    """Duration in seconds, for turning a token count into a percentage."""
+    try:
+        import soundfile as sf
+
+        info = sf.info(path)
+        return float(info.frames) / float(info.samplerate)
+    except Exception:
+        return None
 
 # Module-level cache: the 0.9B weights take ~10 s to load, so keep them resident
 # across jobs within a single process rather than reloading per file.
@@ -104,13 +131,14 @@ class MOSSDiarizer:
         max_new_tokens: int = 8192,
         prompt: Optional[str] = None,
         dtype: Optional[str] = None,
+        hotwords: Optional[list] = None,
     ):
         self.model = None
         self.processor = None
         self.is_available = False
         self.model_name = model_name
         self.max_new_tokens = max_new_tokens
-        self.prompt = prompt or DEFAULT_PROMPT
+        self.prompt = build_prompt(prompt or DEFAULT_PROMPT, hotwords)
 
         if AutoModelForCausalLM is None or generate_transcription is None:
             log.warning(
@@ -141,8 +169,20 @@ class MOSSDiarizer:
         except Exception as e:
             log.error("Failed to load MOSS model: %s", e)
 
-    def process_file(self, audio_path: str) -> list[dict]:
+    def process_file(
+        self,
+        audio_path: str,
+        progress_cb: Optional[Callable[[int, Optional[int]], None]] = None,
+        should_cancel: Optional[Callable[[], bool]] = None,
+    ) -> list[dict]:
         """Transcribe and diarize one audio file.
+
+        ``progress_cb(tokens_generated, audio_seconds)`` is called as the model
+        emits tokens. This is by far the longest stage — on a one-hour interview
+        it runs for minutes — and without it the UI shows a single frozen line
+        the whole time.
+
+        ``should_cancel()`` is polled during generation; returning True aborts.
 
         Returns:
             Segments as ``[{"start": float, "end": float, "speaker": str,
@@ -156,6 +196,15 @@ class MOSSDiarizer:
             raise RuntimeError("MOSS model is not available.")
 
         log.info("Running MOSS transcribe + diarize on %s...", audio_path)
+
+        audio_seconds = _audio_duration(audio_path)
+
+        def _on_token(count: int) -> None:
+            if should_cancel is not None and should_cancel():
+                raise _Cancelled()
+            if progress_cb is not None:
+                progress_cb(count, audio_seconds)
+
         try:
             messages = build_transcription_messages(audio_path, self.prompt)
             result = generate_transcription(
@@ -166,7 +215,11 @@ class MOSSDiarizer:
                 do_sample=False,
                 device=self.device,
                 dtype=self.dtype,
+                token_callback=_on_token if (progress_cb or should_cancel) else None,
             )
+        except _Cancelled:
+            log.info("Transcription cancelled.")
+            raise
         except Exception as e:
             log.error("Error during MOSS inference: %s", e)
             raise RuntimeError(f"MOSS inference failed: {e}") from e

@@ -20,7 +20,7 @@ import uuid
 from pathlib import Path
 
 import pandas as pd
-from fastapi import FastAPI, File, UploadFile
+from fastapi import Body, FastAPI, File, Form, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
@@ -77,6 +77,10 @@ def _new_batch(files: list[Path]) -> str:
             "total": len(files),
             "done": 0,
             "current": None,
+            "cancelled": False,
+            "stage": None,
+            "stage_fraction": None,
+            "stage_detail": "",
             "files": [
                 {"filename": f.name, "state": "pending", "result": None,
                  "warnings": [], "error": None, "analysis_path": None,
@@ -122,10 +126,32 @@ def process_batch_task(batch_id: str, paths: list[Path]) -> None:
         from inference_pipeline import InferencePipeline
 
         cfg = load_config(_config_path())
-        pipeline = InferencePipeline(cfg)
+
+        def _progress(stage, fraction, detail):
+            with _lock:
+                b = _batches.get(batch_id)
+                if b is not None:
+                    b["stage"] = stage
+                    b["stage_fraction"] = fraction
+                    b["stage_detail"] = detail
+
+        def _cancelled():
+            with _lock:
+                b = _batches.get(batch_id)
+                return bool(b and b["cancelled"])
+
+        pipeline = InferencePipeline(cfg, progress_cb=_progress, should_cancel=_cancelled)
 
         rows: list[dict] = []
         for idx, audio_path in enumerate(paths):
+            if _cancelled():
+                with _lock:
+                    for f in _batches[batch_id]["files"]:
+                        if f["state"] in ("pending", "running"):
+                            f["state"] = "cancelled"
+                    _batches[batch_id]["log"].append("Cancelled by user.")
+                break
+
             with _lock:
                 b = _batches[batch_id]
                 b["current"] = audio_path.name
@@ -133,10 +159,17 @@ def process_batch_task(batch_id: str, paths: list[Path]) -> None:
                 b["log"].append(f"[{idx + 1}/{len(paths)}] {audio_path.name}")
 
             try:
+                with _lock:
+                    meta = (
+                        _batches[batch_id].get("participant_id", ""),
+                        _batches[batch_id].get("session_label", ""),
+                    )
                 job = {
                     "job_id": f"gui_{uuid.uuid4().hex[:12]}",
                     "file_path": str(audio_path),
                     "original_filename": audio_path.name,
+                    "participant_id": meta[0],
+                    "session_label": meta[1],
                 }
                 analysis_path = pipeline.process_job(job)
                 row = _extract_row(analysis_path, audio_path.name)
@@ -154,14 +187,28 @@ def process_batch_task(batch_id: str, paths: list[Path]) -> None:
                     f["transcript"] = analysis.get("transcript", "")
                     f["structured_transcript"] = analysis.get("structured_transcript", "")
                     f["analysis"] = analysis
+                    # Kept so roles can be corrected and the file re-scored
+                    # without paying for transcription again.
+                    f["segments"] = analysis.get("segments", [])
+                    f["speaker_roles"] = analysis.get("speaker_roles", {})
                     _batches[batch_id]["done"] += 1
             except Exception as exc:
+                # A user-requested stop surfaces here as an exception too, but
+                # it is not a failure and must not be reported as one.
+                if _cancelled():
+                    with _lock:
+                        _batches[batch_id]["files"][idx]["state"] = "cancelled"
+                        _batches[batch_id]["log"].append(
+                            f"Stopped during {audio_path.name}."
+                        )
+                    break
+
                 # One bad file must not abort the rest of the batch.
                 log.warning("Batch %s: %s failed: %s", batch_id, audio_path.name, exc)
                 with _lock:
                     f = _batches[batch_id]["files"][idx]
                     f["state"] = "error"
-                    f["error"] = str(exc)
+                    f["error"] = str(exc) or exc.__class__.__name__
                     _batches[batch_id]["done"] += 1
                     _batches[batch_id]["log"].append(f"ERROR ({audio_path.name}): {exc}")
 
@@ -177,8 +224,15 @@ def process_batch_task(batch_id: str, paths: list[Path]) -> None:
             b["csv_path"] = str(csv_path) if csv_path else None
             b["current"] = None
             failed = sum(1 for f in b["files"] if f["state"] == "error")
-            b["status"] = "COMPLETED" if failed == 0 else f"COMPLETED ({failed} failed)"
-            b["log"].append(f"Batch finished: {len(rows)} succeeded, {failed} failed.")
+            for f in b["files"]:
+                if f["state"] in ("pending", "running"):
+                    f["state"] = "cancelled" if b["cancelled"] else "error"
+            if b["cancelled"]:
+                b["status"] = "CANCELLED"
+                b["log"].append(f"Stopped. {len(rows)} file(s) finished before cancelling.")
+            else:
+                b["status"] = "COMPLETED" if failed == 0 else f"COMPLETED ({failed} failed)"
+                b["log"].append(f"Batch finished: {len(rows)} succeeded, {failed} failed.")
     except Exception as e:
         with _lock:
             b = _batches.get(batch_id)
@@ -192,7 +246,11 @@ def process_batch_task(batch_id: str, paths: list[Path]) -> None:
 # ── API ─────────────────────────────────────────────────────────────────────
 
 @app.post("/api/upload")
-async def upload_files(files: list[UploadFile] = File(...)):
+async def upload_files(
+    files: list[UploadFile] = File(...),
+    participant_id: str = Form(""),
+    session_label: str = Form(""),
+):
     """Accept one or many audio files and start a single batch job."""
     try:
         saved: list[Path] = []
@@ -210,6 +268,9 @@ async def upload_files(files: list[UploadFile] = File(...)):
             )
 
         batch_id = _new_batch(saved)
+        with _lock:
+            _batches[batch_id]["participant_id"] = participant_id.strip()
+            _batches[batch_id]["session_label"] = session_label.strip()
 
         # An explicit daemon thread rather than FastAPI BackgroundTasks: a batch
         # runs for minutes, which would pin an anyio threadpool slot for its
@@ -244,6 +305,10 @@ async def get_status(batch_id: str):
             "total": b["total"],
             "done": b["done"],
             "current": b["current"],
+            "cancelled": b["cancelled"],
+            "stage": b["stage"],
+            "stage_fraction": b["stage_fraction"],
+            "stage_detail": b["stage_detail"],
             "csv_path": b.get("csv_path"),
             "files": [
                 {
@@ -254,6 +319,7 @@ async def get_status(batch_id: str):
                     "error": f["error"],
                     "transcript": f["transcript"],
                     "structured_transcript": f["structured_transcript"],
+                    "speaker_roles": f.get("speaker_roles", {}),
                 }
                 for f in b["files"]
             ],
@@ -298,6 +364,89 @@ def _batch_markdown(b: dict) -> str:
                       f["structured_transcript"], "```"]
         lines.append("")
     return "\n".join(lines)
+
+
+@app.post("/api/cancel/{batch_id}")
+async def cancel_batch(batch_id: str):
+    """Ask a running batch to stop at the next checkpoint."""
+    with _lock:
+        b = _batches.get(batch_id)
+        if b is None:
+            return JSONResponse(status_code=404, content={"status": "error",
+                                                          "message": "Unknown batch."})
+        b["cancelled"] = True
+        b["log"].append("Cancellation requested...")
+    return {"status": "cancelling"}
+
+
+@app.post("/api/rescore/{batch_id}/{index}")
+async def rescore(batch_id: str, index: int, payload: dict = Body(default={})):
+    """Re-run clinical scoring on an already-transcribed file.
+
+    Transcription is the expensive stage, so correcting a speaker role or
+    changing the scoring scope should not cost another full pass. Accepts an
+    optional ``roles`` mapping to override the detected Interviewer/Subject
+    assignment.
+    """
+    with _lock:
+        b = _batches.get(batch_id)
+        if b is None or index >= len(b["files"]):
+            return JSONResponse(status_code=404, content={"status": "error",
+                                                          "message": "Unknown file."})
+        f = b["files"][index]
+        segments = f.get("segments") or []
+        analysis = f.get("analysis") or {}
+
+    if not segments:
+        return JSONResponse(status_code=400,
+                            content={"status": "error",
+                                     "message": "No cached transcript for this file."})
+
+    try:
+        from acoustic_context import build_acoustic_prompt_context
+        from llm_clinical_scorer import score_transcript
+        from transcript_formatter import format_structured_transcript, compute_speaker_stats
+
+        cfg = load_config(_config_path())
+        roles = payload.get("roles") or analysis.get("speaker_roles") or {}
+        scope = payload.get("transcript_scope")
+        if scope:
+            cfg.setdefault("llm_scoring", {})["transcript_scope"] = scope
+
+        structured = format_structured_transcript(segments, roles)
+        context = build_acoustic_prompt_context(
+            analysis.get("overall_acoustics", {}) or {},
+            analysis.get("speaker_acoustics", {}) or {},
+        )
+        scoring = score_transcript(structured, context, cfg)
+
+        analysis = dict(analysis)
+        analysis["llm_clinical_scoring"] = scoring
+        analysis["speaker_roles"] = roles
+        analysis["structured_transcript"] = structured
+        analysis["speaker_stats"] = compute_speaker_stats(segments, roles)
+
+        path = f.get("analysis_path")
+        if path:
+            Path(path).write_text(json.dumps(analysis, indent=2, default=str),
+                                  encoding="utf-8")
+
+        from batch_processor import _extract_row
+        row = _extract_row(path, f["filename"]) if path else f.get("result")
+
+        with _lock:
+            tgt = _batches[batch_id]["files"][index]
+            tgt["analysis"] = analysis
+            tgt["result"] = row
+            tgt["structured_transcript"] = structured
+            tgt["speaker_roles"] = roles
+            _batches[batch_id]["log"].append(f"Re-scored {f['filename']}.")
+
+        return {"status": "success", "result": row,
+                "structured_transcript": structured, "speaker_roles": roles}
+    except Exception as e:
+        log.warning("Re-score failed for %s: %s", batch_id, e)
+        return JSONResponse(status_code=500, content={"status": "error", "message": str(e)})
 
 
 @app.post("/api/save/{batch_id}/{fmt}")

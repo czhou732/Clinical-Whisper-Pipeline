@@ -39,6 +39,11 @@
                     <ul class="file-list" id="file-list"></ul>
                 </div>
 
+                <div class="study-meta">
+                    <input type="text" id="participant-id" placeholder="Participant ID (optional)">
+                    <input type="text" id="session-label" placeholder="Session (optional)">
+                </div>
+
                 <button class="btn-primary" id="btn-process" disabled>Process Audio</button>
             </div>
 
@@ -47,7 +52,9 @@
                     <span class="status-indicator processing" id="status-dot"></span>
                     <span id="status-text">Processing Pipeline...</span>
                     <span class="progress-count" id="progress-count"></span>
+                    <button class="btn-cancel" id="btn-cancel">Stop</button>
                 </div>
+                <div class="stage-line"><span id="stage-label"></span><span id="stage-detail"></span></div>
                 <div class="progress-track"><div class="progress-bar" id="progress-bar"></div></div>
                 <div class="console-output" id="console-output"></div>
             </div>
@@ -64,6 +71,12 @@
                 </div>
 
                 <div class="result-tabs" id="result-tabs"></div>
+
+                <div class="roles-bar hidden" id="roles-bar">
+                    <span class="text-sm">Speakers:</span>
+                    <span id="roles-summary" class="roles-summary"></span>
+                    <button class="btn-secondary" id="btn-swap-roles">Swap roles &amp; re-score</button>
+                </div>
 
                 <div class="view-switch" id="view-switch">
                     <button class="view-btn active" data-view="scores">Scores</button>

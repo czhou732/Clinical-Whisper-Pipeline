@@ -37,6 +37,12 @@ statistics:
 acoustic_features:
   enabled: true               # extracts F0, Energy, VTA via OpenSMILE eGeMAPSv02
 
+# What to do with the source audio once an analysis is written.
+#   archive -> move it to processed_folder (default; keeps the recording)
+#   delete  -> remove it, so nothing identifiable is left on disk
+# The transcript is de-identified either way, but the audio itself is not.
+audio_retention: "archive"
+
 # Duplicate protection
 skip_already_processed: true   # skip files that already have a note in output
 
@@ -112,6 +118,19 @@ llm_scoring:
   max_tokens: 1200
   timeout_seconds: 300
   max_retries: 1
+  # Long interviews are scored in windows and the results averaged, rather than
+  # truncated. ~2800 words is what fits alongside the prompt in Llama-3's 8K
+  # context. Per-window scores are kept in the analysis JSON.
+  window_words: 2800
+  # "dialogue" scores the full exchange; "subject_only" drops the interviewer's
+  # turns. Note engagement_level is an interactional judgement and means
+  # something different without the questions.
+  transcript_scope: "dialogue"
+  # >1 re-scores each window and reports mean/SD, so you can quote a spread
+  # instead of a bare point estimate. Run 1 stays greedy and reproducible;
+  # extra runs use `temperature`. Costs roughly (samples x window) generations.
+  samples: 1
+  temperature: 0.7
 
 # ============================================================
 # v5.0 — MOSS transcription + OpenMED de-identification
@@ -122,6 +141,9 @@ llm_scoring:
 moss:
   model: "OpenMOSS-Team/MOSS-Transcribe-Diarize"
   device: "auto"        # auto | mps | cuda | cpu
+  # Domain terms the transcriber should favour — drug names, scale names, local
+  # jargon. Appended to the model's prompt as hotwords.
+  hotwords: []
   # auto picks float16 on Apple Silicon (~2.4x faster than float32, identical
   # output in testing). Set float32 if a recording ever transcribes poorly.
   dtype: "auto"         # auto | float16 | bfloat16 | float32

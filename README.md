@@ -8,7 +8,7 @@
 
 **A privacy-first, on-device multimodal framework for anhedonia classification.**
 
-ClinicalWhisper v5.0 processes clinical audio recordings entirely on the local machine. Audio, transcripts, and results never leave the device.
+ClinicalWhisper v5.1 processes clinical audio recordings entirely on the local machine. Audio, transcripts, and results never leave the device.
 
 ---
 
@@ -44,7 +44,7 @@ ClinicalWhisper v5.0 processes clinical audio recordings entirely on the local m
 ```
 Audio File (.m4a/.mp3/.wav/.mp4)
     │
-    ▼  ffmpeg → 16 kHz mono WAV, plus a loudness-normalised copy
+    ▼  PyAV → 16 kHz mono WAV, plus a level-normalised copy
 ┌──────────────────────────────────────────────────────────────────┐
 │                      ClinicalWhisper v5.0                        │
 │                                                                  │
@@ -52,14 +52,14 @@ Audio File (.m4a/.mp3/.wav/.mp4)
 │  Stage 2: PII Scrubbing          (OpenMED, HIPAA Safe Harbor)    │
 │  Stage 3: Acoustic Analysis      (OpenSMILE, original gain)      │
 │  Stage 4: Role Detection         (Interviewer / Subject)         │
-│  Stage 5: LLM Clinical Scoring   (Llama-3-8B via mlx_lm)         │
+│  Stage 5: LLM Clinical Scoring   (Llama-3-8B via mlx_lm, windowed) │
 │                          │                                       │
 │                          ▼                                       │
 │              JSON Analysis Report  +  Summary CSV                │
 └──────────────────────────────────────────────────────────────────┘
 ```
 
-Transcription runs on a loudness-normalised copy because clinical recordings are
+Transcription runs on a level-normalised copy because clinical recordings are
 often faint, and MOSS returns an empty transcript on very quiet audio. Acoustic
 features are extracted from the **original-gain** audio, since loudness and VTA
 are amplitude-dependent and normalisation would invalidate them.
@@ -71,11 +71,8 @@ are amplitude-dependent and normalisation would invalidate them.
 | | |
 |---|---|
 | **Hardware** | Apple Silicon Mac (M1 or newer) for the MLX path. Check with `uname -m` — it must print `arm64`. Intel Macs, Windows, and Linux fall back to HuggingFace transformers on CUDA or CPU, which is substantially slower. |
-| **ffmpeg** | Required. `brew install ffmpeg` on macOS, or [ffmpeg.org](https://ffmpeg.org/download.html). |
-| **Disk / network** | ~6.4 GB of model weights download to `~/.cache` on first run: MOSS ~1.7 GB, Llama-3-8B 4-bit ~4.5 GB, OpenMED ~0.2 GB. No Hugging Face account or token is required. |
-
-To skip the download entirely on a target machine, see
-[Offline handoff](#offline-handoff-usb-drive) below.
+| **ffmpeg** | Not required. Audio is decoded through PyAV, which ships its own ffmpeg libraries. |
+| **Disk / network** | The DMG is self-contained: model weights are inside the app, so nothing downloads and no Hugging Face account is needed. Running **from source** instead pulls ~6.4 GB into `~/.cache` on first use. |
 
 ---
 
@@ -145,18 +142,43 @@ Edit `config.example.yaml`:
 ```yaml
 moss:
   model: "OpenMOSS-Team/MOSS-Transcribe-Diarize"
-  device: "auto"        # auto | mps | cuda | cpu
+  device: "auto"          # auto | mps | cuda | cpu
+  dtype: "auto"           # float16 on Apple Silicon: ~2.4x faster, same output
+  hotwords: []            # drug/scale names the transcriber should favour
 
 pii_scrubbing:
   enabled: true
   confidence_threshold: 0.7
-  strict: true          # abort rather than emit an unscrubbed transcript
+  strict: true            # abort rather than emit an unscrubbed transcript
 
 llm_scoring:
   enabled: true
   mlx_model: "mlx-community/Meta-Llama-3-8B-Instruct-4bit"   # Apple Silicon
   hf_model: "NousResearch/Meta-Llama-3-8B-Instruct"          # everywhere else
+  window_words: 2800      # long interviews are windowed, not truncated
+  transcript_scope: "dialogue"   # or subject_only
+  samples: 1              # >1 reports mean/SD instead of a point estimate
+
+audio_retention: "archive"   # or "delete" to leave no identifiable audio
 ```
+
+### Scoring long interviews
+
+Transcripts longer than one context window are split on turn boundaries, scored
+window by window, and averaged. `_meta.coverage` records how much was scored and
+`_meta.per_window_scores` keeps the individual results, so a score that drifted
+across an interview is visible rather than averaged away.
+
+This replaces the previous behaviour, which kept the first 3000 words and
+dropped the rest — a 60-minute interview was scored on its first third while the
+output looked complete.
+
+### Reproducibility
+
+Every analysis carries a `provenance` block: resolved model commit hashes, the
+scoring settings used, package versions, platform, and the source commit when
+run from a checkout. A result stays reconstructible even if a model repo is
+updated in place later.
 
 Transcription and PII scrubbing failures abort the job rather than emitting a
 partial result — an analysis file full of zeros is indistinguishable from a real
@@ -164,22 +186,6 @@ one, so the pipeline refuses to produce one.
 
 ---
 
-## Offline handoff (USB drive)
-
-To hand the app to a collaborator whose machine has never run it, build a bundle
-with the DMG, every model weight, and ffmpeg:
-
-```bash
-./scripts/prepare_offline_bundle.sh /Volumes/USB_DRIVE/ClinicalWhisper
-```
-
-Run this on a machine that has already processed at least one file, so the model
-caches are populated. The recipient runs `install.sh` from the folder, then
-mounts the DMG. No downloads, no account, works with Wi-Fi off.
-
-The bundle is roughly **9 GB** (1 GB app + ~7.7 GB of weights), so use a 16 GB or
-larger drive formatted APFS or exFAT — FAT32 cannot hold the individual model
-files.
 
 ---
 

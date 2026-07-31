@@ -47,6 +47,8 @@ TARGET_SR = 16000
 # Level targets for the transcription copy only.
 TARGET_RMS_DBFS = -20.0
 TARGET_PEAK_DBFS = -1.5
+# Used only to turn a token count into an approximate progress fraction.
+MOSS_TOKENS_PER_SECOND = 5.0
 
 from cw_config import resolve_path
 
@@ -61,9 +63,25 @@ def _free_ram():
 class InferencePipeline:
     """Loads models on-demand per job and unloads after each stage."""
 
-    def __init__(self, cfg: dict):
+    def __init__(self, cfg: dict, progress_cb=None, should_cancel=None):
+        """
+        Args:
+            progress_cb: ``fn(stage: str, fraction: float | None, detail: str)``
+                called as work proceeds, so the UI can show more than a frozen
+                status line during the minutes-long transcription stage.
+            should_cancel: ``fn() -> bool`` polled during long stages.
+        """
         self.cfg = cfg
-        log.info("InferencePipeline v5.0 initialized (MOSS + OpenMED + MLX LLM)")
+        self.progress_cb = progress_cb
+        self.should_cancel = should_cancel
+        log.info("InferencePipeline v5.1 initialized (MOSS + OpenMED + MLX LLM)")
+
+    def _emit(self, stage: str, fraction=None, detail: str = "") -> None:
+        if self.progress_cb is not None:
+            try:
+                self.progress_cb(stage, fraction, detail)
+            except Exception:  # progress reporting must never break a job
+                pass
 
     def _archive_audio(self, job_id: str, source_path: Path, original_filename: str) -> str:
         processed_dir = Path(resolve_path(self.cfg.get("processed_folder", "./Processed")))
@@ -266,6 +284,7 @@ class InferencePipeline:
                 ),
                 device=self.cfg.get("moss", {}).get("device"),
                 dtype=self.cfg.get("moss", {}).get("dtype"),
+                hotwords=self.cfg.get("moss", {}).get("hotwords"),
             )
             if not moss.is_available:
                 raise RuntimeError(
@@ -273,7 +292,25 @@ class InferencePipeline:
                     "moss-transcribe-diarize is installed and the model weights "
                     "downloaded."
                 )
-            segments = moss.process_file(str(asr_wav))
+            # Rough: measured ~4 tokens per second of speech-dense audio, so
+            # 5 keeps a typical file from pinning at 99% while silence-heavy
+            # recordings finish early. The bar is an estimate, not a countdown —
+            # the token count next to it is the honest number.
+            def _moss_progress(tokens: int, audio_seconds) -> None:
+                if audio_seconds:
+                    est = max(1.0, audio_seconds * MOSS_TOKENS_PER_SECOND)
+                    self._emit("Transcribing", min(0.99, tokens / est),
+                               f"{tokens} tokens")
+                else:
+                    self._emit("Transcribing", None, f"{tokens} tokens")
+
+            self._emit("Transcribing", 0.0, "starting")
+            segments = moss.process_file(
+                str(asr_wav),
+                progress_cb=_moss_progress,
+                should_cancel=self.should_cancel,
+            )
+            self._emit("Transcribing", 1.0, f"{len(segments)} segments")
             del moss
             _free_ram()
 
@@ -292,6 +329,7 @@ class InferencePipeline:
                         "PII scrubbing is enabled but the openmed package is not "
                         "installed. Install it, or set pii_scrubbing.enabled: false."
                     )
+                self._emit("De-identifying", None, f"{len(segments)} segments")
                 segments = scrubber.scrub_segments(segments)
                 del scrubber
                 _free_ram()
@@ -315,6 +353,7 @@ class InferencePipeline:
             extractor = AcousticExtractor()
             if extractor.is_available():
                 log.info("Extracting acoustic features...")
+                self._emit("Acoustics", None, "")
                 # Original-gain audio: loudness/VTA features are amplitude-dependent.
                 overall_acoustics = extractor.process_audio_file(str(acoustic_wav))
                 speaker_acoustics = self._extract_speaker_acoustics(
@@ -367,6 +406,7 @@ class InferencePipeline:
             try:
                 from llm_clinical_scorer import score_transcript
                 log.info("Job %s: running LLM clinical scoring...", job_id)
+                self._emit("Clinical scoring", None, "")
                 llm_scoring = score_transcript(
                     structured_transcript, acoustic_context, self.cfg
                 )
@@ -378,6 +418,16 @@ class InferencePipeline:
             msg = "llm_scoring.enabled is false — clinical scores are blank."
             log.warning("Job %s: %s", job_id, msg)
             warnings.append(msg)
+
+        # ── Provenance ──
+        # Recorded per job so a result stays reproducible even if a model repo
+        # is updated in place later.
+        try:
+            import provenance
+            provenance_record = provenance.build(self.cfg)
+        except Exception as exc:  # never fail a job over bookkeeping
+            log.debug("Provenance unavailable: %s", exc)
+            provenance_record = {}
 
         # ── Assemble output payload ──
         pipeline_cfg = self.cfg.get("pipeline", {})
@@ -393,9 +443,14 @@ class InferencePipeline:
 
         payload = {
             "job_id": job_id,
+            # Free-text study identifiers, so a results CSV can be grouped by
+            # participant and session rather than by filename alone.
+            "participant_id": job.get("participant_id", ""),
+            "session_label": job.get("session_label", ""),
             "status": "completed_with_warnings" if warnings else "completed",
             "warnings": warnings,
-            "pipeline_version": "5.0",
+            "pipeline_version": "5.1",
+            "provenance": provenance_record,
             "source_audio": {
                 "original_filename": original_filename,
                 "stored_path": str(file_path),
@@ -414,8 +469,23 @@ class InferencePipeline:
         output_path.write_text(json.dumps(payload, indent=2, default=str), encoding="utf-8")
         os.chmod(output_path, 0o600)
 
-        archived_path = self._archive_audio(job_id, file_path, original_filename)
-        payload["source_audio"]["archived_path"] = archived_path
+        # Retention: the transcript is de-identified but the source audio is
+        # not — it carries identifiable voices and spoken names. Deleting it
+        # here is the only way the finished analysis contains no PHI.
+        retention = str(self.cfg.get("audio_retention", "archive")).lower()
+        if retention == "delete":
+            try:
+                file_path.unlink()
+                payload["source_audio"]["archived_path"] = None
+                payload["source_audio"]["retention"] = "deleted"
+                log.info("Job %s: source audio deleted (audio_retention: delete)", job_id)
+            except OSError as exc:
+                log.warning("Job %s: could not delete source audio: %s", job_id, exc)
+                payload["source_audio"]["retention"] = "delete_failed"
+        else:
+            archived_path = self._archive_audio(job_id, file_path, original_filename)
+            payload["source_audio"]["archived_path"] = archived_path
+            payload["source_audio"]["retention"] = "archived"
         output_path.write_text(json.dumps(payload, indent=2, default=str), encoding="utf-8")
 
         log.info("Job %s: wrote %s", job_id, output_path)

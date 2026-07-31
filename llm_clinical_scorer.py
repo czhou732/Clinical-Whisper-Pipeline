@@ -44,11 +44,13 @@ from typing import Any, Optional
 try:
     import mlx.core as mx
     from mlx_lm import load, generate, stream_generate
+    from mlx_lm.sample_utils import make_sampler
 except ImportError:
     mx = None
     load = None
     generate = None
     stream_generate = None
+    make_sampler = None
 
 try:
     import torch
@@ -94,6 +96,113 @@ DEFAULT_SCORES: dict[str, Any] = {
     "key_observations": [],
     "clinical_impression": "Scoring could not be completed.",
 }
+
+# ---------------------------------------------------------------------------
+# Windowing and aggregation
+# ---------------------------------------------------------------------------
+# Llama-3 has an 8K context and the prompt template alone is ~2600 words, so a
+# window of ~2800 transcript words is what actually fits.
+WINDOW_WORDS = 2800
+
+
+def filter_to_subject(transcript: str) -> str:
+    """Keep only the Subject's turns.
+
+    Optional, not the default. The prompt already instructs the model to score
+    the subject, and engagement_level is an interactional judgement that needs
+    the interviewer's questions to be meaningful — dropping them changes what
+    that dimension measures. Offered for analyses that want the subject's
+    language in isolation.
+    """
+    kept = [
+        line for line in transcript.splitlines()
+        if re.search(r"\]\s*Subject\s*:", line) or line.strip().startswith("Subject:")
+    ]
+    return "\n".join(kept) if kept else transcript
+
+
+def _split_into_windows(transcript: str, window_words: int = WINDOW_WORDS) -> list[str]:
+    """Split a transcript into scoreable windows, breaking on turn boundaries.
+
+    Splitting mid-sentence would hand the model a fragment with no speaker
+    attribution, so windows break between lines and a line longer than the
+    window is emitted on its own rather than cut.
+    """
+    if not transcript.strip():
+        return [transcript]
+
+    lines = transcript.splitlines()
+    windows: list[str] = []
+    current: list[str] = []
+    count = 0
+
+    for line in lines:
+        n = len(line.split())
+        if current and count + n > window_words:
+            windows.append("\n".join(current))
+            current, count = [], 0
+        current.append(line)
+        count += n
+
+    if current:
+        windows.append("\n".join(current))
+
+    return windows or [transcript]
+
+
+def _aggregate_scores(runs: list[dict[str, Any]]) -> dict[str, Any]:
+    """Combine per-window (and per-sample) scores into one result.
+
+    The six dimensions are averaged across runs and rounded; the spread is
+    reported alongside so a score that varied widely across an interview is
+    visible rather than hidden behind a single number. Observations are pooled
+    in order, de-duplicated, and the longest impression is kept as the summary.
+    """
+    out: dict[str, Any] = {}
+    spread: dict[str, Any] = {}
+
+    for key in REQUIRED_SCORE_KEYS:
+        values = [r[key] for r in runs if isinstance(r.get(key), (int, float))]
+        if not values:
+            out[key] = DEFAULT_SCORES[key]
+            continue
+        mean = sum(values) / len(values)
+        out[key] = int(round(mean))
+        if len(values) > 1:
+            var = sum((v - mean) ** 2 for v in values) / len(values)
+            spread[key] = {
+                "mean": round(mean, 2),
+                "sd": round(var ** 0.5, 2),
+                "min": min(values),
+                "max": max(values),
+                "n": len(values),
+            }
+
+    seen: set[str] = set()
+    observations: list[str] = []
+    for r in runs:
+        for obs in r.get("key_observations") or []:
+            if isinstance(obs, str) and obs not in seen:
+                seen.add(obs)
+                observations.append(obs)
+    out["key_observations"] = observations[:12]
+
+    impressions = [
+        r.get("clinical_impression")
+        for r in runs
+        if isinstance(r.get("clinical_impression"), str) and r.get("clinical_impression")
+    ]
+    out["clinical_impression"] = (
+        max(impressions, key=len) if impressions else DEFAULT_SCORES["clinical_impression"]
+    )
+    if len(impressions) > 1:
+        out["window_impressions"] = impressions
+
+    if spread:
+        out["score_spread"] = spread
+
+    return out
+
 
 # ---------------------------------------------------------------------------
 # Prompt template
@@ -268,6 +377,7 @@ def call_local_lm(
     timeout: int = 300,
     hf_model_name: str = "NousResearch/Meta-Llama-3-8B-Instruct",
     max_tokens: int = 1200,
+    temperature: float = 0.0,
 ) -> str:
     """
     Generate text using a local LLM. Tries mlx-lm first (Apple Silicon),
@@ -296,8 +406,16 @@ def call_local_lm(
         if stream_generate is not None:
             chunks: list[str] = []
             checks = 0
+            stream_kwargs = {}
+            if temperature > 0.0 and make_sampler is not None:
+                # Greedy decoding is deterministic, so repeated runs would be
+                # identical and report zero spread. Uncertainty estimates need
+                # an actual sampler.
+                stream_kwargs["sampler"] = make_sampler(temp=temperature)
+
             for part in stream_generate(
-                model, tokenizer, prompt=formatted_prompt, max_tokens=max_tokens
+                model, tokenizer, prompt=formatted_prompt,
+                max_tokens=max_tokens, **stream_kwargs
             ):
                 chunks.append(part.text)
 
@@ -615,64 +733,95 @@ def score_transcript(
     max_tokens = sc_cfg.get("max_tokens", 1200)
     timeout = sc_cfg.get("timeout_seconds", 300)
 
-    # Build the full prompt
-    prompt = CLINICAL_SCORING_PROMPT.format(
-        transcript=structured_transcript,
-        acoustic_context=acoustic_context,
-    )
+    samples = max(1, int(sc_cfg.get("samples", 1)))
+    temperature = float(sc_cfg.get("temperature", 0.0))
+    window_words = int(sc_cfg.get("window_words", WINDOW_WORDS))
 
-    # Truncate very long transcripts to stay within context window
-    words = prompt.split()
-    if len(words) > 6000:
-        log.warning(
-            "Prompt is %d words; truncating transcript to fit context window.",
-            len(words),
-        )
-        # Re-build with truncated transcript
-        transcript_words = structured_transcript.split()
-        truncated = " ".join(transcript_words[:3000]) + "\n[...truncated...]"
-        prompt = CLINICAL_SCORING_PROMPT.format(
-            transcript=truncated,
-            acoustic_context=acoustic_context,
-        )
+    # Windows, not truncation. The previous behaviour kept the first 3000 words
+    # and dropped the rest silently, so a 60-minute interview was scored on its
+    # first third while the output looked complete.
+    scope = sc_cfg.get("transcript_scope", "dialogue")
+    scored_transcript = structured_transcript
+    if scope == "subject_only":
+        scored_transcript = filter_to_subject(structured_transcript)
+        log.info("Scoring the subject's turns only (transcript_scope: subject_only).")
 
-    # Call MLX
+    windows = _split_into_windows(scored_transcript, window_words)
+    total_words = len(scored_transcript.split())
+
     t0 = time.time()
-    try:
-        raw_response = call_local_lm(
-            prompt=prompt,
-            model_name=model,
-            timeout=timeout,
-            hf_model_name=hf_model,
-            max_tokens=max_tokens,
-        )
-    except Exception as exc:
-        log.error("LLM generation failed: %s", exc)
-        result = dict(DEFAULT_SCORES)
-        result["_meta"] = {
-            "model": model,
-            "elapsed_seconds": round(time.time() - t0, 1),
-            "error": str(exc),
-        }
-        return result
+    per_window: list[dict[str, Any]] = []
+    errors: list[str] = []
+
+    for w_idx, window in enumerate(windows):
+        for s_idx in range(samples):
+            prompt = CLINICAL_SCORING_PROMPT.format(
+                transcript=window,
+                acoustic_context=acoustic_context,
+            )
+            try:
+                raw = call_local_lm(
+                    prompt=prompt,
+                    model_name=model,
+                    timeout=timeout,
+                    hf_model_name=hf_model,
+                    max_tokens=max_tokens,
+                    # Sample 2..N with temperature so the spread is meaningful;
+                    # the first pass stays greedy so the headline score is
+                    # reproducible.
+                    temperature=temperature if s_idx > 0 else 0.0,
+                )
+            except Exception as exc:
+                log.error("LLM generation failed (window %d): %s", w_idx + 1, exc)
+                errors.append(str(exc))
+                continue
+
+            try:
+                parsed = parse_scoring_response(raw)
+            except ValueError as exc:
+                log.error("Failed to parse LLM response (window %d): %s", w_idx + 1, exc)
+                log.debug("Raw response: %s", raw[:500])
+                errors.append(str(exc))
+                continue
+
+            parsed["_window"] = w_idx
+            per_window.append(parsed)
 
     elapsed = round(time.time() - t0, 1)
 
-    # Parse and validate the response
-    try:
-        scoring = parse_scoring_response(raw_response)
-    except ValueError as exc:
-        log.error("Failed to parse LLM scoring response: %s", exc)
-        log.debug("Raw response: %s", raw_response[:500])
-        scoring = dict(DEFAULT_SCORES)
-        scoring["_parse_error"] = str(exc)
+    if not per_window:
+        result = dict(DEFAULT_SCORES)
+        result["_meta"] = {
+            "model": model,
+            "elapsed_seconds": elapsed,
+            "error": errors[0] if errors else "no usable LLM response",
+            "windows": len(windows),
+            "transcript_words": total_words,
+        }
+        return result
 
-    # Attach metadata
+    scoring = _aggregate_scores(per_window)
     scoring["_meta"] = {
         "model": model,
         "elapsed_seconds": elapsed,
-        "raw_response_length": len(raw_response),
+        "windows": len(windows),
+        "samples_per_window": samples,
+        "runs_used": len(per_window),
+        "transcript_words": total_words,
+        "window_words": window_words,
+        "transcript_scope": scope,
+        # Windowing means the whole transcript is scored; this stays 1.0 unless
+        # a window failed outright.
+        "coverage": round(len({r["_window"] for r in per_window}) / len(windows), 3),
+        "temperature": temperature,
     }
+    if errors:
+        scoring["_meta"]["errors"] = errors[:5]
+    if len(windows) > 1:
+        scoring["_meta"]["per_window_scores"] = [
+            {k: r.get(k) for k in REQUIRED_SCORE_KEYS} | {"window": r["_window"]}
+            for r in per_window
+        ]
 
     return scoring
 
