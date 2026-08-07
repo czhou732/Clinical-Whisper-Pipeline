@@ -22,7 +22,7 @@ ClinicalWhisper v5.1 processes clinical audio recordings entirely on the local m
 ### Previous releases
 
 - **v1.0** — Initial release (Whisper + Pyannote baseline)
-- **v2.0** — Introduced RoBERTa sentiment analysis
+- **v2.0** — Introduced RoBERTa sentiment analysis (removed from the pipeline in v5.0)
 - **v3.0** — Integrated OpenSMILE (VTA Zhou Index)
 - **v4.0** — Added local LLM inference via Ollama
 
@@ -35,9 +35,8 @@ ClinicalWhisper v5.1 processes clinical audio recordings entirely on the local m
 | **Transcription & Diarization** | MOSS-Transcribe-Diarize 0.9B (MPS on Apple Silicon, CUDA, or CPU) |
 | **HIPAA de-identification** | OpenMED `OpenMed-PII-SuperClinical-Small-44M-v1`, mask method |
 | **Acoustic features** | OpenSMILE eGeMAPSv02 — pitch, loudness, jitter, shimmer, VTA |
-| **LLM clinical scoring** | Llama-3-8B scores hesitancy, affect flatness, engagement, elaboration, psychomotor indicators (0–10) |
+| **LLM clinical scoring** | Llama-3-8B scores hesitancy, affect flatness, engagement, elaboration, psychomotor indicators (0–10). **Not yet validated against any clinical instrument — see Status below.** |
 | **Batch processing** | Directory → CSV pipeline with per-file error handling |
-| **Longitudinal tracking** | Cross-session trend detection via linear regression |
 
 ## The Pipeline
 
@@ -63,6 +62,34 @@ Transcription runs on a level-normalised copy because clinical recordings are
 often faint, and MOSS returns an empty transcript on very quiet audio. Acoustic
 features are extracted from the **original-gain** audio, since loudness and VTA
 are amplitude-dependent and normalisation would invalidate them.
+
+---
+
+## Status of the measures
+
+Two families of numbers come out of this pipeline, and they do not carry the same
+evidentiary weight.
+
+**Acoustic features** (`pitch_mean_st`, `pitch_cv`, `loudness_cv`, `jitter`,
+`shimmer`) are eGeMAPSv02 via OpenSMILE — a published, standardised parameter set,
+so the values are comparable to the affective-computing literature.
+
+**The six clinical scores are unvalidated.** They are the output of a local LLM
+reading the transcript. There is currently no correlation with PHQ-9, SHAPS,
+HAM-D or any other instrument, no inter-rater reliability against clinicians, and
+no test-retest data. They should be described as automated interview features
+whose agreement with clinical judgement has not been established — not as a
+validated instrument, and not as a diagnosis.
+
+The eval suite (`evals/`) is a **regression test**, not a validation study: it
+checks that the scorer still behaves as it did before a code change, using
+synthetic vignettes with author-assigned expected ranges. Its pass rate says
+nothing about clinical accuracy.
+
+**VTA** is a derived index (`-ln(CV_F0 x CV_Energy)`) with no external validation.
+Note that its interpretation bands in `acoustic_context.py` are currently
+inverted relative to the formula — flat speech produces a *high* VTA, not a low
+one — and the thresholds are miscalibrated. This is a known open bug.
 
 ---
 
@@ -119,8 +146,8 @@ uv run python main_app.py
 ### Setup
 
 ```bash
-git clone https://github.com/czhou732/ClinicalWhisper.git
-cd ClinicalWhisper
+git clone https://github.com/czhou732/Clinical-Whisper-Pipeline.git
+cd Clinical-Whisper-Pipeline
 uv venv && source .venv/bin/activate
 uv pip install -e .
 uv pip install "moss-transcribe-diarize @ git+https://github.com/OpenMOSS/MOSS-Transcribe-Diarize.git"
@@ -183,6 +210,13 @@ across an interview is visible rather than averaged away.
 This replaces the previous behaviour, which kept the first 3000 words and
 dropped the rest — a 60-minute interview was scored on its first third while the
 output looked complete.
+
+### Not currently in the pipeline
+
+`longitudinal.py`, `question_detector.py`, `llm_embeddings.py` and
+`sentiment_analyzer.py` are present in the repository but are **not imported by
+the pipeline**. They are available as standalone tools; nothing in the app or the
+batch processor calls them.
 
 ### Reproducibility
 

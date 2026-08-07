@@ -48,7 +48,7 @@ diarization = [
 clinicalwhisper = "main:main"
 
 [project.urls]
-Repository = "https://github.com/czhou732/ClinicalWhisper"
+Repository = "https://github.com/czhou732/Clinical-Whisper-Pipeline"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
