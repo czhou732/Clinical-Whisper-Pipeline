@@ -48,11 +48,22 @@ _RANGES: dict[str, tuple[float, float, str, str, str]] = {
     # <3 % normal, 3-6 % mild, >6 % elevated — parallels jitter logic.
     "shimmer": (0.03, 0.06, "normal", "mildly elevated", "elevated"),
 
-    # VTA (Vocal Tract Anhedonia index).  V_anh = -log(CV_F0 × CV_Energy).
-    # Lower values → less prosodic variability → possible anhedonia.
-    # <1.5 is concerning (flat affect), 1.5-3.0 is typical, >3.0 is
-    # unusually expressive (could be mania or high engagement).
-    "vta": (1.5, 3.0, "low", "normal", "high"),
+    # VTA (Vocal Tract Anhedonia index).  V_anh = -ln(CV_F0 × CV_Energy).
+    #
+    # DIRECTION: the formula is monotonically DECREASING in prosodic
+    # variability, so flat, monotone speech yields a HIGH VTA and expressive
+    # speech a LOW one.  Higher = more anhedonic, consistent with the name.
+    # The previous bands had this inverted and labelled a flat speaker
+    # "unusually expressive".
+    #
+    # THRESHOLDS: derived from the pitch_cv and loudness_cv bands above so the
+    # index agrees with its own components rather than with assumed cutoffs —
+    #   both CVs at 0.30 (expressive)  -> -ln(0.09) = 2.41
+    #   both CVs at 0.10 (monotone)    -> -ln(0.01) = 4.61
+    # so 2.4-4.6 is the range implied by "normal" variability on both inputs.
+    # These are internally consistent, NOT empirically validated; replace them
+    # with percentiles from a real corpus before reporting them.
+    "vta": (2.4, 4.6, "expressive", "normal", "flat"),
 }
 
 # Human-readable clinical gloss for extreme categories.
@@ -78,8 +89,8 @@ _CLINICAL_GLOSS: dict[str, dict[str, str]] = {
         "elevated": "significant amplitude instability — potential vocal pathology",
     },
     "vta": {
-        "low": "potential anhedonia indicator",
-        "high": "elevated prosodic variability — high expressiveness or emotional lability",
+        "expressive": "high prosodic variability — expressive delivery",
+        "flat": "reduced prosodic variability — potential anhedonia indicator",
     },
 }
 

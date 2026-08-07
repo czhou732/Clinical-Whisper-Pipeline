@@ -86,10 +86,12 @@ checks that the scorer still behaves as it did before a code change, using
 synthetic vignettes with author-assigned expected ranges. Its pass rate says
 nothing about clinical accuracy.
 
-**VTA** is a derived index (`-ln(CV_F0 x CV_Energy)`) with no external validation.
-Note that its interpretation bands in `acoustic_context.py` are currently
-inverted relative to the formula — flat speech produces a *high* VTA, not a low
-one — and the thresholds are miscalibrated. This is a known open bug.
+**VTA** is a derived index (`-ln(CV_F0 x CV_Energy)`) with no external
+validation. Higher values mean *less* prosodic variability, so a high VTA is the
+anhedonia-relevant direction. Its bands (2.4 / 4.6) are derived from the pitch
+and loudness CV ranges so the index agrees with its own components — they are
+internally consistent, not empirically calibrated, and should be replaced with
+percentiles from a real corpus before being reported.
 
 ---
 
