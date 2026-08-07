@@ -68,9 +68,32 @@ def _audio_duration(path: str) -> Optional[float]:
     except Exception:
         return None
 
-# Module-level cache: the 0.9B weights take ~10 s to load, so keep them resident
-# across jobs within a single process rather than reloading per file.
-_MODEL_CACHE: dict[tuple[str, str], tuple] = {}
+# Cache: the 0.9B weights take ~10 s to load, so keep them resident across the
+# files of one batch rather than reloading per file. It must be evictable — held
+# unconditionally, MOSS (~1.8 GB at float16) sat in memory for the life of the
+# app and competed with the scoring model for unified memory.
+_MODEL_CACHE: dict[tuple[str, str, str], tuple] = {}
+
+
+def unload_models() -> int:
+    """Drop cached MOSS weights. Returns how many entries were freed."""
+    import gc
+
+    freed = len(_MODEL_CACHE)
+    _MODEL_CACHE.clear()
+    gc.collect()
+
+    # Return the MPS allocator's cached blocks to the OS, otherwise the freed
+    # weights stay counted against the process on Apple Silicon.
+    try:
+        if torch.backends.mps.is_available():
+            torch.mps.empty_cache()
+    except Exception:  # pragma: no cover - best effort
+        pass
+
+    if freed:
+        log.info("Released MOSS model from memory.")
+    return freed
 
 
 def select_device(preferred: Optional[str] = None) -> torch.device:

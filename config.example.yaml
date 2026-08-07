@@ -37,6 +37,12 @@ statistics:
 acoustic_features:
   enabled: true               # extracts F0, Energy, VTA via OpenSMILE eGeMAPSv02
 
+# Keep the transcription and scoring models in memory between batches.
+# false (default) releases them when a batch finishes, so an idle app holds a
+# few hundred MB instead of ~5 GB. The cost is ~10 s of model loading on the
+# next batch. Set true when working through many files back to back.
+keep_models_loaded: false
+
 # What to do with the source audio once an analysis is written.
 #   archive -> move it to processed_folder (default; keeps the recording)
 #   delete  -> remove it, so nothing identifiable is left on disk

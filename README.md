@@ -160,7 +160,18 @@ llm_scoring:
   samples: 1              # >1 reports mean/SD instead of a point estimate
 
 audio_retention: "archive"   # or "delete" to leave no identifiable audio
+keep_models_loaded: false    # release model memory when a batch finishes
 ```
+
+### Memory
+
+A batch runs in two phases — transcribe every file, release the transcription
+model, then score every file — so the 1.7 GB transcriber and the 4.9 GB scorer
+are never resident together. Peak model memory is ~4.9 GB rather than ~6.6 GB,
+and both are released when the batch ends unless `keep_models_loaded` is set.
+
+Audio is decoded block by block straight to disk, so a two-hour recording costs
+a few MB rather than the ~300 MB it would take to hold as one array.
 
 ### Scoring long interviews
 

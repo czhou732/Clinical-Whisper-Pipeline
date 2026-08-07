@@ -87,6 +87,9 @@ This is worth confirming before you spend an hour uploading 8 GB.
 >
 > Processing several files at once is faster than one at a time: the models load
 > once and stay loaded for the whole batch.
+>
+> Memory is released when a batch finishes, so leaving the app open costs a few
+> hundred MB rather than several GB.
 
 ---
 

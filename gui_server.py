@@ -142,14 +142,21 @@ def process_batch_task(batch_id: str, paths: list[Path]) -> None:
 
         pipeline = InferencePipeline(cfg, progress_cb=_progress, should_cancel=_cancelled)
 
+        with _lock:
+            meta = (
+                _batches[batch_id].get("participant_id", ""),
+                _batches[batch_id].get("session_label", ""),
+            )
+
+        # Two phases so the transcription and scoring models are never
+        # resident together: MOSS is ~1.7 GB and Llama-3 ~4.9 GB, and holding
+        # both put peak model memory at ~6.6 GB for no benefit.
+        states: list[tuple[int, dict]] = []
         rows: list[dict] = []
+
+        # ── Phase 1: transcribe every file ──
         for idx, audio_path in enumerate(paths):
             if _cancelled():
-                with _lock:
-                    for f in _batches[batch_id]["files"]:
-                        if f["state"] in ("pending", "running"):
-                            f["state"] = "cancelled"
-                    _batches[batch_id]["log"].append("Cancelled by user.")
                 break
 
             with _lock:
@@ -159,11 +166,6 @@ def process_batch_task(batch_id: str, paths: list[Path]) -> None:
                 b["log"].append(f"[{idx + 1}/{len(paths)}] {audio_path.name}")
 
             try:
-                with _lock:
-                    meta = (
-                        _batches[batch_id].get("participant_id", ""),
-                        _batches[batch_id].get("session_label", ""),
-                    )
                 job = {
                     "job_id": f"gui_{uuid.uuid4().hex[:12]}",
                     "file_path": str(audio_path),
@@ -171,7 +173,39 @@ def process_batch_task(batch_id: str, paths: list[Path]) -> None:
                     "participant_id": meta[0],
                     "session_label": meta[1],
                 }
-                analysis_path = pipeline.process_job(job)
+                states.append((idx, pipeline.transcribe_job(job)))
+            except Exception as exc:
+                if _cancelled():
+                    with _lock:
+                        _batches[batch_id]["files"][idx]["state"] = "cancelled"
+                        _batches[batch_id]["log"].append(
+                            f"Stopped during {audio_path.name}."
+                        )
+                    break
+                log.warning("Batch %s: %s failed: %s", batch_id, audio_path.name, exc)
+                with _lock:
+                    f = _batches[batch_id]["files"][idx]
+                    f["state"] = "error"
+                    f["error"] = str(exc) or exc.__class__.__name__
+                    _batches[batch_id]["done"] += 1
+                    _batches[batch_id]["log"].append(f"ERROR ({audio_path.name}): {exc}")
+
+        # Hand back the transcription weights before the scoring model loads.
+        pipeline.release_transcriber()
+
+        # ── Phase 2: score every transcript ──
+        for idx, state in states:
+            if _cancelled():
+                with _lock:
+                    _batches[batch_id]["files"][idx]["state"] = "cancelled"
+                break
+
+            audio_path = paths[idx]
+            with _lock:
+                _batches[batch_id]["current"] = audio_path.name
+
+            try:
+                analysis_path = pipeline.score_job(state)
                 row = _extract_row(analysis_path, audio_path.name)
 
                 with open(analysis_path, "r", encoding="utf-8") as fh:
@@ -193,24 +227,21 @@ def process_batch_task(batch_id: str, paths: list[Path]) -> None:
                     f["speaker_roles"] = analysis.get("speaker_roles", {})
                     _batches[batch_id]["done"] += 1
             except Exception as exc:
-                # A user-requested stop surfaces here as an exception too, but
-                # it is not a failure and must not be reported as one.
-                if _cancelled():
-                    with _lock:
-                        _batches[batch_id]["files"][idx]["state"] = "cancelled"
-                        _batches[batch_id]["log"].append(
-                            f"Stopped during {audio_path.name}."
-                        )
-                    break
-
-                # One bad file must not abort the rest of the batch.
-                log.warning("Batch %s: %s failed: %s", batch_id, audio_path.name, exc)
+                log.warning("Batch %s: scoring %s failed: %s",
+                            batch_id, audio_path.name, exc)
                 with _lock:
                     f = _batches[batch_id]["files"][idx]
                     f["state"] = "error"
                     f["error"] = str(exc) or exc.__class__.__name__
                     _batches[batch_id]["done"] += 1
                     _batches[batch_id]["log"].append(f"ERROR ({audio_path.name}): {exc}")
+
+        # Idle apps should not sit on gigabytes of weights. Set
+        # keep_models_loaded: true to trade memory for a faster next batch.
+        if not cfg.get("keep_models_loaded", False):
+            pipeline.release_all()
+            with _lock:
+                _batches[batch_id]["log"].append("Models released from memory.")
 
         # One combined CSV for the whole batch, alongside the per-file JSON.
         csv_path = None

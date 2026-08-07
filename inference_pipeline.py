@@ -49,6 +49,10 @@ TARGET_RMS_DBFS = -20.0
 TARGET_PEAK_DBFS = -1.5
 # Used only to turn a token count into an approximate progress fraction.
 MOSS_TOKENS_PER_SECOND = 5.0
+# Resolution of the |amplitude| histogram used for the streaming percentile.
+AMPLITUDE_BINS = 4096
+# Samples per block when re-reading for normalisation (~1 s of audio).
+DECODE_BLOCK = 16384
 
 from cw_config import resolve_path
 
@@ -92,18 +96,20 @@ class InferencePipeline:
         return str(destination)
 
     @staticmethod
-    def _decode_to_mono16k(source_path: Path) -> "np.ndarray":
-        """Decode any container to float32 mono at 16 kHz using PyAV.
+    def _decode_stream(source_path: Path):
+        """Yield float32 mono blocks at 16 kHz, without holding the whole file.
 
         PyAV ships its own ffmpeg libraries inside the wheel, so this works in a
-        packaged .app with nothing installed on the host. Shelling out to an
-        external `ffmpeg` binary was the last thing forcing users through a
-        Homebrew install.
+        packaged .app with nothing installed on the host.
+
+        Yielding rather than returning one array matters on real recordings: a
+        two-hour interview is ~460 MB as float32, and building it with
+        ``np.concatenate`` briefly doubled that.
         """
         resampler = av.audio.resampler.AudioResampler(
             format="s16", layout="mono", rate=TARGET_SR
         )
-        blocks: list[np.ndarray] = []
+        produced = False
 
         with av.open(str(source_path)) as container:
             if not container.streams.audio:
@@ -111,46 +117,55 @@ class InferencePipeline:
             stream = container.streams.audio[0]
             for frame in container.decode(stream):
                 for resampled in resampler.resample(frame):
-                    blocks.append(resampled.to_ndarray().reshape(-1))
-            # Flush the resampler's internal buffer.
+                    block = resampled.to_ndarray().reshape(-1)
+                    if block.size:
+                        produced = True
+                        yield block.astype(np.float32) / 32768.0
             for resampled in resampler.resample(None):
-                blocks.append(resampled.to_ndarray().reshape(-1))
+                block = resampled.to_ndarray().reshape(-1)
+                if block.size:
+                    produced = True
+                    yield block.astype(np.float32) / 32768.0
 
-        if not blocks:
+        if not produced:
             raise ValueError(f"Decoded no audio from {source_path.name}")
 
-        samples = np.concatenate(blocks).astype(np.float32) / 32768.0
-        return samples
-
     @staticmethod
-    def _normalise_for_asr(samples: "np.ndarray") -> "np.ndarray":
-        """Bring quiet speech up to a consistent level for the ASR model.
+    def _asr_gain(sum_squares: float, count: int, hist: "np.ndarray") -> float:
+        """Gain that lifts quiet speech to TARGET_RMS_DBFS for the ASR copy.
 
-        Replaces ffmpeg's `loudnorm` filter with RMS normalisation to
-        TARGET_RMS_DBFS, backed off so the peak stays under TARGET_PEAK_DBFS.
-        Only the transcription copy is touched.
+        The peak reference is the 99.9th percentile taken from a histogram of
+        |x| accumulated during decoding, not the absolute maximum: one door slam
+        has a crest factor high enough to hold an entire recording ~10 dB below
+        target, which is exactly the quiet audio MOSS returns an empty
+        transcript on. The few samples above the ceiling are clipped instead.
+
+        Using a histogram keeps this O(1) in memory — an exact percentile would
+        need every sample resident, which is what this change is removing.
         """
-        rms = float(np.sqrt(np.mean(np.square(samples))))
+        if count == 0:
+            return 1.0
+
+        rms = float(np.sqrt(sum_squares / count))
         if rms <= 0.0:
-            return samples
+            return 1.0
 
-        # Reference the 99.9th percentile rather than the absolute maximum. A
-        # single door slam or mic bump has a crest factor high enough to hold
-        # the whole recording ~10 dB below target, which is exactly the quiet
-        # audio MOSS returns an empty transcript on. The few samples above the
-        # ceiling are clipped instead.
-        peak_ref = float(np.percentile(np.abs(samples), 99.9))
+        total = hist.sum()
+        if total <= 0:
+            return 1.0
+        cutoff = 0.999 * total
+        cumulative = np.cumsum(hist)
+        idx = int(np.searchsorted(cumulative, cutoff))
+        idx = min(idx, AMPLITUDE_BINS - 1)
+        # Upper edge of the bin, so the estimate never under-reports the peak.
+        peak_ref = (idx + 1) / AMPLITUDE_BINS
         if peak_ref <= 0.0:
-            peak_ref = float(np.max(np.abs(samples)))
-        if peak_ref <= 0.0:
-            return samples
+            return 1.0
 
-        gain = min(
+        return min(
             (10.0 ** (TARGET_RMS_DBFS / 20.0)) / rms,
             (10.0 ** (TARGET_PEAK_DBFS / 20.0)) / peak_ref,
         )
-
-        return np.clip(samples * gain, -1.0, 1.0).astype(np.float32)
 
     def _preprocess_audio(self, source_path: Path) -> tuple[Path, Path]:
         """Produce the two 16 kHz mono WAVs the pipeline needs.
@@ -163,6 +178,9 @@ class InferencePipeline:
         * ``acoustic_wav`` keeps the original gain, because OpenSMILE's loudness
           and VTA features are amplitude-dependent and normalisation would
           invalidate them.
+
+        Both are written block by block, so peak memory is a few MB whatever the
+        length of the recording.
         """
         if av is None or sf is None or np is None:
             raise RuntimeError(
@@ -174,13 +192,38 @@ class InferencePipeline:
         acoustic_wav = tmp_dir / f"{source_path.stem}_16k.wav"
         asr_wav = tmp_dir / f"{source_path.stem}_16k_norm.wav"
 
+        # Pass 1: decode straight to disk at original gain, accumulating the
+        # statistics the ASR copy needs.
         log.info("Decoding audio to 16kHz mono...")
-        samples = self._decode_to_mono16k(source_path)
-        sf.write(str(acoustic_wav), samples, TARGET_SR, subtype="PCM_16")
+        sum_squares = 0.0
+        count = 0
+        hist = np.zeros(AMPLITUDE_BINS, dtype=np.int64)
 
+        with sf.SoundFile(str(acoustic_wav), mode="w", samplerate=TARGET_SR,
+                          channels=1, subtype="PCM_16") as out:
+            for block in self._decode_stream(source_path):
+                out.write(block)
+                sum_squares += float(np.dot(block, block))
+                count += block.size
+                magnitudes = np.minimum(np.abs(block), 0.999999)
+                hist += np.bincount(
+                    (magnitudes * AMPLITUDE_BINS).astype(np.int32),
+                    minlength=AMPLITUDE_BINS,
+                )[:AMPLITUDE_BINS]
+
+        # Pass 2: re-read and apply a single gain, again block by block.
+        gain = self._asr_gain(sum_squares, count, hist)
         log.info("Building level-normalised copy for transcription...")
-        sf.write(str(asr_wav), self._normalise_for_asr(samples), TARGET_SR, subtype="PCM_16")
-        del samples
+        with sf.SoundFile(str(acoustic_wav)) as src, \
+             sf.SoundFile(str(asr_wav), mode="w", samplerate=TARGET_SR,
+                          channels=1, subtype="PCM_16") as out:
+            while True:
+                block = src.read(DECODE_BLOCK, dtype="float32")
+                if not len(block):
+                    break
+                out.write(np.clip(block * gain, -1.0, 1.0))
+
+        del hist
         _free_ram()
 
         return asr_wav, acoustic_wav
@@ -249,9 +292,43 @@ class InferencePipeline:
         }
 
     def process_job(self, job: dict) -> str:
+        """Run both halves for one file and write `[job_id]_analysis.json`.
+
+        Kept for single-file and CLI use. A batch should call
+        :meth:`transcribe_job` for every file, then :meth:`release_transcriber`,
+        then :meth:`score_job` for every file — that way the transcription and
+        scoring models are never resident at the same time.
         """
-        Process one queue job and write `[job_id]_analysis.json`.
-        Returns: Path to the JSON output file.
+        state = self.transcribe_job(job)
+        return self.score_job(state)
+
+    def release_transcriber(self) -> None:
+        """Free the transcription model (~1.8 GB at float16)."""
+        try:
+            import moss_diarizer
+            moss_diarizer.unload_models()
+        except Exception as exc:  # pragma: no cover - best effort
+            log.debug("Could not release MOSS: %s", exc)
+        _free_ram()
+
+    def release_scorer(self) -> None:
+        """Free the clinical scoring model (~4.5 GB for Llama-3-8B at 4-bit)."""
+        try:
+            import llm_clinical_scorer
+            llm_clinical_scorer.unload_models()
+        except Exception as exc:  # pragma: no cover - best effort
+            log.debug("Could not release the scoring model: %s", exc)
+        _free_ram()
+
+    def release_all(self) -> None:
+        self.release_transcriber()
+        self.release_scorer()
+
+    def transcribe_job(self, job: dict) -> dict:
+        """First half: decode, transcribe, de-identify, acoustics.
+
+        Returns the intermediate state that :meth:`score_job` consumes. Nothing
+        here touches the scoring model.
         """
         job_id = job["job_id"]
         file_path = Path(job["file_path"]).expanduser()
@@ -373,6 +450,36 @@ class InferencePipeline:
         for wav in temp_wavs:
             if wav.exists():
                 os.unlink(str(wav))
+
+        return {
+            "job": job,
+            "job_id": job_id,
+            "file_path": file_path,
+            "original_filename": original_filename,
+            "segments": segments,
+            "transcript": transcript,
+            "stats": stats,
+            "overall_acoustics": overall_acoustics,
+            "speaker_acoustics": speaker_acoustics,
+            "warnings": warnings,
+        }
+
+    def score_job(self, state: dict) -> str:
+        """Second half: role detection, clinical scoring, write the analysis.
+
+        Nothing here touches the transcription model, so a batch can free it
+        before this runs.
+        """
+        job = state["job"]
+        job_id = state["job_id"]
+        file_path = state["file_path"]
+        original_filename = state["original_filename"]
+        segments = state["segments"]
+        transcript = state["transcript"]
+        stats = state["stats"]
+        overall_acoustics = state["overall_acoustics"]
+        speaker_acoustics = state["speaker_acoustics"]
+        warnings = state["warnings"]
 
         # ── Stage 4: Structured Transcript (role detection + formatting) ──
         structured_result = {}

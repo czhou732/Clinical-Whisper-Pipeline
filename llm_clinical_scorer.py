@@ -371,6 +371,26 @@ def _load_scoring_config(
 
 _MODEL_CACHE = {}
 
+
+def unload_models() -> int:
+    """Drop the cached scoring model (~4.5 GB for Llama-3-8B at 4-bit)."""
+    import gc
+
+    freed = len(_MODEL_CACHE)
+    _MODEL_CACHE.clear()
+    gc.collect()
+
+    # MLX holds freed buffers in its own pool; hand them back explicitly.
+    try:
+        if mx is not None:
+            mx.clear_cache()
+    except Exception:  # pragma: no cover - best effort
+        pass
+
+    if freed:
+        log.info("Released clinical scoring model from memory.")
+    return freed
+
 def call_local_lm(
     prompt: str,
     model_name: str = "mlx-community/Meta-Llama-3-8B-Instruct-4bit",
