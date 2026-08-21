@@ -11,7 +11,9 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: ["3.9", "3.10", "3.11"]
+        # 3.9 was in this matrix while pyproject requires >=3.10, so that
+        # job could never install the package.
+        python-version: ["3.10", "3.11", "3.12"]
 
     steps:
       - uses: actions/checkout@v4
