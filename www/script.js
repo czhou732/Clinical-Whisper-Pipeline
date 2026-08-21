@@ -217,6 +217,10 @@ document.addEventListener('DOMContentLoaded', () => {
             document.getElementById('participant-id').value || '');
         formData.append('session_label',
             document.getElementById('session-label').value || '');
+        // Criterion measure, recorded alongside the audio so the scores can
+        // later be correlated against it. Cannot be added retrospectively.
+        formData.append('criterion_score',
+            document.getElementById('criterion-score').value || '');
 
         try {
             const res = await fetch('/api/upload', { method: 'POST', body: formData });

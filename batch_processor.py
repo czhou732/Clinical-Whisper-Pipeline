@@ -46,6 +46,7 @@ def _extract_row(analysis_path: str, audio_filename: str) -> dict:
         "filename": audio_filename,
         "participant_id": data.get("participant_id", ""),
         "session_label": data.get("session_label", ""),
+        "criterion_score": data.get("criterion_score", ""),
         "word_count": stats.get("word_count", 0),
         "duration_minutes": round(stats.get("duration_seconds", 0.0) / 60.0, 2),
         "hesitancy_score": llm_scores.get("hesitancy_score", None),

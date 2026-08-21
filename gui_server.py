@@ -146,6 +146,7 @@ def process_batch_task(batch_id: str, paths: list[Path]) -> None:
             meta = (
                 _batches[batch_id].get("participant_id", ""),
                 _batches[batch_id].get("session_label", ""),
+                _batches[batch_id].get("criterion_score", ""),
             )
 
         # Two phases so the transcription and scoring models are never
@@ -172,6 +173,7 @@ def process_batch_task(batch_id: str, paths: list[Path]) -> None:
                     "original_filename": audio_path.name,
                     "participant_id": meta[0],
                     "session_label": meta[1],
+                    "criterion_score": meta[2],
                 }
                 states.append((idx, pipeline.transcribe_job(job)))
             except Exception as exc:
@@ -281,6 +283,7 @@ async def upload_files(
     files: list[UploadFile] = File(...),
     participant_id: str = Form(""),
     session_label: str = Form(""),
+    criterion_score: str = Form(""),
 ):
     """Accept one or many audio files and start a single batch job."""
     try:
@@ -302,6 +305,7 @@ async def upload_files(
         with _lock:
             _batches[batch_id]["participant_id"] = participant_id.strip()
             _batches[batch_id]["session_label"] = session_label.strip()
+            _batches[batch_id]["criterion_score"] = criterion_score.strip()
 
         # An explicit daemon thread rather than FastAPI BackgroundTasks: a batch
         # runs for minutes, which would pin an anyio threadpool slot for its

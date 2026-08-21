@@ -554,6 +554,11 @@ class InferencePipeline:
             # participant and session rather than by filename alone.
             "participant_id": job.get("participant_id", ""),
             "session_label": job.get("session_label", ""),
+            # Criterion measure captured at recording time (e.g. "SHAPS 34").
+            # Free text so it is not locked to one instrument. This is what makes
+            # a later validity analysis possible — it cannot be retrofitted onto
+            # audio that was collected without it.
+            "criterion_score": job.get("criterion_score", ""),
             "status": "completed_with_warnings" if warnings else "completed",
             "warnings": warnings,
             "pipeline_version": "5.1",
