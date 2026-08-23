@@ -355,6 +355,7 @@ def _load_scoring_config(
         "mlx_model": "mlx-community/Meta-Llama-3-8B-Instruct-4bit",
         "hf_model": "NousResearch/Meta-Llama-3-8B-Instruct",
         "max_tokens": 1200,
+        "greedy_first": True,
         "timeout_seconds": 300,
         "max_retries": 1,
     }
@@ -751,6 +752,7 @@ def score_transcript(
     model = sc_cfg.get("mlx_model", "mlx-community/Meta-Llama-3-8B-Instruct-4bit")
     hf_model = sc_cfg.get("hf_model", "NousResearch/Meta-Llama-3-8B-Instruct")
     max_tokens = sc_cfg.get("max_tokens", 1200)
+    greedy_first = bool(sc_cfg.get("greedy_first", True))
     timeout = sc_cfg.get("timeout_seconds", 300)
 
     samples = max(1, int(sc_cfg.get("samples", 1)))
@@ -787,9 +789,12 @@ def score_transcript(
                     hf_model_name=hf_model,
                     max_tokens=max_tokens,
                     # Sample 2..N with temperature so the spread is meaningful;
-                    # the first pass stays greedy so the headline score is
-                    # reproducible.
-                    temperature=temperature if s_idx > 0 else 0.0,
+                    # by default the first pass stays greedy so the headline
+                    # score is reproducible. Set greedy_first: false to sample
+                    # every pass — needed to measure decoding sensitivity, since
+                    # repeated greedy runs are identical by construction and
+                    # would report a spurious zero spread.
+                    temperature=temperature if (s_idx > 0 or not greedy_first) else 0.0,
                 )
             except Exception as exc:
                 log.error("LLM generation failed (window %d): %s", w_idx + 1, exc)

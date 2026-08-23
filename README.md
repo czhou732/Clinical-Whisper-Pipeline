@@ -74,12 +74,38 @@ evidentiary weight.
 `shimmer`) are eGeMAPSv02 via OpenSMILE — a published, standardised parameter set,
 so the values are comparable to the affective-computing literature.
 
-**The six clinical scores are unvalidated.** They are the output of a local LLM
-reading the transcript. There is currently no correlation with PHQ-9, SHAPS,
-HAM-D or any other instrument, no inter-rater reliability against clinicians, and
-no test-retest data. They should be described as automated interview features
-whose agreement with clinical judgement has not been established — not as a
-validated instrument, and not as a diagnosis.
+**The six clinical scores are unvalidated, and their reliability is low.** They
+are the output of a local LLM reading the transcript. There is no correlation with
+PHQ-9, SHAPS, HAM-D or any other instrument, and no inter-rater reliability against
+clinicians.
+
+Reliability *has* now been measured — see `evals/reports/reliability.md`. Across 9
+clips from 5 separate recordings, scored 5 times each with sampling on:
+
+| | ICC(1,1) | |
+|---|---|---|
+| psychomotor_indicators | 0.22 | poor |
+| hesitancy_score | 0.29 | poor |
+| engagement_level | 0.37 | poor |
+| affect_flatness | 0.50 | moderate |
+| elaboration_negative | 0.53 | moderate |
+| elaboration_positive | 0.60 | moderate |
+
+No dimension reaches the conventional "good" threshold of 0.75. The smallest
+difference distinguishable from noise is **2.3–3.5 points on a 0–10 scale**, and
+between-recording spread is roughly the same size as the noise from re-scoring one
+recording.
+
+The shipped default is greedy decoding, so in normal use the same file returns the
+same score every time — this is not run-to-run instability in the app. What a low
+ICC means is that the score is one draw from a wide distribution rather than a
+stable estimate, and will move under small changes to prompt, transcript, or model
+version. Averaging several samples (`llm_scoring.samples: 5`) reduces that spread.
+
+These should be described as automated interview features whose agreement with
+clinical judgement has not been established — not as a validated instrument, and
+not as a diagnosis. Correlating them against a clinical scale would currently be
+limited by their own reliability rather than by the construct.
 
 The eval suite (`evals/`) is a **regression test**, not a validation study: it
 checks that the scorer still behaves as it did before a code change, using
