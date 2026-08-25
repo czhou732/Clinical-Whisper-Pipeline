@@ -80,21 +80,23 @@ PHQ-9, SHAPS, HAM-D or any other instrument, and no inter-rater reliability agai
 clinicians.
 
 Reliability *has* now been measured — see `evals/reports/reliability.md`. Across 9
-clips from 5 separate recordings, scored 5 times each with sampling on:
+clips from 5 separate recordings, scored 5 times each with sampling on, using
+one-way random-effects ICC(1,1) (Shrout & Fleiss, 1979):
 
-| | ICC(1,1) | |
-|---|---|---|
-| psychomotor_indicators | 0.22 | poor |
-| hesitancy_score | 0.29 | poor |
-| engagement_level | 0.37 | poor |
-| affect_flatness | 0.50 | moderate |
-| elaboration_negative | 0.53 | moderate |
-| elaboration_positive | 0.60 | moderate |
+| | ICC(1,1) | 95% CI | MDC95 | |
+|---|---|---|---|---|
+| psychomotor_indicators | 0.22 | -0.01 – 0.62 | 3.7 | poor |
+| hesitancy_score | 0.29 | 0.03 – 0.68 | 4.5 | poor |
+| engagement_level | 0.37 | 0.09 – 0.74 | 3.6 | poor |
+| affect_flatness | 0.50 | 0.21 – 0.82 | 3.8 | moderate |
+| elaboration_negative | 0.53 | 0.24 – 0.83 | 4.0 | moderate |
+| elaboration_positive | 0.60 | 0.31 – 0.86 | 2.9 | moderate |
 
-No dimension reaches the conventional "good" threshold of 0.75. The smallest
-difference distinguishable from noise is **2.3–3.5 points on a 0–10 scale**, and
-between-recording spread is roughly the same size as the noise from re-scoring one
-recording.
+No dimension reaches the conventional "good" threshold of 0.75, and every
+confidence interval is wide because n = 9 is well below the ~30 usually
+recommended for an ICC study. MDC95 is the smallest change exceeding measurement
+error: on a 0–10 scale, two recordings must differ by **2.9–4.5 points** before
+the gap is distinguishable from noise.
 
 The shipped default is greedy decoding, so in normal use the same file returns the
 same score every time — this is not run-to-run instability in the app. What a low

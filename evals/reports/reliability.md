@@ -1,36 +1,43 @@
 # Scorer reliability on real recordings
 
-Clips: 9 from separate source recordings  |  runs per clip: [5]  |  temperature 0.7
+9 clips from separate source recordings, scored 5 times each with sampling on (temperature 0.7).
 
-| dimension | mean | range | within-clip SD | between-clip SD | ratio | ICC(1,1) | |
-|---|---|---|---|---|---|---|---|
-| hesitancy_score | 4.53 | 1–9 | 1.279 | 1.178 | 0.92 | 0.288 | poor |
-| affect_flatness | 4.47 | 1–9 | 1.079 | 1.405 | 1.3 | 0.501 | moderate |
-| engagement_level | 5.51 | 3–8 | 1.127 | 1.08 | 0.96 | 0.366 | poor |
-| elaboration_positive | 3.47 | 1–8 | 0.833 | 1.279 | 1.54 | 0.596 | moderate |
-| elaboration_negative | 5.47 | 2–9 | 1.172 | 1.569 | 1.34 | 0.533 | moderate |
-| psychomotor_indicators | 4.47 | 2–6 | 1.106 | 0.874 | 0.79 | 0.217 | poor |
+One-way random-effects ICC(1,1), per Shrout & Fleiss (1979): the repeated scores are exchangeable draws from one stochastic process, not a fixed panel of identifiable raters.
 
-## Smallest detectable difference
+| dimension | mean | range | SEM | SD between | ratio | ICC(1,1) | 95% CI | |
+|---|---|---|---|---|---|---|---|---|
+| hesitancy_score | 4.53 | 1–9 | 1.606 | 1.022 | 0.64 | 0.288 | 0.03 – 0.68 | poor |
+| affect_flatness | 4.47 | 1–9 | 1.358 | 1.361 | 1.0 | 0.501 | 0.21 – 0.82 | moderate |
+| engagement_level | 5.51 | 3–8 | 1.3 | 0.987 | 0.76 | 0.366 | 0.09 – 0.74 | poor |
+| elaboration_positive | 3.47 | 1–8 | 1.049 | 1.273 | 1.21 | 0.596 | 0.31 – 0.86 | moderate |
+| elaboration_negative | 5.47 | 2–9 | 1.438 | 1.535 | 1.07 | 0.533 | 0.24 – 0.83 | moderate |
+| psychomotor_indicators | 4.47 | 2–6 | 1.342 | 0.707 | 0.53 | 0.217 | -0.01 – 0.62 | poor |
 
-How far apart two recordings must score before the gap exceeds measurement noise (1.96 x sqrt(2) x within-clip SD), on a 0–10 scale:
+## Definitions
 
-- **hesitancy_score**: 3.5 points
-- **affect_flatness**: 3.0 points
-- **engagement_level**: 3.1 points
-- **elaboration_positive**: 2.3 points
-- **elaboration_negative**: 3.2 points
-- **psychomotor_indicators**: 3.1 points
+- **SEM** — standard error of measurement, sqrt(MSW) from the one-way ANOVA. The pooled within-target SD.
+- **SD between** — between-target variance component, sqrt((MSB - MSW) / k), which excludes measurement error.
+- **ratio** — SD between / SEM. Above ~2 means a score separates recordings well clear of its own noise floor.
+- **MDC95** — smallest detectable change, 1.96 * sqrt(2) * SEM: the gap two recordings must show before it exceeds measurement error.
 
-## How to read this
+| dimension | MDC95 (0–10 scale) |
+|---|---|
+| hesitancy_score | 4.45 |
+| affect_flatness | 3.76 |
+| engagement_level | 3.6 |
+| elaboration_positive | 2.91 |
+| elaboration_negative | 3.99 |
+| psychomotor_indicators | 3.72 |
 
-`ratio` is between-clip SD over within-clip SD. Above ~2 means a score separates recordings well clear of its own noise floor. Every dimension here sits between 0.8 and 1.6, so differences between recordings are roughly the same size as the noise from re-scoring one recording.
+## Limitations
 
-**This is measured with sampling on (temperature 0.7). The shipped default is greedy, so in normal use the same file always returns the same score.** What these numbers describe is not run-to-run flakiness in the app — it is how sharp the underlying judgement is. A low ICC means the greedy answer is one draw from a wide distribution rather than a stable estimate, so it will move under small changes to the prompt, the transcript, or the model.
+- **n = ? targets** is well below the ~30 usually recommended for an ICC study, which is why the confidence intervals above are very wide. Treat the point estimates as indicative.
+- Clips were drawn two per source recording, so they are **clustered** rather than fully independent; the between-target component is likely overstated.
+- Measured with sampling on. The shipped default is greedy decoding, so in normal use the same file returns the same score. A low ICC does not mean the app is unstable — it means the single score is one draw from a wide distribution, and will move under small changes to prompt, transcript or model version.
 
-Cronbach's alpha across the six dimensions: 0.071. Alpha assumes the items measure one construct; these six are meant to be distinct, so a low value indicates they are not redundant rather than that anything is broken.
+Cronbach's alpha across the six dimensions: 0.071. Alpha assumes the items measure one construct; these six are meant to be distinct, so a low value indicates they are not redundant rather than that anything is wrong.
 
-Reliability only. This says nothing about agreement with a clinical instrument — that is validity, and it needs criterion scores collected at recording time.
+Reliability only. This says nothing about agreement with a clinical instrument — that is validity, and needs criterion scores collected at recording time.
 
 ## Dimensions that move together
 

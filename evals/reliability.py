@@ -32,6 +32,7 @@ from __future__ import annotations
 import argparse
 import json
 import logging
+import math
 import statistics as stats
 import sys
 import time
@@ -54,11 +55,19 @@ log = logging.getLogger("reliability")
 # Statistics
 # ---------------------------------------------------------------------------
 
-def icc_1_1(groups: list[list[float]]) -> float | None:
-    """One-way random-effects ICC(1,1) — the standard test-retest coefficient.
+def anova_components(groups: list[list[float]]) -> dict[str, Any] | None:
+    """One-way random-effects ANOVA on repeated measurements of each target.
 
-    Each group is the repeated measurements of one clip. Returns None when the
-    design is degenerate (fewer than two clips or two runs).
+    Returns ICC(1,1) with a 95% confidence interval, plus the variance
+    components the descriptive statistics should be derived from.
+
+    ICC(1,1) is the correct form here (Shrout & Fleiss 1979): the repeated
+    scores are exchangeable draws from one stochastic process, not a fixed panel
+    of identifiable raters, so there is no rater factor to model. Run 2 of clip A
+    bears no relationship to run 2 of clip B, which is exactly the one-way case.
+
+    Verified against the Shrout & Fleiss (1979) Table 1 worked example
+    (published ICC(1,1) = 0.17; this returns 0.1657).
     """
     groups = [g for g in groups if len(g) >= 2]
     n = len(groups)
@@ -68,20 +77,44 @@ def icc_1_1(groups: list[list[float]]) -> float | None:
     groups = [g[:k] for g in groups]
 
     grand = stats.fmean([v for g in groups for v in g])
-    # Between-group and within-group mean squares.
-    ss_between = k * sum((stats.fmean(g) - grand) ** 2 for g in groups)
-    ss_within = sum((v - stats.fmean(g)) ** 2 for g in groups for v in g)
     df_b, df_w = n - 1, n * (k - 1)
     if df_b <= 0 or df_w <= 0:
         return None
 
-    ms_b, ms_w = ss_between / df_b, ss_within / df_w
+    ms_b = k * sum((stats.fmean(g) - grand) ** 2 for g in groups) / df_b
+    ms_w = sum((v - stats.fmean(g)) ** 2 for g in groups for v in g) / df_w
+
     denom = ms_b + (k - 1) * ms_w
-    if denom == 0:
-        # No variance anywhere: every score identical. Perfectly "reliable" and
-        # perfectly uninformative — report as 0 rather than dividing by zero.
-        return 0.0
-    return (ms_b - ms_w) / denom
+    icc = 0.0 if denom == 0 else (ms_b - ms_w) / denom
+
+    # SEM is the pooled within-subject SD, sqrt(MSW) — not the mean of the
+    # per-target SDs, which underestimates it.
+    sem = math.sqrt(ms_w)
+    # Between-subject SD as a variance component, rather than the SD of the
+    # observed means (which carries measurement error).
+    sd_between = math.sqrt(max(0.0, (ms_b - ms_w) / k))
+
+    ci_low = ci_high = None
+    if ms_w > 0:
+        try:
+            from scipy import stats as sps
+            f_obs = ms_b / ms_w
+            f_l = f_obs / sps.f.ppf(0.975, df_b, df_w)
+            f_u = f_obs * sps.f.ppf(0.975, df_w, df_b)
+            ci_low = (f_l - 1) / (f_l + k - 1)
+            ci_high = (f_u - 1) / (f_u + k - 1)
+        except Exception:  # pragma: no cover - CI is a nicety, not the result
+            pass
+
+    return {
+        "icc_1_1": round(icc, 3),
+        "icc_ci95": [round(ci_low, 3), round(ci_high, 3)]
+        if ci_low is not None else None,
+        "sem": round(sem, 3),
+        "sd_between": round(sd_between, 3),
+        "n_targets": n,
+        "k_runs": k,
+    }
 
 
 def cronbach_alpha(matrix: np.ndarray) -> float | None:
@@ -190,21 +223,26 @@ def analyse(results: dict[str, list[dict]]) -> dict[str, Any]:
             continue
 
         means = [stats.fmean(g) for g in per_clip]
-        within = [stats.pstdev(g) for g in per_clip if len(g) > 1]
-
-        within_sd = stats.fmean(within) if within else 0.0
-        between_sd = stats.pstdev(means) if len(means) > 1 else 0.0
-        ratio = (between_sd / within_sd) if within_sd > 0 else None
-
         clip_means[key] = means
+
+        comp = anova_components(per_clip)
+        if comp is None:
+            continue
+
+        sem, sd_b = comp["sem"], comp["sd_between"]
         report["dimensions"][key] = {
             "mean": round(stats.fmean(means), 2),
             "min": min(min(g) for g in per_clip),
             "max": max(max(g) for g in per_clip),
-            "within_clip_sd": round(within_sd, 3),
-            "between_clip_sd": round(between_sd, 3),
-            "discrimination_ratio": round(ratio, 2) if ratio is not None else None,
-            "icc_1_1": (lambda v: round(v, 3) if v is not None else None)(icc_1_1(per_clip)),
+            # SEM = sqrt(MSW), the pooled within-target SD.
+            "sem": sem,
+            "sd_between": sd_b,
+            "discrimination_ratio": round(sd_b / sem, 2) if sem > 0 else None,
+            # MDC95 = 1.96 * sqrt(2) * SEM — the smallest change that exceeds
+            # measurement error at 95% confidence.
+            "mdc_95": round(1.96 * math.sqrt(2) * sem, 2),
+            "icc_1_1": comp["icc_1_1"],
+            "icc_ci95": comp["icc_ci95"],
         }
 
     # Inter-dimension structure, computed on per-clip means.
@@ -231,51 +269,61 @@ def _icc_band(v: float) -> str:
 
 
 def render(report: dict[str, Any]) -> str:
+    d0 = next(iter(report["dimensions"].values()), {})
     lines = [
         "# Scorer reliability on real recordings", "",
-        f"Clips: {report['clips']} from separate source recordings  |  runs per clip: "
-        f"{sorted(set(report['runs_per_clip'].values()))}  |  temperature 0.7", "",
-        "| dimension | mean | range | within-clip SD | between-clip SD | ratio | ICC(1,1) | |",
-        "|---|---|---|---|---|---|---|---|",
+        f"{report['clips']} clips from separate source recordings, scored "
+        f"{sorted(set(report['runs_per_clip'].values()))[0]} times each with "
+        "sampling on (temperature 0.7).", "",
+        "One-way random-effects ICC(1,1), per Shrout & Fleiss (1979): the repeated "
+        "scores are exchangeable draws from one stochastic process, not a fixed "
+        "panel of identifiable raters.", "",
+        "| dimension | mean | range | SEM | SD between | ratio | ICC(1,1) | 95% CI | |",
+        "|---|---|---|---|---|---|---|---|---|",
     ]
     for k, d in report["dimensions"].items():
-        icc = d["icc_1_1"]
+        icc, ci = d["icc_1_1"], d.get("icc_ci95")
+        ci_s = f"{ci[0]:.2f} – {ci[1]:.2f}" if ci else "—"
         lines.append(
-            f"| {k} | {d['mean']} | {d['min']:.0f}–{d['max']:.0f} | {d['within_clip_sd']} "
-            f"| {d['between_clip_sd']} | {d['discrimination_ratio']} | {icc} "
+            f"| {k} | {d['mean']} | {d['min']:.0f}–{d['max']:.0f} | {d['sem']} "
+            f"| {d['sd_between']} | {d['discrimination_ratio']} | {icc} | {ci_s} "
             f"| {_icc_band(icc) if icc is not None else '—'} |"
         )
 
     lines += [
-        "", "## Smallest detectable difference", "",
-        "How far apart two recordings must score before the gap exceeds measurement "
-        "noise (1.96 x sqrt(2) x within-clip SD), on a 0–10 scale:", "",
+        "", "## Definitions", "",
+        "- **SEM** — standard error of measurement, sqrt(MSW) from the one-way "
+        "ANOVA. The pooled within-target SD.",
+        "- **SD between** — between-target variance component, "
+        "sqrt((MSB - MSW) / k), which excludes measurement error.",
+        "- **ratio** — SD between / SEM. Above ~2 means a score separates "
+        "recordings well clear of its own noise floor.",
+        "- **MDC95** — smallest detectable change, 1.96 * sqrt(2) * SEM: the gap "
+        "two recordings must show before it exceeds measurement error.", "",
+        "| dimension | MDC95 (0–10 scale) |", "|---|---|",
     ]
     for k, d in report["dimensions"].items():
-        sdd = 1.96 * (2 ** 0.5) * d["within_clip_sd"]
-        lines.append(f"- **{k}**: {sdd:.1f} points")
+        lines.append(f"| {k} | {d['mdc_95']} |")
 
     lines += [
-        "", "## How to read this", "",
-        "`ratio` is between-clip SD over within-clip SD. Above ~2 means a score "
-        "separates recordings well clear of its own noise floor. Every dimension "
-        "here sits between 0.8 and 1.6, so differences between recordings are "
-        "roughly the same size as the noise from re-scoring one recording.",
-        "",
-        "**This is measured with sampling on (temperature 0.7). The shipped default "
-        "is greedy, so in normal use the same file always returns the same score.** "
-        "What these numbers describe is not run-to-run flakiness in the app — it is "
-        "how sharp the underlying judgement is. A low ICC means the greedy answer is "
-        "one draw from a wide distribution rather than a stable estimate, so it will "
-        "move under small changes to the prompt, the transcript, or the model.",
-        "",
+        "", "## Limitations", "",
+        f"- **n = {d0.get('n_targets', '?')} targets** is well below the ~30 "
+        "usually recommended for an ICC study, which is why the confidence "
+        "intervals above are very wide. Treat the point estimates as indicative.",
+        "- Clips were drawn two per source recording, so they are **clustered** "
+        "rather than fully independent; the between-target component is likely "
+        "overstated.",
+        "- Measured with sampling on. The shipped default is greedy decoding, so "
+        "in normal use the same file returns the same score. A low ICC does not "
+        "mean the app is unstable — it means the single score is one draw from a "
+        "wide distribution, and will move under small changes to prompt, "
+        "transcript or model version.", "",
         f"Cronbach's alpha across the six dimensions: {report.get('cronbach_alpha')}. "
         "Alpha assumes the items measure one construct; these six are meant to be "
-        "distinct, so a low value indicates they are not redundant rather than that "
-        "anything is broken.",
-        "",
+        "distinct, so a low value indicates they are not redundant rather than "
+        "that anything is wrong.", "",
         "Reliability only. This says nothing about agreement with a clinical "
-        "instrument — that is validity, and it needs criterion scores collected at "
+        "instrument — that is validity, and needs criterion scores collected at "
         "recording time.",
     ]
 
