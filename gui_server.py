@@ -21,26 +21,42 @@ from pathlib import Path
 
 import pandas as pd
 from fastapi import Body, FastAPI, File, Form, UploadFile
-from fastapi.middleware.cors import CORSMiddleware
+from starlette.middleware.trustedhost import TrustedHostMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 import bundled_models
+import crash_diagnostics
 
 # Harmless when running from source; redirects to the in-bundle weights when
 # frozen. Runs before the pipeline imports transformers.
 bundled_models.configure()
 
+import offline  # noqa: E402
+
+offline.lock()  # idempotent; the launcher has usually done it already
+
 from cw_config import DATA_ROOT, load_config
 
 app = FastAPI(title="ClinicalWhisper GUI Server")
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+# The server listens on this machine only, but any web page open in the
+# user's browser can still send requests to 127.0.0.1. So:
+# * no CORS headers: other sites cannot read responses;
+# * requests that change state must come from this app's own page;
+# * the Host header must name this machine, which defeats DNS rebinding
+#   (a site pointing its own hostname at 127.0.0.1 to look same-origin).
+app.add_middleware(TrustedHostMiddleware, allowed_hosts=["127.0.0.1", "localhost"])
+
+
+@app.middleware("http")
+async def _same_origin_only(request, call_next):
+    origin = request.headers.get("origin")
+    if request.method not in ("GET", "HEAD", "OPTIONS") and origin:
+        if origin != f"http://{request.headers.get('host', '')}":
+            return JSONResponse(status_code=403, content={
+                "status": "error", "message": "Request from another site refused."})
+    return await call_next(request)
 
 # Code and static assets live in the (read-only) bundle; user data does not.
 BUNDLE_DIR = Path(getattr(sys, "_MEIPASS", Path(__file__).resolve().parent))
@@ -118,6 +134,7 @@ def process_batch_task(batch_id: str, paths: list[Path]) -> None:
     cw_log = logging.getLogger("ClinicalWhisper")
     cw_log.addHandler(handler)
     cw_log.setLevel(logging.INFO)
+    crash_diagnostics.begin_work(f"{len(paths)} file(s)")
 
     try:
         # Imported here, inside the try: a missing dependency in a frozen build
@@ -126,6 +143,15 @@ def process_batch_task(batch_id: str, paths: list[Path]) -> None:
         from inference_pipeline import InferencePipeline
 
         cfg = load_config(_config_path())
+        with _lock:
+            if _batches.get(batch_id, {}).get("in_place"):
+                # The user's own recording, read where it is: never move or delete it.
+                cfg["audio_retention"] = "keep"
+            if _batches.get(batch_id, {}).get("transcribe_only"):
+                cfg.setdefault("llm_scoring", {})["enabled"] = False
+                cfg["llm_scoring"]["skipped_by_request"] = True
+                _batches[batch_id]["log"].append(
+                    "Transcribe only: clinical scoring is off for this batch.")
 
         def _progress(stage, fraction, detail):
             with _lock:
@@ -155,42 +181,51 @@ def process_batch_task(batch_id: str, paths: list[Path]) -> None:
         states: list[tuple[int, dict]] = []
         rows: list[dict] = []
 
-        # ── Phase 1: transcribe every file ──
+        # ── Phase 1: transcribe every file, together ──
+        # Windows from all files share decoding batches, so a folder of short
+        # recordings runs at batch speed rather than one file at a time.
+        jobs = []
         for idx, audio_path in enumerate(paths):
-            if _cancelled():
-                break
-
-            with _lock:
-                b = _batches[batch_id]
-                b["current"] = audio_path.name
+            jobs.append({
+                "job_id": f"gui_{uuid.uuid4().hex[:12]}",
+                "file_path": str(audio_path),
+                "original_filename": audio_path.name,
+                # Blank ID with several files: each file is its own participant,
+                # named by its filename, rather than all sharing one blank ID.
+                "participant_id": meta[0] or (audio_path.stem if len(paths) > 1 else ""),
+                "session_label": meta[1],
+                "criterion_score": meta[2],
+            })
+        with _lock:
+            b = _batches[batch_id]
+            b["current"] = f"{len(paths)} file(s)"
+            for idx, audio_path in enumerate(paths):
                 b["files"][idx]["state"] = "running"
-                b["log"].append(f"[{idx + 1}/{len(paths)}] {audio_path.name}")
+            b["log"].append(f"Transcribing {len(paths)} file(s) together...")
 
-            try:
-                job = {
-                    "job_id": f"gui_{uuid.uuid4().hex[:12]}",
-                    "file_path": str(audio_path),
-                    "original_filename": audio_path.name,
-                    "participant_id": meta[0],
-                    "session_label": meta[1],
-                    "criterion_score": meta[2],
-                }
-                states.append((idx, pipeline.transcribe_job(job)))
-            except Exception as exc:
-                if _cancelled():
-                    with _lock:
-                        _batches[batch_id]["files"][idx]["state"] = "cancelled"
-                        _batches[batch_id]["log"].append(
-                            f"Stopped during {audio_path.name}."
-                        )
-                    break
-                log.warning("Batch %s: %s failed: %s", batch_id, audio_path.name, exc)
+        outcomes = [] if _cancelled() else pipeline.transcribe_jobs(jobs)
+        for idx, outcome in enumerate(outcomes):
+            audio_path = paths[idx]
+            if not isinstance(outcome, Exception):
+                states.append((idx, outcome))
+                continue
+            if _cancelled():
                 with _lock:
-                    f = _batches[batch_id]["files"][idx]
-                    f["state"] = "error"
-                    f["error"] = str(exc) or exc.__class__.__name__
-                    _batches[batch_id]["done"] += 1
-                    _batches[batch_id]["log"].append(f"ERROR ({audio_path.name}): {exc}")
+                    _batches[batch_id]["files"][idx]["state"] = "cancelled"
+                continue
+            log.warning("Batch %s: %s failed: %s", batch_id, audio_path.name, outcome)
+            with _lock:
+                f = _batches[batch_id]["files"][idx]
+                f["state"] = "error"
+                f["error"] = str(outcome) or outcome.__class__.__name__
+                _batches[batch_id]["done"] += 1
+                _batches[batch_id]["log"].append(f"ERROR ({audio_path.name}): {outcome}")
+        if _cancelled():
+            with _lock:
+                _batches[batch_id]["log"].append("Stopped during transcription.")
+                for f in _batches[batch_id]["files"]:
+                    if f["state"] == "running":
+                        f["state"] = "cancelled"
 
         # Hand back the transcription weights before the scoring model loads.
         pipeline.release_transcriber()
@@ -223,6 +258,8 @@ def process_batch_task(batch_id: str, paths: list[Path]) -> None:
                     f["transcript"] = analysis.get("transcript", "")
                     f["structured_transcript"] = analysis.get("structured_transcript", "")
                     f["analysis"] = analysis
+                    f["quality"] = analysis.get("quality") or {}
+                    f["score_reliability"] = analysis.get("score_reliability") or {}
                     # Kept so roles can be corrected and the file re-scored
                     # without paying for transcription again.
                     f["segments"] = analysis.get("segments", [])
@@ -237,6 +274,7 @@ def process_batch_task(batch_id: str, paths: list[Path]) -> None:
                     f["error"] = str(exc) or exc.__class__.__name__
                     _batches[batch_id]["done"] += 1
                     _batches[batch_id]["log"].append(f"ERROR ({audio_path.name}): {exc}")
+
 
         # Idle apps should not sit on gigabytes of weights. Set
         # keep_models_loaded: true to trade memory for a faster next batch.
@@ -273,7 +311,59 @@ def process_batch_task(batch_id: str, paths: list[Path]) -> None:
                 b["status"] = f"ERROR: {e}"
                 b["log"].append(f"ERROR: {e}")
     finally:
+        # However the batch ended, the app is idle again: quitting now is not a crash.
+        crash_diagnostics.end_work()
         cw_log.removeHandler(handler)
+
+
+AUDIO_EXTENSIONS = {".wav", ".m4a", ".mp3", ".mp4", ".ogg", ".opus", ".flac", ".aac"}
+
+
+def _launch_batch(paths: list[Path], participant_id: str, session_label: str,
+                  criterion_score: str, transcribe_only: bool, in_place: bool) -> str:
+    batch_id = _new_batch(paths)
+    with _lock:
+        b = _batches[batch_id]
+        b["participant_id"] = participant_id.strip()
+        b["session_label"] = session_label.strip()
+        b["criterion_score"] = criterion_score.strip()
+        b["transcribe_only"] = bool(transcribe_only)
+        b["in_place"] = in_place
+    # An explicit daemon thread rather than FastAPI BackgroundTasks: a batch
+    # runs for minutes, which would pin an anyio threadpool slot for its
+    # whole duration, and in the frozen app the task was observed never
+    # being dispatched at all, leaving the UI stuck on "Queued".
+    threading.Thread(
+        target=process_batch_task, args=(batch_id, paths),
+        name=f"cw-{batch_id}", daemon=True,
+    ).start()
+    return batch_id
+
+
+def start_batch_from_paths(paths: list[str], participant_id: str = "",
+                           session_label: str = "", criterion_score: str = "",
+                           transcribe_only: bool = False) -> dict:
+    """Process recordings where they are, without copying them.
+
+    Called by the app window through pywebview's private bridge, never over
+    HTTP: an HTTP endpoint taking file paths would let any web page make the
+    app read audio from anywhere on the disk. The recordings are left exactly
+    where they are; the usual archive-after-processing step is skipped.
+    """
+    files = []
+    for raw in paths:
+        path = Path(raw).expanduser().resolve()
+        if not path.is_file():
+            raise ValueError(f"Not a file: {raw}")
+        if path.suffix.lower() not in AUDIO_EXTENSIONS:
+            raise ValueError(f"Not a supported audio file: {path.name}")
+        files.append(path)
+    if not files:
+        raise ValueError("No files selected.")
+    batch_id = _launch_batch(files, participant_id, session_label, criterion_score,
+                             transcribe_only, in_place=True)
+    return {"status": "success", "batch_id": batch_id, "count": len(files),
+            "filenames": [p.name for p in files]}
 
 
 # ── API ─────────────────────────────────────────────────────────────────────
@@ -284,13 +374,29 @@ async def upload_files(
     participant_id: str = Form(""),
     session_label: str = Form(""),
     criterion_score: str = Form(""),
+    transcribe_only: str = Form(""),
 ):
-    """Accept one or many audio files and start a single batch job."""
+    """Accept one or many audio files and start a single batch job.
+
+    ``transcribe_only`` skips clinical scoring. On a multi-hour interview the
+    scoring stage costs far more time than the transcript, and its scores are
+    the least reliable part of the output, so a transcription run should not
+    have to wait for it.
+    """
     try:
         saved: list[Path] = []
+        # One folder per upload, and a suffix for repeated names within it: a
+        # browser sends only file names, so P01/session.m4a and P02/session.m4a
+        # arrive as two "session.m4a" and would otherwise overwrite each other.
+        upload_dir = INPUT_DIR / uuid.uuid4().hex[:12]
+        upload_dir.mkdir(parents=True, exist_ok=True)
         for f in files:
             safe_name = Path(f.filename or "audio").name
-            dest = INPUT_DIR / safe_name
+            dest = upload_dir / safe_name
+            n = 2
+            while dest.exists():
+                dest = upload_dir / f"{Path(safe_name).stem} ({n}){Path(safe_name).suffix}"
+                n += 1
             with open(dest, "wb") as buffer:
                 shutil.copyfileobj(f.file, buffer)
             saved.append(dest)
@@ -301,23 +407,11 @@ async def upload_files(
                 content={"status": "error", "message": "No files received."},
             )
 
-        batch_id = _new_batch(saved)
-        with _lock:
-            _batches[batch_id]["participant_id"] = participant_id.strip()
-            _batches[batch_id]["session_label"] = session_label.strip()
-            _batches[batch_id]["criterion_score"] = criterion_score.strip()
-
-        # An explicit daemon thread rather than FastAPI BackgroundTasks: a batch
-        # runs for minutes, which would pin an anyio threadpool slot for its
-        # whole duration, and in the frozen app the task was observed never
-        # being dispatched at all — leaving the UI stuck on "Queued".
-        threading.Thread(
-            target=process_batch_task,
-            args=(batch_id, saved),
-            name=f"cw-{batch_id}",
-            daemon=True,
-        ).start()
-
+        batch_id = _launch_batch(
+            saved, participant_id, session_label, criterion_score,
+            transcribe_only.strip().lower() in ("1", "true", "on", "yes"),
+            in_place=False,
+        )
         return {
             "status": "success",
             "batch_id": batch_id,
@@ -326,6 +420,37 @@ async def upload_files(
         }
     except Exception as e:
         return JSONResponse(status_code=500, content={"status": "error", "message": str(e)})
+
+
+def _filevault_on():
+    from clinical_safeguards import filevault_on
+
+    return filevault_on()
+
+
+@app.get("/api/diagnostics")
+async def diagnostics():
+    """Report whether the previous session crashed, and where the logs are."""
+    return {
+        "previous_crash": crash_diagnostics.previous_crash(),
+        "log_path": str(crash_diagnostics.LOG_PATH),
+        "machine": crash_diagnostics.machine_summary(),
+        # False means outputs are written to an unencrypted disk.
+        "filevault": _filevault_on(),
+    }
+
+
+@app.post("/api/diagnostics/dismiss")
+async def dismiss_diagnostics():
+    crash_diagnostics.dismiss_previous_crash()
+    return {"ok": True}
+
+
+@app.post("/api/diagnostics/reveal")
+async def reveal_logs():
+    """Show the log folder in Finder so it can be attached to an email."""
+    subprocess.run(["open", str(crash_diagnostics.LOG_DIR)], check=False)
+    return {"ok": True}
 
 
 @app.get("/api/status/{batch_id}")
@@ -355,6 +480,8 @@ async def get_status(batch_id: str):
                     "transcript": f["transcript"],
                     "structured_transcript": f["structured_transcript"],
                     "speaker_roles": f.get("speaker_roles", {}),
+                    "quality": f.get("quality", {}),
+                    "score_reliability": f.get("score_reliability", {}),
                 }
                 for f in b["files"]
             ],
@@ -461,6 +588,24 @@ async def rescore(batch_id: str, index: int, payload: dict = Body(default={})):
         analysis["structured_transcript"] = structured
         analysis["speaker_stats"] = compute_speaker_stats(segments, roles)
 
+        # A role swap changes who the participant is: participant timing and
+        # the quality flags follow, and reliability follows the run count.
+        from clinical_safeguards import assess_quality, score_reliability
+        from timing_features import subject_speaker
+
+        timing = dict(analysis.get("timing_features") or {})
+        timing["subject_speaker"] = subject_speaker(timing.get("per_speaker") or {}, roles)
+        analysis["timing_features"] = timing
+        previous = analysis.get("quality") or {}
+        analysis["quality"] = assess_quality(
+            segments, timing["subject_speaker"],
+            {k: previous.get(k) for k in ("duration_s", "rms_dbfs", "clipped_fraction")},
+            expected_speakers=cfg.get("moss", {}).get("num_speakers"),
+        )
+        runs = (scoring.get("_meta") or {}).get("samples_per_window") or \
+            cfg.get("llm_scoring", {}).get("samples", 1)
+        analysis["score_reliability"] = score_reliability(runs)
+
         path = f.get("analysis_path")
         if path:
             Path(path).write_text(json.dumps(analysis, indent=2, default=str),
@@ -475,6 +620,8 @@ async def rescore(batch_id: str, index: int, payload: dict = Body(default={})):
             tgt["result"] = row
             tgt["structured_transcript"] = structured
             tgt["speaker_roles"] = roles
+            tgt["quality"] = analysis.get("quality") or {}
+            tgt["score_reliability"] = analysis.get("score_reliability") or {}
             _batches[batch_id]["log"].append(f"Re-scored {f['filename']}.")
 
         return {"status": "success", "result": row,

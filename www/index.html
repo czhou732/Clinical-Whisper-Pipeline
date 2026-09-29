@@ -17,6 +17,19 @@
         </header>
 
         <main>
+            <div class="crash-notice hidden" id="crash-notice" role="alert">
+                <p><strong>ClinicalWhisper stopped while processing last time</strong>
+                    <span id="crash-stage"></span></p>
+                <p class="crash-help">A diagnostic log was saved. If you are reporting the problem, please attach the files in the log folder.</p>
+                <div class="crash-actions">
+                    <button class="btn-secondary" id="btn-reveal-logs">Show log folder</button>
+                    <button class="btn-clear" id="btn-dismiss-crash">Dismiss</button>
+                </div>
+            </div>
+            <div class="crash-notice hidden" id="filevault-notice" role="alert">
+                <p><strong>This Mac's disk is not encrypted</strong></p>
+                <p class="crash-help">FileVault is off, so transcripts, results and audio copies are stored unencrypted. ClinicalWhisper does not encrypt files itself. Turn on FileVault in System Settings, Privacy &amp; Security, before processing identifiable recordings.</p>
+            </div>
             <div class="panel">
                 <div class="upload-zone" id="drop-zone">
                     <div class="upload-content">
@@ -26,9 +39,9 @@
                             <line x1="12" y1="3" x2="12" y2="15"></line>
                         </svg>
                         <p><strong>Drag &amp; Drop</strong> one or more clinical audio files</p>
-                        <p class="text-sm">or click to select files (.wav, .m4a, .mp3, .mp4)</p>
+                        <p class="text-sm">or click to select files (.wav, .m4a, .mp3, .mp4, .ogg, .opus, .flac)</p>
                     </div>
-                    <input type="file" id="file-input" accept=".wav,.m4a,.mp3,.mp4" multiple hidden>
+                    <input type="file" id="file-input" accept=".wav,.m4a,.mp3,.mp4,.ogg,.opus,.flac,.aac" multiple hidden>
                 </div>
 
                 <div class="selected-files hidden" id="file-info">
@@ -40,10 +53,17 @@
                 </div>
 
                 <div class="study-meta">
-                    <input type="text" id="participant-id" placeholder="Participant ID (optional)">
+                    <input type="text" id="participant-id" placeholder="Participant ID (optional)" title="Leave blank to use each file's name as its participant ID.">
                     <input type="text" id="session-label" placeholder="Session (optional)">
                     <input type="text" id="criterion-score" placeholder="SHAPS / PHQ-9 (optional)">
                 </div>
+
+                <label class="option-row">
+                    <input type="checkbox" id="transcribe-only">
+                    <span>Transcribe only, skip clinical scoring. Much faster on long
+                        interviews, and the scores it skips are the least reliable part
+                        of the output.</span>
+                </label>
 
                 <button class="btn-primary" id="btn-process" disabled>Process Audio</button>
             </div>
@@ -97,6 +117,10 @@
                 </div>
             </div>
         </main>
+        <footer class="intended-use">
+            Research use only. ClinicalWhisper is not a medical device: it does not diagnose,
+            screen for, or monitor any condition. Runs on this Mac; recordings never leave it.
+        </footer>
     </div>
 
     <script src="script.js"></script>

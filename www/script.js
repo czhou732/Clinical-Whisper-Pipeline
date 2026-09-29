@@ -27,9 +27,15 @@ document.addEventListener('DOMContentLoaded', () => {
     const transcriptContent = document.getElementById('transcript-content');
     const jsonContent = document.getElementById('json-content');
 
-    // Must match audio_extensions in config.example.yaml. .mp4 is a recorded
-    // session video; ffmpeg strips the audio track during preprocessing.
-    const VALID_EXT = ['.wav', '.m4a', '.mp3', '.mp4'];
+    // Must match AUDIO_EXTENSIONS in gui_server.py. .mp4 is a recorded session
+    // video; the decoder uses only its audio track.
+    const VALID_EXT = ['.wav', '.m4a', '.mp3', '.mp4', '.ogg', '.opus', '.flac', '.aac'];
+
+    // Inside the app window, pywebview's private bridge can give real file
+    // paths, so recordings are read where they are instead of being uploaded
+    // and copied. In a plain browser there is no bridge, and files are uploaded.
+    const hasBridge = () => !!(window.pywebview && window.pywebview.api &&
+                               window.pywebview.api.pick_files);
 
     let selectedFiles = [];
     let pollInterval = null;
@@ -39,7 +45,28 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- File selection ---
 
-    dropZone.addEventListener('click', () => fileInput.click());
+    dropZone.addEventListener('click', async () => {
+        if (!hasBridge()) { fileInput.click(); return; }
+        try {
+            addPathEntries(await window.pywebview.api.pick_files());
+        } catch (e) {
+            fileInput.click();  // bridge unavailable after all: fall back to upload
+        }
+    });
+
+    // Called by the app (launcher.py) with the real paths of dropped files.
+    // Each replaces the matching upload entry the drop handler just added.
+    window.cwAddPaths = (entries) => addPathEntries(entries);
+
+    function addPathEntries(entries) {
+        (entries || []).forEach(entry => {
+            if (!VALID_EXT.some(ext => entry.name.toLowerCase().endsWith(ext))) return;
+            const i = selectedFiles.findIndex(f => f.name === entry.name && f.size === entry.size);
+            if (i >= 0) selectedFiles[i] = entry;
+            else if (!selectedFiles.some(f => f.path === entry.path)) selectedFiles.push(entry);
+        });
+        renderFileList();
+    }
 
     dropZone.addEventListener('dragover', (e) => {
         e.preventDefault();
@@ -201,7 +228,7 @@ document.addEventListener('DOMContentLoaded', () => {
         btnClear.disabled = true;
         consolePanel.classList.remove('hidden');
         resultPanel.classList.add('hidden');
-        consoleOutput.textContent = 'Uploading...';
+        consoleOutput.textContent = 'Preparing...';
         statusText.textContent = 'Processing Pipeline...';
         statusDot.className = 'status-indicator processing';
         progressBar.style.width = '0%';
@@ -209,23 +236,46 @@ document.addEventListener('DOMContentLoaded', () => {
         btnCancel.textContent = 'Stop';
         currentBatchId = null;
 
-        const formData = new FormData();
-        selectedFiles.forEach(f => formData.append('files', f));
-        // Carried into every analysis and the summary CSV, so results can be
-        // grouped by participant rather than by filename.
-        formData.append('participant_id',
-            document.getElementById('participant-id').value || '');
-        formData.append('session_label',
-            document.getElementById('session-label').value || '');
-        // Criterion measure, recorded alongside the audio so the scores can
-        // later be correlated against it. Cannot be added retrospectively.
-        formData.append('criterion_score',
-            document.getElementById('criterion-score').value || '');
+        const meta = {
+            // Carried into every analysis and the summary CSV, so results can
+            // be grouped by participant rather than by filename.
+            participant_id: document.getElementById('participant-id').value || '',
+            session_label: document.getElementById('session-label').value || '',
+            transcribe_only: document.getElementById('transcribe-only').checked,
+            // Criterion measure, recorded alongside the audio so the scores can
+            // later be correlated against it. Cannot be added retrospectively.
+            criterion_score: document.getElementById('criterion-score').value || '',
+        };
 
+        const withPaths = selectedFiles.filter(f => f.path);
         try {
-            const res = await fetch('/api/upload', { method: 'POST', body: formData });
-            const data = await res.json();
-            if (res.ok && data.batch_id) {
+            if (withPaths.length === selectedFiles.length && hasBridge()) {
+                // Read in place: nothing is uploaded or copied.
+                consoleOutput.textContent = 'Starting...';
+                const data = await window.pywebview.api.start_batch(
+                    { ...meta, paths: withPaths.map(f => f.path) });
+                if (data && data.batch_id) {
+                    consoleOutput.textContent = `Processing ${data.count} file(s) in place...\n`;
+                    currentBatchId = data.batch_id;
+                    startPolling(data.batch_id);
+                } else {
+                    handleError((data && data.message) || 'Could not start processing');
+                }
+                return;
+            }
+            if (withPaths.length) {
+                handleError('Some files were added by path and some by upload. ' +
+                            'Clear the list and add them again with "click to select".');
+                return;
+            }
+            const formData = new FormData();
+            selectedFiles.forEach(f => formData.append('files', f));
+            formData.append('participant_id', meta.participant_id);
+            formData.append('session_label', meta.session_label);
+            formData.append('transcribe_only', meta.transcribe_only ? '1' : '');
+            formData.append('criterion_score', meta.criterion_score);
+            const { ok, data } = await uploadWithProgress(formData);
+            if (ok && data.batch_id) {
                 consoleOutput.textContent = `Uploaded ${data.count} file(s). Starting...\n`;
                 currentBatchId = data.batch_id;
                 startPolling(data.batch_id);
@@ -233,9 +283,37 @@ document.addEventListener('DOMContentLoaded', () => {
                 handleError(data.message || 'Upload failed');
             }
         } catch (error) {
-            handleError(error.message);
+            handleError(error.message || String(error));
         }
     });
+
+    // Upload with visible progress (plain-browser fallback). fetch() cannot
+    // report upload progress, so this uses XMLHttpRequest.
+    function uploadWithProgress(formData) {
+        const gb = (n) => (n / 1073741824).toFixed(2) + ' GB';
+        return new Promise((resolve, reject) => {
+            const xhr = new XMLHttpRequest();
+            xhr.open('POST', '/api/upload');
+            xhr.upload.onprogress = (e) => {
+                if (!e.lengthComputable) return;
+                const pct = (100 * e.loaded) / e.total;
+                progressBar.style.width = pct.toFixed(1) + '%';
+                consoleOutput.textContent = pct >= 100
+                    ? 'Upload complete. Preparing files...'
+                    : `Uploading ${pct.toFixed(0)}% (${gb(e.loaded)} of ${gb(e.total)})`;
+            };
+            xhr.onload = () => {
+                try {
+                    resolve({ ok: xhr.status >= 200 && xhr.status < 300,
+                              data: JSON.parse(xhr.responseText) });
+                } catch (err) {
+                    reject(new Error(`Upload failed (HTTP ${xhr.status})`));
+                }
+            };
+            xhr.onerror = () => reject(new Error('Upload failed: the app did not respond.'));
+            xhr.send(formData);
+        });
+    }
 
     function startPolling(batchId) {
         if (pollInterval) clearInterval(pollInterval);
@@ -329,11 +407,28 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     const SCORE_KEYS = [
-        'word_count', 'duration_minutes', 'hesitancy_score', 'affect_flatness',
+        'word_count', 'duration_minutes', 'participant_speech_min',
+        // Measured from the timestamps: identical on every run.
+        'subject_speech_rate_wps', 'subject_response_latency_median_s',
+        'subject_pause_mean_s', 'subject_filler_rate',
+        // LLM judgments: shown with their measured test-retest reliability.
+        'hesitancy_score', 'affect_flatness',
         'engagement_level', 'elaboration_positive', 'elaboration_negative',
-        'psychomotor_indicators', 'vta', 'pitch_mean_st', 'pitch_cv',
+        'psychomotor_indicators',
+        'subject_pitch_mean_st', 'subject_pitch_cv', 'subject_loudness_mean_db',
+        'subject_jitter', 'subject_shimmer',
+        'vta', 'pitch_mean_st', 'pitch_cv',
         'loudness_mean_db', 'loudness_cv', 'jitter', 'shimmer'
     ];
+
+    function reliabilityNote(rel) {
+        const icc = rel.icc.toFixed(2).replace(/^0/, '');
+        const runs = rel.runs === 1 ? 'one run' : `mean of ${rel.runs} runs`;
+        if (rel.adequate) return `Test-retest ICC ${icc} (${runs})`;
+        let note = `Test-retest ICC ${icc} (${runs}): too unstable to analyse on its own`;
+        if (rel.use_instead) note += `. Use the measured ${rel.use_instead.map(k => prettify(k).replace('Participant ', '').toLowerCase()).join(', ')} instead`;
+        return note + '.';
+    }
 
     function renderActive() {
         const f = batchFiles[activeIndex];
@@ -371,15 +466,47 @@ document.addEventListener('DOMContentLoaded', () => {
             resultContent.appendChild(banner);
         }
 
+        const flags = (f.quality || {}).flags || [];
+        if (flags.length) {
+            const block = document.createElement('div');
+            block.className = 'quality-block';
+            const h = document.createElement('h4');
+            h.textContent = 'Check before using these numbers';
+            const ul = document.createElement('ul');
+            flags.forEach(flag => {
+                const li = document.createElement('li');
+                li.textContent = flag.message;
+                ul.appendChild(li);
+            });
+            block.appendChild(h);
+            block.appendChild(ul);
+            resultContent.appendChild(block);
+        }
+
         const result = f.result || {};
+        const reliability = f.score_reliability || {};
         SCORE_KEYS.forEach(key => {
-            if (result[key] === undefined || result[key] === null) return;
+            if (result[key] === undefined || result[key] === null || result[key] === '') return;
             let val = result[key];
             if (typeof val === 'number') val = Number.isInteger(val) ? val : val.toFixed(3);
             const item = document.createElement('div');
             item.className = 'result-item';
-            item.innerHTML = `<span class="result-label">${prettify(key)}</span>
-                              <span class="result-val">${val}</span>`;
+            const label = document.createElement('span');
+            label.className = 'result-label';
+            label.textContent = prettify(key);
+            const value = document.createElement('span');
+            value.className = 'result-val';
+            value.textContent = val;
+            item.appendChild(label);
+            item.appendChild(value);
+            const rel = reliability[key];
+            if (rel) {
+                const note = document.createElement('span');
+                note.className = 'result-note';
+                note.textContent = reliabilityNote(rel);
+                item.appendChild(note);
+                if (!rel.adequate) item.classList.add('unreliable');
+            }
             resultContent.appendChild(item);
         });
 
@@ -429,7 +556,30 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- Helpers ---
 
+    // Plain names for the measures; anything unlisted falls back to Title Case.
+    const LABELS = {
+        participant_speech_min: 'Participant speech (min)',
+        subject_speech_rate_wps: 'Participant speech rate (words/s)',
+        subject_response_latency_median_s: 'Participant response latency (s, median)',
+        subject_pause_mean_s: 'Participant mean pause (s)',
+        subject_pause_proportion: 'Participant time spent pausing',
+        subject_filler_rate: 'Participant fillers per 100 words',
+        subject_pitch_mean_st: 'Participant pitch (semitones)',
+        subject_pitch_cv: 'Participant pitch variability',
+        subject_loudness_mean_db: 'Participant loudness (dB)',
+        subject_jitter: 'Participant jitter',
+        subject_shimmer: 'Participant shimmer',
+        vta: 'VTA (whole recording)',
+        pitch_mean_st: 'Pitch, semitones (whole recording)',
+        pitch_cv: 'Pitch variability (whole recording)',
+        loudness_mean_db: 'Loudness, dB (whole recording)',
+        loudness_cv: 'Loudness variability (whole recording)',
+        jitter: 'Jitter (whole recording)',
+        shimmer: 'Shimmer (whole recording)',
+    };
+
     function prettify(key) {
+        if (LABELS[key]) return LABELS[key];
         return key.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
     }
 
@@ -448,6 +598,31 @@ document.addEventListener('DOMContentLoaded', () => {
         statusDot.className = 'status-indicator error';
         enableInputs();
     }
+
+    // After a crash the process leaves no visible trace; surface it here so
+    // the log reaches whoever is debugging it.
+    (async function checkPreviousCrash() {
+        try {
+            const res = await fetch('/api/diagnostics');
+            const data = await res.json();
+            if (data.filevault === false) {
+                document.getElementById('filevault-notice').classList.remove('hidden');
+            }
+            const crash = data.previous_crash;
+            if (!crash) return;
+            const notice = document.getElementById('crash-notice');
+            const where = [crash.stage, crash.detail].filter(Boolean).join(' — ');
+            document.getElementById('crash-stage').textContent = where ? `while: ${where}.` : '';
+            notice.classList.remove('hidden');
+            document.getElementById('btn-reveal-logs').addEventListener('click', () => {
+                fetch('/api/diagnostics/reveal', { method: 'POST' });
+            });
+            document.getElementById('btn-dismiss-crash').addEventListener('click', () => {
+                fetch('/api/diagnostics/dismiss', { method: 'POST' });
+                notice.classList.add('hidden');
+            });
+        } catch (e) { /* diagnostics are best-effort */ }
+    })();
 
     function enableInputs() {
         btnClear.disabled = false;

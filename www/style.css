@@ -607,3 +607,59 @@ input:focus {
     font-family: var(--font-mono);
     font-size: var(--text-sm);
 }
+
+/* Shown once after the previous session ended without a clean shutdown. */
+.crash-notice {
+    border: 1px solid var(--color-danger);
+    border-radius: 8px;
+    padding: var(--space-3);
+    margin-bottom: var(--space-4);
+    background: var(--color-surface);
+}
+.crash-notice.hidden { display: none; }
+.crash-notice p { margin: 0 0 var(--space-2); }
+.crash-notice .crash-help { color: var(--color-text-muted); font-size: var(--text-sm); }
+.crash-actions { display: flex; gap: var(--space-2); }
+
+/* Intended-use statement: plain text, always visible, not a badge. */
+.intended-use {
+    margin-top: var(--space-6);
+    padding-top: var(--space-3);
+    border-top: 1px solid var(--color-border);
+    font-size: var(--text-sm);
+    color: var(--color-text-muted);
+    line-height: 1.5;
+    max-width: 70ch;
+}
+
+/* Per-recording quality flags: things to check before trusting the numbers. */
+.quality-block {
+    grid-column: 1 / -1;
+    padding: var(--space-3) 0;
+    border-bottom: 1px solid var(--color-border);
+    font-size: var(--text-sm);
+    line-height: 1.5;
+}
+.quality-block h4 { margin: 0 0 var(--space-2); font-size: var(--text-sm); }
+.quality-block ul { margin: 0; padding-left: 1.1em; color: var(--color-text-muted); }
+
+/* Reliability shown under each LLM score, in words and numbers, not colour. */
+.result-note {
+    font-size: var(--text-sm);
+    color: var(--color-text-muted);
+    line-height: 1.4;
+}
+.result-item.unreliable .result-val { color: var(--color-text-muted); }
+
+/* Run options sit with the study fields, above the primary button. */
+.option-row {
+    display: flex;
+    gap: var(--space-2);
+    align-items: flex-start;
+    margin-bottom: var(--space-3);
+    font-size: var(--text-sm);
+    color: var(--color-text-muted);
+    line-height: 1.45;
+    max-width: 70ch;
+}
+.option-row input { margin-top: 0.15em; flex: none; }
