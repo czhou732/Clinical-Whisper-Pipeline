@@ -4,14 +4,14 @@
 
 One-way random-effects ICC(1,1), per Shrout & Fleiss (1979): the repeated scores are exchangeable draws from one stochastic process, not a fixed panel of identifiable raters.
 
-| dimension | mean | range | SEM | SD between | ratio | ICC(1,1) | 95% CI | |
-|---|---|---|---|---|---|---|---|---|
-| hesitancy_score | 4.53 | 1–9 | 1.606 | 1.022 | 0.64 | 0.288 | 0.03 – 0.68 | poor |
-| affect_flatness | 4.47 | 1–9 | 1.358 | 1.361 | 1.0 | 0.501 | 0.21 – 0.82 | moderate |
-| engagement_level | 5.51 | 3–8 | 1.3 | 0.987 | 0.76 | 0.366 | 0.09 – 0.74 | poor |
-| elaboration_positive | 3.47 | 1–8 | 1.049 | 1.273 | 1.21 | 0.596 | 0.31 – 0.86 | moderate |
-| elaboration_negative | 5.47 | 2–9 | 1.438 | 1.535 | 1.07 | 0.533 | 0.24 – 0.83 | moderate |
-| psychomotor_indicators | 4.47 | 2–6 | 1.342 | 0.707 | 0.53 | 0.217 | -0.01 – 0.62 | poor |
+| dimension | mean | range | SEM | SD between | ratio | ICC(1,1) | 95% CI | | ICC(1,k): mean of k runs | 95% CI | |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| hesitancy_score | 4.53 | 1–9 | 1.606 | 1.022 | 0.64 | 0.288 | 0.03 – 0.68 | poor | 0.67 | 0.15 – 0.91 | moderate |
+| affect_flatness | 4.47 | 1–9 | 1.358 | 1.361 | 1.0 | 0.501 | 0.21 – 0.82 | moderate | 0.83 | 0.57 – 0.96 | good |
+| engagement_level | 5.51 | 3–8 | 1.3 | 0.987 | 0.76 | 0.366 | 0.09 – 0.74 | poor | 0.74 | 0.34 – 0.93 | moderate |
+| elaboration_positive | 3.47 | 1–8 | 1.049 | 1.273 | 1.21 | 0.596 | 0.31 – 0.86 | moderate | 0.88 | 0.69 – 0.97 | good |
+| elaboration_negative | 5.47 | 2–9 | 1.438 | 1.535 | 1.07 | 0.533 | 0.24 – 0.83 | moderate | 0.85 | 0.62 – 0.96 | good |
+| psychomotor_indicators | 4.47 | 2–6 | 1.342 | 0.707 | 0.53 | 0.217 | -0.01 – 0.62 | poor | 0.58 | -0.07 – 0.89 | moderate |
 
 ## Definitions
 
@@ -31,7 +31,7 @@ One-way random-effects ICC(1,1), per Shrout & Fleiss (1979): the repeated scores
 
 ## Limitations
 
-- **n = ? targets** is well below the ~30 usually recommended for an ICC study, which is why the confidence intervals above are very wide. Treat the point estimates as indicative.
+- **n = 9 targets** is well below the ~30 usually recommended for an ICC study, which is why the confidence intervals above are very wide. Treat the point estimates as indicative.
 - Clips were drawn two per source recording, so they are **clustered** rather than fully independent; the between-target component is likely overstated.
 - Measured with sampling on. The shipped default is greedy decoding, so in normal use the same file returns the same score. A low ICC does not mean the app is unstable — it means the single score is one draw from a wide distribution, and will move under small changes to prompt, transcript or model version.
 
