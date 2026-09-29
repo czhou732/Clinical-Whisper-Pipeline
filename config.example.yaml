@@ -22,6 +22,10 @@ audio_extensions:
   - ".m4a"
   - ".mp3"
   - ".wav"
+  - ".ogg"      # Plaud recorder exports
+  - ".opus"
+  - ".flac"
+  - ".aac"
   - ".mp4"
 
 # Sentiment analysis
@@ -46,6 +50,8 @@ keep_models_loaded: false
 # What to do with the source audio once an analysis is written.
 #   archive -> move it to processed_folder (default; keeps the recording)
 #   delete  -> remove it, so nothing identifiable is left on disk
+#   keep    -> leave it where it is (the command-line batch default, since it
+#              runs over a study's original recordings)
 # The transcript is de-identified either way, but the audio itself is not.
 audio_retention: "archive"
 
@@ -132,10 +138,13 @@ llm_scoring:
   # turns. Note engagement_level is an interactional judgement and means
   # something different without the questions.
   transcript_scope: "dialogue"
-  # >1 re-scores each window and reports mean/SD, so you can quote a spread
-  # instead of a bare point estimate. Run 1 stays greedy and reproducible;
-  # extra runs use `temperature`. Costs roughly (samples x window) generations.
-  samples: 1
+  # Re-scores each window and reports the mean (and SD). A single score is one
+  # draw from a wide distribution: measured test-retest ICC was 0.22-0.60
+  # (evals/reports/reliability.md). Averaging k runs raises it by the
+  # Spearman-Brown formula; k=5 predicts ~0.58-0.88. Run 1 stays greedy and
+  # reproducible; the rest use `temperature`. Costs ~5x the scoring time —
+  # set 1 for a quick look, keep 5 for anything you will analyse.
+  samples: 5
   temperature: 0.7
 
 # ============================================================
@@ -149,10 +158,43 @@ moss:
   device: "auto"        # auto | mps | cuda | cpu
   # Domain terms the transcriber should favour — drug names, scale names, local
   # jargon. Appended to the model's prompt as hotwords.
-  hotwords: []
+  # A general transcriber mangles clinical vocabulary ("anhedonia" came out as
+  # "Adonia" on a journal-club recording). Add your own drug, scale and site names.
+  hotwords: [anhedonia, anhedonic, PHQ-8, PHQ-9, SHAPS, DARS, TEPS, MADRS,
+             HAM-D, DAIC-WOZ, ketamine, dopamine, ventral striatum,
+             nucleus accumbens, eGeMAPS, openSMILE, ClinicalWhisper, PRAXIS]
   # auto picks float16 on Apple Silicon (~2.4x faster than float32, identical
   # output in testing). Set float32 if a recording ever transcribes poorly.
   dtype: "auto"         # auto | float16 | bfloat16 | float32
+  # Apple Silicon only: the text decoder runs on MLX, several times faster than
+  # PyTorch. "torch" forces the old path (and is what CUDA machines use).
+  backend: "auto"       # auto | mlx | torch
+  # Long recordings are split into equal overlapping windows decoded as one
+  # batch. One pass over an hour both slows to a crawl (every token attends to
+  # the whole file) and, measured on a 29-min meeting, silently dropped the
+  # last 3 minutes. Windows shorter than ~3 min hurt diarization.
+  window_seconds: 300
+  window_overlap_seconds: 30
+  # Upper bound; the real batch is also capped by memory — a quarter of RAM,
+  # and 60% of what is free when the job starts — because a batch that spills
+  # into swap runs an order of magnitude slower.
+  batch_size: 32
+  # Cosine similarity needed to treat voices in different windows as the same
+  # speaker when the overlap alone does not settle it. Leave unset: defaults are
+  # tuned per embedding type (voice model vs encoder fallback) on AMI.
+  # speaker_similarity: 0.50
+  # Whole-file pass: merge two speakers only if their voices are this similar
+  # AND they never talk in the same window. Fixes one person being split in
+  # two after a long silence without merging distinct people.
+  # speaker_merge_similarity: 0.65
+  # MOSS sometimes labels one person twice within a window; labels whose voices
+  # match at least this closely are joined anyway (tuned on AMI).
+  # speaker_split_similarity: 0.75
+  # Set when every recording has the same number of speakers — 2 for a
+  # one-to-one clinical interview. Long recordings are otherwise prone to one
+  # person being given two labels; this folds extras into the nearest voice.
+  # Leave unset for groups or when the count varies.
+  # num_speakers: 2
 
 # HIPAA Safe Harbor de-identification of the transcript.
 # strict: true means a scrubber failure aborts the job rather than emitting

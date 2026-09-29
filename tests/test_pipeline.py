@@ -56,7 +56,9 @@ class TestComputeStatistics:
         transcript = "A simple test."
         segments = [{"start": 0.0, "end": 5.0, "speaker": "Speaker 1", "text": "A simple test."}]
         stats = InferencePipeline._compute_statistics(transcript, segments)
-        expected_keys = {"word_count", "character_count", "sentence_count", "estimated_minutes", "duration_seconds"}
+        expected_keys = {"word_count", "word_count_excluding_masked", "masked_word_count",
+                         "character_count", "sentence_count", "estimated_minutes",
+                         "duration_seconds"}
         assert set(stats.keys()) == expected_keys
 
     def test_no_segments_uses_word_count_fallback(self):
