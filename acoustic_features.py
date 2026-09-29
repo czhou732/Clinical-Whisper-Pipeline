@@ -92,9 +92,9 @@ class AcousticExtractor:
         jitter = features.get("jitterLocal_sma3nz_amean", 0.0)
         shimmer = features.get("shimmerLocaldB_sma3nz_amean", 0.0)
         
-        # Speaking rate
-        speaking_rate = features.get("equivalentSoundLevel_dBp", 0.0) # fallback
-        
+        # Speaking rate is not an eGeMAPS functional; it comes from the
+        # transcript's segment timing instead (timing_features.py).
+
         # Compute VTA
         # V_anh = -log(CV_F0 * CV_Energy)
         vta = 0.0
