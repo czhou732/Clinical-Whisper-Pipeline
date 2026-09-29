@@ -33,6 +33,7 @@ dependencies = [
     "mlx-lm",
     "torchaudio",
     "pywebview",
+    "onnxruntime>=1.24.3",
 ]
 
 [project.optional-dependencies]
@@ -46,6 +47,8 @@ diarization = [
 
 [project.scripts]
 clinicalwhisper = "main:main"
+clinicalwhisper-batch = "batch_processor:main"
+clinicalwhisper-setup = "offline:main"
 
 [project.urls]
 Repository = "https://github.com/czhou732/Clinical-Whisper-Pipeline"
@@ -57,4 +60,10 @@ python_files = "test_*.py"
 [tool.setuptools.packages.find]
 where = ["."]
 include = ["*"]
-exclude = ["www*", "evals*", "tests*", "scripts*", "Input*", "Output*", "Processed*"]
+exclude = ["www*", "evals*", "tests*", "scripts*", "research*", "Input*", "Output*", "Processed*"]
+
+[dependency-groups]
+dev = [
+    "jiwer>=4.0.0",
+    "statsmodels>=0.15.0",
+]

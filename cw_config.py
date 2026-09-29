@@ -38,7 +38,8 @@ DEFAULT_CONFIG: dict[str, Any] = {
     "input_folder": "./Input",
     "processed_folder": "./Processed",
     "output_folder": "./Output",
-    "audio_extensions": [".m4a", ".mp3", ".wav", ".mp4"],
+    # .ogg/.opus covers Plaud recorder exports; PyAV decodes all of these.
+    "audio_extensions": [".m4a", ".mp3", ".wav", ".mp4", ".ogg", ".opus", ".flac", ".aac"],
     "sentiment": {
         "enabled": True,
         "sentences_per_segment": 5,

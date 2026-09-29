@@ -8,7 +8,11 @@ Privacy-first local processing pipeline:
 4. MLX Clinical LLM Scoring
 """
 
-import gc
+import offline
+
+offline.lock()  # before the ML imports below pull in huggingface_hub
+
+import gc  # noqa: E402
 import sys
 import time
 import os
