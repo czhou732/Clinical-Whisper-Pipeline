@@ -4,6 +4,18 @@ set -e
 echo "Installing packaging dependencies..."
 uv pip install pyinstaller pywebview fastapi uvicorn python-multipart
 
+# Oldest macOS the app supports. The package installer picks wheels for the
+# machine it runs on, so a build on macOS 26 bundled MLX's macOS-26.2 build.
+# On an older Mac that library calls Metal functions that do not exist, and
+# the app dies with no error the moment MLX runs — a collaborator on an older
+# macOS saw exactly that. PyPI publishes MLX for macOS 14, 15 and 26; pin 14.
+MIN_MACOS="14.0"
+MLX_VERSION=$(uv run python -c "import importlib.metadata as m; print(m.version('mlx'))")
+echo "Pinning MLX $MLX_VERSION to its macOS $MIN_MACOS build..."
+MACOSX_DEPLOYMENT_TARGET=$MIN_MACOS uv pip install --reinstall --no-deps \
+    --python-platform aarch64-apple-darwin \
+    "mlx==$MLX_VERSION" "mlx-metal==$MLX_VERSION"
+
 echo "Cleaning up previous builds..."
 rm -rf build dist ClinicalWhisper.dmg ClinicalWhisper.spec
 
@@ -16,9 +28,13 @@ STAGE=".model_stage"   # outside build/ so cleanup does not force a 7 GB re-copy
 mkdir -p "$STAGE/hub"
 
 HF_HUB="$HOME/.cache/huggingface/hub"
+# The voice model is small (26 MB) but not optional: without it speakers are
+# matched across 5-minute windows by a much weaker fallback, and one person
+# comes out as several. The offline lock (correctly) refuses to download it.
 MODELS="models--OpenMOSS-Team--MOSS-Transcribe-Diarize \
         models--mlx-community--Meta-Llama-3-8B-Instruct-4bit \
-        models--OpenMed--OpenMed-PII-SuperClinical-Small-44M-v1"
+        models--OpenMed--OpenMed-PII-SuperClinical-Small-44M-v1 \
+        models--Wespeaker--wespeaker-voxceleb-resnet34-LM"
 
 for m in $MODELS; do
     if [ ! -d "$HF_HUB/$m" ]; then
@@ -93,6 +109,11 @@ done
 if [ ! -d dist/ClinicalWhisper.app/Contents/Resources/models/hub ]; then
     MISSING="$MISSING bundled-models"
 fi
+for m in $MODELS; do
+    if [ ! -d "dist/ClinicalWhisper.app/Contents/Resources/models/hub/$m" ]; then
+        MISSING="$MISSING $m"
+    fi
+done
 
 for dylib in libSMILEapi.dylib libaudresample.dylib; do
     if ! find dist/ClinicalWhisper.app/Contents -name "$dylib" | grep -q .; then
@@ -105,6 +126,32 @@ if [ -n "$MISSING" ]; then
     exit 1
 fi
 echo "All ML backends present."
+
+echo "Checking every bundled binary runs on macOS $MIN_MACOS..."
+# minos is the oldest macOS a Mach-O binary was built for. Anything newer than
+# MIN_MACOS may crash natively on a supported Mac, so refuse to ship it.
+TOO_NEW=""
+while IFS= read -r -d '' bin; do
+    minos=$(otool -l "$bin" 2>/dev/null | awk '/LC_BUILD_VERSION/{f=1} f&&/minos/{print $2; exit}')
+    if [ -n "$minos" ] && [ "$(printf '%s\n%s\n' "$MIN_MACOS" "$minos" | sort -V | tail -1)" != "$MIN_MACOS" ]; then
+        TOO_NEW="$TOO_NEW
+  macOS $minos  ${bin#dist/ClinicalWhisper.app/Contents/}"
+    fi
+done < <(find dist/ClinicalWhisper.app/Contents -type f \( -name '*.dylib' -o -name '*.so' -o -path '*/MacOS/*' \) -print0)
+if [ -n "$TOO_NEW" ]; then
+    echo "ERROR: these binaries require a newer macOS than $MIN_MACOS:$TOO_NEW"
+    exit 1
+fi
+echo "All binaries run on macOS $MIN_MACOS or later."
+
+# Say so up front: an older Mac gets "requires macOS 14" instead of a crash.
+PLIST=dist/ClinicalWhisper.app/Contents/Info.plist
+/usr/libexec/PlistBuddy -c "Delete :LSMinimumSystemVersion" "$PLIST" 2>/dev/null || true
+/usr/libexec/PlistBuddy -c "Add :LSMinimumSystemVersion string $MIN_MACOS" "$PLIST"
+# Editing Info.plist invalidates the bundle signature; an invalid signature on
+# Apple Silicon reads as "damaged". Re-apply the ad-hoc signature.
+codesign --force --deep --sign - dist/ClinicalWhisper.app
+codesign --verify --deep --strict dist/ClinicalWhisper.app
 
 echo "Creating DMG..."
 # Check if hdiutil is available (macOS)
