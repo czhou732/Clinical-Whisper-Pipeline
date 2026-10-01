@@ -40,13 +40,36 @@ def _extract_row(analysis_path: str, audio_filename: str) -> dict:
 
     stats = data.get("statistics", {})
     llm_scores = data.get("llm_clinical_scoring", {})
+    llm_meta = llm_scores.get("_meta", {}) if isinstance(llm_scores, dict) else {}
     acoustics = data.get("overall_acoustics", {})
+
+    llm_status = data.get("llm_scoring_status")
+    if not llm_status:
+        if not llm_scores:
+            llm_status = "not_run"
+        elif llm_meta.get("error"):
+            llm_status = "failed"
+        elif llm_meta.get("errors") or (
+            isinstance(llm_meta.get("coverage"), (int, float))
+            and llm_meta["coverage"] < 1.0
+        ):
+            llm_status = "partial"
+        else:
+            llm_status = "completed"
+
+    llm_coverage = data.get("llm_scoring_coverage", llm_meta.get("coverage"))
+    if llm_status == "failed" and llm_coverage is None:
+        llm_coverage = 0.0
 
     return {
         "filename": audio_filename,
         "participant_id": data.get("participant_id", ""),
         "session_label": data.get("session_label", ""),
         "criterion_score": data.get("criterion_score", ""),
+        "analysis_status": data.get("status", ""),
+        "llm_scoring_status": llm_status,
+        "llm_scoring_coverage": llm_coverage,
+        "warnings": " | ".join(str(w) for w in data.get("warnings", []) if w),
         "word_count": stats.get("word_count", 0),
         "duration_minutes": round(stats.get("duration_seconds", 0.0) / 60.0, 2),
         "hesitancy_score": llm_scores.get("hesitancy_score", None),

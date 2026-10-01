@@ -324,6 +324,45 @@ class InferencePipeline:
         self.release_transcriber()
         self.release_scorer()
 
+    @staticmethod
+    def _assess_llm_scoring(result: dict) -> tuple[str, Optional[float], list[str]]:
+        """Turn scorer metadata into a user-visible health status.
+
+        ``score_transcript`` returns default scores instead of raising when all
+        generations fail. Inspecting ``_meta`` here prevents those defaults, or
+        a partial-window aggregate, from being reported as a clean analysis.
+        """
+        if not result:
+            return "not_run", None, []
+
+        meta = result.get("_meta", {})
+        if not isinstance(meta, dict):
+            return "completed", None, []
+
+        raw_coverage = meta.get("coverage")
+        try:
+            coverage = float(raw_coverage) if raw_coverage is not None else None
+        except (TypeError, ValueError):
+            coverage = None
+
+        error = meta.get("error")
+        if error:
+            return "failed", 0.0, [f"LLM clinical scoring failed: {error}"]
+
+        errors = meta.get("errors")
+        error_count = len(errors) if isinstance(errors, list) else 0
+        incomplete = error_count > 0 or (coverage is not None and coverage < 1.0)
+        if incomplete:
+            details = []
+            if error_count:
+                details.append(f"{error_count} scoring run(s) failed")
+            if coverage is not None:
+                details.append(f"transcript coverage was {coverage:.1%}")
+            suffix = "; ".join(details) or "not all scoring runs completed"
+            return "partial", coverage, [f"LLM clinical scoring incomplete: {suffix}."]
+
+        return "completed", coverage, []
+
     def transcribe_job(self, job: dict) -> dict:
         """First half: decode, transcribe, de-identify, acoustics.
 
@@ -508,6 +547,8 @@ class InferencePipeline:
 
         # ── Stage 5b: LLM Clinical Scoring (MLX) ──
         llm_scoring = {}
+        llm_scoring_status = "not_run"
+        llm_scoring_coverage = None
         llm_enabled = self.cfg.get("llm_scoring", {}).get("enabled", True)
         if structured_transcript and llm_enabled:
             try:
@@ -517,14 +558,26 @@ class InferencePipeline:
                 llm_scoring = score_transcript(
                     structured_transcript, acoustic_context, self.cfg
                 )
-                log.info("Job %s: LLM scoring complete", job_id)
+                (
+                    llm_scoring_status,
+                    llm_scoring_coverage,
+                    scoring_warnings,
+                ) = self._assess_llm_scoring(llm_scoring)
+                warnings.extend(scoring_warnings)
+                if scoring_warnings:
+                    log.warning("Job %s: %s", job_id, scoring_warnings[0])
+                else:
+                    log.info("Job %s: LLM scoring complete", job_id)
             except Exception as exc:
                 log.warning("Job %s: LLM clinical scoring failed: %s", job_id, exc)
                 warnings.append(f"LLM clinical scoring failed: {exc}")
+                llm_scoring_status = "failed"
+                llm_scoring_coverage = 0.0
         elif not llm_enabled:
             msg = "llm_scoring.enabled is false — clinical scores are blank."
             log.warning("Job %s: %s", job_id, msg)
             warnings.append(msg)
+            llm_scoring_status = "disabled"
 
         # ── Provenance ──
         # Recorded per job so a result stays reproducible even if a model repo
@@ -573,6 +626,8 @@ class InferencePipeline:
             "speaker_roles": speaker_roles,
             "speaker_stats": speaker_stats,
             "structured_transcript": structured_transcript,
+            "llm_scoring_status": llm_scoring_status,
+            "llm_scoring_coverage": llm_scoring_coverage,
             "llm_clinical_scoring": llm_scoring,
             "segments": segments,
             "transcript": transcript,
