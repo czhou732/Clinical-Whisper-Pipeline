@@ -1,0 +1,300 @@
+{"id": "g00_00", "text": "She's been working nights down at Chipotle since spring.", "entities": [{"start": 34, "end": 42, "type": "organization", "origin": "place"}]}
+{"id": "g01_00", "text": "I got a part-time job over at Home Depot.", "entities": [{"start": 30, "end": 40, "type": "organization", "origin": "place"}]}
+{"id": "g02_00", "text": "My daughter used to live off Lakeview Lane, near the park.", "entities": [{"start": 29, "end": 42, "type": "street", "origin": "place"}]}
+{"id": "g03_00", "text": "The apartment on Pine Street had mold everywhere.", "entities": [{"start": 17, "end": 28, "type": "street", "origin": "place"}]}
+{"id": "g04_00", "text": "Call the front desk at 467 216 7894 and ask for me.", "entities": [{"start": 23, "end": 35, "type": "phone", "origin": "number"}]}
+{"id": "g05_00", "text": "My cell is 407-388-6295.", "entities": [{"start": 11, "end": 23, "type": "phone", "origin": "number"}]}
+{"id": "g06_00", "text": "Lihua keeps telling me it'll get better.", "entities": [{"start": 0, "end": 5, "type": "first_name", "origin": "chinese"}]}
+{"id": "g07_00", "text": "We moved to Pasadena when I was 73.", "entities": [{"start": 12, "end": 20, "type": "city", "origin": "place"}, {"start": 32, "end": 34, "type": "age", "origin": "number"}]}
+{"id": "g08_00", "text": "It was June 2, I remember because it was raining.", "entities": [{"start": 7, "end": 13, "type": "date", "origin": "date"}]}
+{"id": "g09_00", "text": "Tariq Haddad was the one who found me.", "entities": [{"start": 0, "end": 12, "type": "full_name", "origin": "arabic"}]}
+{"id": "g10_00", "text": "Write to me at mateo dot ramirez at gmail dot com instead.", "entities": [{"start": 15, "end": 49, "type": "email", "origin": "email"}]}
+{"id": "g11_00", "text": "Doctor Ramirez wanted me back in two weeks.", "entities": [{"start": 7, "end": 14, "type": "last_name", "origin": "surname"}]}
+{"id": "g00_01", "text": "She's been working nights down at Walmart since spring.", "entities": [{"start": 34, "end": 41, "type": "organization", "origin": "place"}]}
+{"id": "g01_01", "text": "I got a part-time job over at Starbucks.", "entities": [{"start": 30, "end": 39, "type": "organization", "origin": "place"}]}
+{"id": "g02_01", "text": "My boss used to live off Pine Boulevard, near the park.", "entities": [{"start": 25, "end": 39, "type": "street", "origin": "place"}]}
+{"id": "g03_01", "text": "The apartment on Mission Lane had mold everywhere.", "entities": [{"start": 17, "end": 29, "type": "street", "origin": "place"}]}
+{"id": "g04_01", "text": "Call the front desk at 378.881.3703 and ask for me.", "entities": [{"start": 23, "end": 35, "type": "phone", "origin": "number"}]}
+{"id": "g05_01", "text": "My cell is 653-7324.", "entities": [{"start": 11, "end": 19, "type": "phone", "origin": "number"}]}
+{"id": "g06_01", "text": "Khalid keeps telling me it'll get better.", "entities": [{"start": 0, "end": 6, "type": "first_name", "origin": "arabic"}]}
+{"id": "g07_01", "text": "We moved to Wugang when I was 75.", "entities": [{"start": 12, "end": 18, "type": "city", "origin": "place"}, {"start": 30, "end": 32, "type": "age", "origin": "number"}]}
+{"id": "g08_01", "text": "It was October 5, I remember because it was raining.", "entities": [{"start": 7, "end": 16, "type": "date", "origin": "date"}]}
+{"id": "g09_01", "text": "Camila Mensah was the one who found me.", "entities": [{"start": 0, "end": 13, "type": "full_name", "origin": "hispanic"}]}
+{"id": "g10_01", "text": "Write to me at ngozi dot kowalski at gmail dot com instead.", "entities": [{"start": 15, "end": 50, "type": "email", "origin": "email"}]}
+{"id": "g11_01", "text": "Doctor Nguyen wanted me back in two weeks.", "entities": [{"start": 7, "end": 13, "type": "last_name", "origin": "surname"}]}
+{"id": "g00_02", "text": "She's been working nights down at Costco since spring.", "entities": [{"start": 34, "end": 40, "type": "organization", "origin": "place"}]}
+{"id": "g01_02", "text": "I got a part-time job over at Amazon.", "entities": [{"start": 30, "end": 36, "type": "organization", "origin": "place"}]}
+{"id": "g02_02", "text": "My wife used to live off Cedar Hill Lane, near the park.", "entities": [{"start": 25, "end": 40, "type": "street", "origin": "place"}]}
+{"id": "g03_02", "text": "The apartment on Grant Court had mold everywhere.", "entities": [{"start": 17, "end": 28, "type": "street", "origin": "place"}]}
+{"id": "g04_02", "text": "Call the front desk at 478.336.2070 and ask for me.", "entities": [{"start": 23, "end": 35, "type": "phone", "origin": "number"}]}
+{"id": "g05_02", "text": "My cell is 896-7266.", "entities": [{"start": 11, "end": 19, "type": "phone", "origin": "number"}]}
+{"id": "g06_02", "text": "Chidi keeps telling me it'll get better.", "entities": [{"start": 0, "end": 5, "type": "first_name", "origin": "african"}]}
+{"id": "g07_02", "text": "We moved to Tucson when I was 34.", "entities": [{"start": 12, "end": 18, "type": "city", "origin": "place"}, {"start": 30, "end": 32, "type": "age", "origin": "number"}]}
+{"id": "g08_02", "text": "It was June 28, I remember because it was raining.", "entities": [{"start": 7, "end": 14, "type": "date", "origin": "date"}]}
+{"id": "g09_02", "text": "Sanjana Kowalski was the one who found me.", "entities": [{"start": 0, "end": 16, "type": "full_name", "origin": "indian"}]}
+{"id": "g10_02", "text": "Write to me at ananya dot park at gmail dot com instead.", "entities": [{"start": 15, "end": 47, "type": "email", "origin": "email"}]}
+{"id": "g11_02", "text": "Doctor Liu wanted me back in two weeks.", "entities": [{"start": 7, "end": 10, "type": "last_name", "origin": "surname"}]}
+{"id": "g00_03", "text": "She's been working nights down at Amazon since spring.", "entities": [{"start": 34, "end": 40, "type": "organization", "origin": "place"}]}
+{"id": "g01_03", "text": "I got a part-time job over at Target.", "entities": [{"start": 30, "end": 36, "type": "organization", "origin": "place"}]}
+{"id": "g02_03", "text": "My dad used to live off Alder Place, near the park.", "entities": [{"start": 24, "end": 35, "type": "street", "origin": "place"}]}
+{"id": "g03_03", "text": "The apartment on Pine Lane had mold everywhere.", "entities": [{"start": 17, "end": 26, "type": "street", "origin": "place"}]}
+{"id": "g04_03", "text": "Call the front desk at 442-4108 and ask for me.", "entities": [{"start": 23, "end": 31, "type": "phone", "origin": "number"}]}
+{"id": "g05_03", "text": "My cell is 781-882-9612.", "entities": [{"start": 11, "end": 23, "type": "phone", "origin": "number"}]}
+{"id": "g06_03", "text": "Connor keeps telling me it'll get better.", "entities": [{"start": 0, "end": 6, "type": "first_name", "origin": "anglo"}]}
+{"id": "g07_03", "text": "We moved to Hanoi when I was 32.", "entities": [{"start": 12, "end": 17, "type": "city", "origin": "place"}, {"start": 29, "end": 31, "type": "age", "origin": "number"}]}
+{"id": "g08_03", "text": "It was August 16, I remember because it was raining.", "entities": [{"start": 7, "end": 16, "type": "date", "origin": "date"}]}
+{"id": "g09_03", "text": "Wei Abdullah was the one who found me.", "entities": [{"start": 0, "end": 12, "type": "full_name", "origin": "chinese"}]}
+{"id": "g10_03", "text": "Write to me at abena dot park at gmail dot com instead.", "entities": [{"start": 15, "end": 46, "type": "email", "origin": "email"}]}
+{"id": "g11_03", "text": "Doctor Brennan wanted me back in two weeks.", "entities": [{"start": 7, "end": 14, "type": "last_name", "origin": "surname"}]}
+{"id": "g00_04", "text": "She's been working nights down at Target since spring.", "entities": [{"start": 34, "end": 40, "type": "organization", "origin": "place"}]}
+{"id": "g01_04", "text": "I got a part-time job over at Target.", "entities": [{"start": 30, "end": 36, "type": "organization", "origin": "place"}]}
+{"id": "g02_04", "text": "My boyfriend used to live off Alder Court, near the park.", "entities": [{"start": 30, "end": 41, "type": "street", "origin": "place"}]}
+{"id": "g03_04", "text": "The apartment on Harbor Road had mold everywhere.", "entities": [{"start": 17, "end": 28, "type": "street", "origin": "place"}]}
+{"id": "g04_04", "text": "Call the front desk at (626) 728-3360 and ask for me.", "entities": [{"start": 23, "end": 37, "type": "phone", "origin": "number"}]}
+{"id": "g05_04", "text": "My cell is (709) 977-2046.", "entities": [{"start": 11, "end": 25, "type": "phone", "origin": "number"}]}
+{"id": "g06_04", "text": "Min-jun keeps telling me it'll get better.", "entities": [{"start": 0, "end": 7, "type": "first_name", "origin": "vietnamese_korean"}]}
+{"id": "g07_04", "text": "We moved to Tucson when I was 77.", "entities": [{"start": 12, "end": 18, "type": "city", "origin": "place"}, {"start": 30, "end": 32, "type": "age", "origin": "number"}]}
+{"id": "g08_04", "text": "It was December 1, I remember because it was raining.", "entities": [{"start": 7, "end": 17, "type": "date", "origin": "date"}]}
+{"id": "g09_04", "text": "Lucia Ramirez was the one who found me.", "entities": [{"start": 0, "end": 13, "type": "full_name", "origin": "hispanic"}]}
+{"id": "g10_04", "text": "Write to me at connor dot delgado at gmail dot com instead.", "entities": [{"start": 15, "end": 50, "type": "email", "origin": "email"}]}
+{"id": "g11_04", "text": "Doctor Feldman wanted me back in two weeks.", "entities": [{"start": 7, "end": 14, "type": "last_name", "origin": "surname"}]}
+{"id": "g00_05", "text": "She's been working nights down at Walmart since spring.", "entities": [{"start": 34, "end": 41, "type": "organization", "origin": "place"}]}
+{"id": "g01_05", "text": "I got a part-time job over at Home Depot.", "entities": [{"start": 30, "end": 40, "type": "organization", "origin": "place"}]}
+{"id": "g02_05", "text": "My therapist used to live off Mission Boulevard, near the park.", "entities": [{"start": 30, "end": 47, "type": "street", "origin": "place"}]}
+{"id": "g03_05", "text": "The apartment on Grant Place had mold everywhere.", "entities": [{"start": 17, "end": 28, "type": "street", "origin": "place"}]}
+{"id": "g04_05", "text": "Call the front desk at 643-7111 and ask for me.", "entities": [{"start": 23, "end": 31, "type": "phone", "origin": "number"}]}
+{"id": "g05_05", "text": "My cell is 953.393.3460.", "entities": [{"start": 11, "end": 23, "type": "phone", "origin": "number"}]}
+{"id": "g06_05", "text": "Minh keeps telling me it'll get better.", "entities": [{"start": 0, "end": 4, "type": "first_name", "origin": "vietnamese_korean"}]}
+{"id": "g07_05", "text": "We moved to Pune when I was 65.", "entities": [{"start": 12, "end": 16, "type": "city", "origin": "place"}, {"start": 28, "end": 30, "type": "age", "origin": "number"}]}
+{"id": "g08_05", "text": "It was August 20, I remember because it was raining.", "entities": [{"start": 7, "end": 16, "type": "date", "origin": "date"}]}
+{"id": "g09_05", "text": "Chengdong Liu was the one who found me.", "entities": [{"start": 0, "end": 13, "type": "full_name", "origin": "chinese"}]}
+{"id": "g10_05", "text": "Write to me at abena dot tran at gmail dot com instead.", "entities": [{"start": 15, "end": 46, "type": "email", "origin": "email"}]}
+{"id": "g11_05", "text": "Doctor Delgado wanted me back in two weeks.", "entities": [{"start": 7, "end": 14, "type": "last_name", "origin": "surname"}]}
+{"id": "g00_06", "text": "She's been working nights down at Chipotle since spring.", "entities": [{"start": 34, "end": 42, "type": "organization", "origin": "place"}]}
+{"id": "g01_06", "text": "I got a part-time job over at Amazon.", "entities": [{"start": 30, "end": 36, "type": "organization", "origin": "place"}]}
+{"id": "g02_06", "text": "My boyfriend used to live off Alder Court, near the park.", "entities": [{"start": 30, "end": 41, "type": "street", "origin": "place"}]}
+{"id": "g03_06", "text": "The apartment on Harbor Court had mold everywhere.", "entities": [{"start": 17, "end": 29, "type": "street", "origin": "place"}]}
+{"id": "g04_06", "text": "Call the front desk at 308-436-5795 and ask for me.", "entities": [{"start": 23, "end": 35, "type": "phone", "origin": "number"}]}
+{"id": "g05_06", "text": "My cell is 537-2186.", "entities": [{"start": 11, "end": 19, "type": "phone", "origin": "number"}]}
+{"id": "g06_06", "text": "Mateo keeps telling me it'll get better.", "entities": [{"start": 0, "end": 5, "type": "first_name", "origin": "hispanic"}]}
+{"id": "g07_06", "text": "We moved to Tucson when I was 35.", "entities": [{"start": 12, "end": 18, "type": "city", "origin": "place"}, {"start": 30, "end": 32, "type": "age", "origin": "number"}]}
+{"id": "g08_06", "text": "It was December 13, I remember because it was raining.", "entities": [{"start": 7, "end": 18, "type": "date", "origin": "date"}]}
+{"id": "g09_06", "text": "Emily Chen was the one who found me.", "entities": [{"start": 0, "end": 10, "type": "full_name", "origin": "anglo"}]}
+{"id": "g10_06", "text": "Write to me at fatima dot kowalski at gmail dot com instead.", "entities": [{"start": 15, "end": 51, "type": "email", "origin": "email"}]}
+{"id": "g11_06", "text": "Doctor Abdullah wanted me back in two weeks.", "entities": [{"start": 7, "end": 15, "type": "last_name", "origin": "surname"}]}
+{"id": "g00_07", "text": "She's been working nights down at Home Depot since spring.", "entities": [{"start": 34, "end": 44, "type": "organization", "origin": "place"}]}
+{"id": "g01_07", "text": "I got a part-time job over at Chipotle.", "entities": [{"start": 30, "end": 38, "type": "organization", "origin": "place"}]}
+{"id": "g02_07", "text": "My brother used to live off Alder Road, near the park.", "entities": [{"start": 28, "end": 38, "type": "street", "origin": "place"}]}
+{"id": "g03_07", "text": "The apartment on Harbor Court had mold everywhere.", "entities": [{"start": 17, "end": 29, "type": "street", "origin": "place"}]}
+{"id": "g04_07", "text": "Call the front desk at 314-893-1472 and ask for me.", "entities": [{"start": 23, "end": 35, "type": "phone", "origin": "number"}]}
+{"id": "g05_07", "text": "My cell is (709) 220-4364.", "entities": [{"start": 11, "end": 25, "type": "phone", "origin": "number"}]}
+{"id": "g06_07", "text": "Emily keeps telling me it'll get better.", "entities": [{"start": 0, "end": 5, "type": "first_name", "origin": "anglo"}]}
+{"id": "g07_07", "text": "We moved to Pasadena when I was 42.", "entities": [{"start": 12, "end": 20, "type": "city", "origin": "place"}, {"start": 32, "end": 34, "type": "age", "origin": "number"}]}
+{"id": "g08_07", "text": "It was March 4, I remember because it was raining.", "entities": [{"start": 7, "end": 14, "type": "date", "origin": "date"}]}
+{"id": "g09_07", "text": "Diego Patel was the one who found me.", "entities": [{"start": 0, "end": 11, "type": "full_name", "origin": "hispanic"}]}
+{"id": "g10_07", "text": "Write to me at grace dot chen at gmail dot com instead.", "entities": [{"start": 15, "end": 46, "type": "email", "origin": "email"}]}
+{"id": "g11_07", "text": "Doctor Okafor wanted me back in two weeks.", "entities": [{"start": 7, "end": 13, "type": "last_name", "origin": "surname"}]}
+{"id": "g00_08", "text": "She's been working nights down at Walmart since spring.", "entities": [{"start": 34, "end": 41, "type": "organization", "origin": "place"}]}
+{"id": "g01_08", "text": "I got a part-time job over at Costco.", "entities": [{"start": 30, "end": 36, "type": "organization", "origin": "place"}]}
+{"id": "g02_08", "text": "My boss used to live off Willow Creek Way, near the park.", "entities": [{"start": 25, "end": 41, "type": "street", "origin": "place"}]}
+{"id": "g03_08", "text": "The apartment on Alder Boulevard had mold everywhere.", "entities": [{"start": 17, "end": 32, "type": "street", "origin": "place"}]}
+{"id": "g04_08", "text": "Call the front desk at 914 249 7110 and ask for me.", "entities": [{"start": 23, "end": 35, "type": "phone", "origin": "number"}]}
+{"id": "g05_08", "text": "My cell is 598 486 5329.", "entities": [{"start": 11, "end": 23, "type": "phone", "origin": "number"}]}
+{"id": "g06_08", "text": "Megan keeps telling me it'll get better.", "entities": [{"start": 0, "end": 5, "type": "first_name", "origin": "anglo"}]}
+{"id": "g07_08", "text": "We moved to Lagos when I was 78.", "entities": [{"start": 12, "end": 17, "type": "city", "origin": "place"}, {"start": 29, "end": 31, "type": "age", "origin": "number"}]}
+{"id": "g08_08", "text": "It was January 10, I remember because it was raining.", "entities": [{"start": 7, "end": 17, "type": "date", "origin": "date"}]}
+{"id": "g09_08", "text": "Grace Brennan was the one who found me.", "entities": [{"start": 0, "end": 13, "type": "full_name", "origin": "common_word"}]}
+{"id": "g10_08", "text": "Write to me at xiaoming dot haddad at gmail dot com instead.", "entities": [{"start": 15, "end": 51, "type": "email", "origin": "email"}]}
+{"id": "g11_08", "text": "Doctor Mensah wanted me back in two weeks.", "entities": [{"start": 7, "end": 13, "type": "last_name", "origin": "surname"}]}
+{"id": "g00_09", "text": "She's been working nights down at Target since spring.", "entities": [{"start": 34, "end": 40, "type": "organization", "origin": "place"}]}
+{"id": "g01_09", "text": "I got a part-time job over at Chipotle.", "entities": [{"start": 30, "end": 38, "type": "organization", "origin": "place"}]}
+{"id": "g02_09", "text": "My husband used to live off Harbor Way, near the park.", "entities": [{"start": 28, "end": 38, "type": "street", "origin": "place"}]}
+{"id": "g03_09", "text": "The apartment on Cedar Hill Court had mold everywhere.", "entities": [{"start": 17, "end": 33, "type": "street", "origin": "place"}]}
+{"id": "g04_09", "text": "Call the front desk at 385 443 8114 and ask for me.", "entities": [{"start": 23, "end": 35, "type": "phone", "origin": "number"}]}
+{"id": "g05_09", "text": "My cell is 748-954-5749.", "entities": [{"start": 11, "end": 23, "type": "phone", "origin": "number"}]}
+{"id": "g06_09", "text": "Diego keeps telling me it'll get better.", "entities": [{"start": 0, "end": 5, "type": "first_name", "origin": "hispanic"}]}
+{"id": "g07_09", "text": "We moved to Lagos when I was 36.", "entities": [{"start": 12, "end": 17, "type": "city", "origin": "place"}, {"start": 29, "end": 31, "type": "age", "origin": "number"}]}
+{"id": "g08_09", "text": "It was October 1, I remember because it was raining.", "entities": [{"start": 7, "end": 16, "type": "date", "origin": "date"}]}
+{"id": "g09_09", "text": "Fatima Haddad was the one who found me.", "entities": [{"start": 0, "end": 13, "type": "full_name", "origin": "arabic"}]}
+{"id": "g10_09", "text": "Write to me at will dot kowalski at gmail dot com instead.", "entities": [{"start": 15, "end": 49, "type": "email", "origin": "email"}]}
+{"id": "g11_09", "text": "Doctor Haddad wanted me back in two weeks.", "entities": [{"start": 7, "end": 13, "type": "last_name", "origin": "surname"}]}
+{"id": "g00_10", "text": "She's been working nights down at Home Depot since spring.", "entities": [{"start": 34, "end": 44, "type": "organization", "origin": "place"}]}
+{"id": "g01_10", "text": "I got a part-time job over at Home Depot.", "entities": [{"start": 30, "end": 40, "type": "organization", "origin": "place"}]}
+{"id": "g02_10", "text": "My brother used to live off Mission Lane, near the park.", "entities": [{"start": 28, "end": 40, "type": "street", "origin": "place"}]}
+{"id": "g03_10", "text": "The apartment on Lakeview Street had mold everywhere.", "entities": [{"start": 17, "end": 32, "type": "street", "origin": "place"}]}
+{"id": "g04_10", "text": "Call the front desk at 818-647-6456 and ask for me.", "entities": [{"start": 23, "end": 35, "type": "phone", "origin": "number"}]}
+{"id": "g05_10", "text": "My cell is (398) 926-2271.", "entities": [{"start": 11, "end": 25, "type": "phone", "origin": "number"}]}
+{"id": "g06_10", "text": "Kwame keeps telling me it'll get better.", "entities": [{"start": 0, "end": 5, "type": "first_name", "origin": "african"}]}
+{"id": "g07_10", "text": "We moved to Riverside when I was 78.", "entities": [{"start": 12, "end": 21, "type": "city", "origin": "place"}, {"start": 33, "end": 35, "type": "age", "origin": "number"}]}
+{"id": "g08_10", "text": "It was August 3, I remember because it was raining.", "entities": [{"start": 7, "end": 15, "type": "date", "origin": "date"}]}
+{"id": "g09_10", "text": "Lihua Brennan was the one who found me.", "entities": [{"start": 0, "end": 13, "type": "full_name", "origin": "chinese"}]}
+{"id": "g10_10", "text": "Write to me at kwame dot ramirez at gmail dot com instead.", "entities": [{"start": 15, "end": 49, "type": "email", "origin": "email"}]}
+{"id": "g11_10", "text": "Doctor Delgado wanted me back in two weeks.", "entities": [{"start": 7, "end": 14, "type": "last_name", "origin": "surname"}]}
+{"id": "g00_11", "text": "She's been working nights down at Safeway since spring.", "entities": [{"start": 34, "end": 41, "type": "organization", "origin": "place"}]}
+{"id": "g01_11", "text": "I got a part-time job over at Chipotle.", "entities": [{"start": 30, "end": 38, "type": "organization", "origin": "place"}]}
+{"id": "g02_11", "text": "My son used to live off Pine Place, near the park.", "entities": [{"start": 24, "end": 34, "type": "street", "origin": "place"}]}
+{"id": "g03_11", "text": "The apartment on Willow Creek Lane had mold everywhere.", "entities": [{"start": 17, "end": 34, "type": "street", "origin": "place"}]}
+{"id": "g04_11", "text": "Call the front desk at (350) 570-3307 and ask for me.", "entities": [{"start": 23, "end": 37, "type": "phone", "origin": "number"}]}
+{"id": "g05_11", "text": "My cell is 381-726-4231.", "entities": [{"start": 11, "end": 23, "type": "phone", "origin": "number"}]}
+{"id": "g06_11", "text": "Min-jun keeps telling me it'll get better.", "entities": [{"start": 0, "end": 7, "type": "first_name", "origin": "vietnamese_korean"}]}
+{"id": "g07_11", "text": "We moved to Tucson when I was 69.", "entities": [{"start": 12, "end": 18, "type": "city", "origin": "place"}, {"start": 30, "end": 32, "type": "age", "origin": "number"}]}
+{"id": "g08_11", "text": "It was June 16, I remember because it was raining.", "entities": [{"start": 7, "end": 14, "type": "date", "origin": "date"}]}
+{"id": "g09_11", "text": "Abigail Kowalski was the one who found me.", "entities": [{"start": 0, "end": 16, "type": "full_name", "origin": "anglo"}]}
+{"id": "g10_11", "text": "Write to me at hope dot sharma at gmail dot com instead.", "entities": [{"start": 15, "end": 47, "type": "email", "origin": "email"}]}
+{"id": "g11_11", "text": "Doctor Delgado wanted me back in two weeks.", "entities": [{"start": 7, "end": 14, "type": "last_name", "origin": "surname"}]}
+{"id": "g00_12", "text": "She's been working nights down at Costco since spring.", "entities": [{"start": 34, "end": 40, "type": "organization", "origin": "place"}]}
+{"id": "g01_12", "text": "I got a part-time job over at Walmart.", "entities": [{"start": 30, "end": 37, "type": "organization", "origin": "place"}]}
+{"id": "g02_12", "text": "My daughter used to live off Alder Street, near the park.", "entities": [{"start": 29, "end": 41, "type": "street", "origin": "place"}]}
+{"id": "g03_12", "text": "The apartment on Pine Drive had mold everywhere.", "entities": [{"start": 17, "end": 27, "type": "street", "origin": "place"}]}
+{"id": "g04_12", "text": "Call the front desk at 239 241 6179 and ask for me.", "entities": [{"start": 23, "end": 35, "type": "phone", "origin": "number"}]}
+{"id": "g05_12", "text": "My cell is 542 541 5736.", "entities": [{"start": 11, "end": 23, "type": "phone", "origin": "number"}]}
+{"id": "g06_12", "text": "Fatima keeps telling me it'll get better.", "entities": [{"start": 0, "end": 6, "type": "first_name", "origin": "arabic"}]}
+{"id": "g07_12", "text": "We moved to Katy when I was 60.", "entities": [{"start": 12, "end": 16, "type": "city", "origin": "place"}, {"start": 28, "end": 30, "type": "age", "origin": "number"}]}
+{"id": "g08_12", "text": "It was March 25, I remember because it was raining.", "entities": [{"start": 7, "end": 15, "type": "date", "origin": "date"}]}
+{"id": "g09_12", "text": "Jacob Brennan was the one who found me.", "entities": [{"start": 0, "end": 13, "type": "full_name", "origin": "anglo"}]}
+{"id": "g10_12", "text": "Write to me at vikram dot tran at gmail dot com instead.", "entities": [{"start": 15, "end": 47, "type": "email", "origin": "email"}]}
+{"id": "g11_12", "text": "Doctor Patel wanted me back in two weeks.", "entities": [{"start": 7, "end": 12, "type": "last_name", "origin": "surname"}]}
+{"id": "g00_13", "text": "She's been working nights down at Target since spring.", "entities": [{"start": 34, "end": 40, "type": "organization", "origin": "place"}]}
+{"id": "g01_13", "text": "I got a part-time job over at Costco.", "entities": [{"start": 30, "end": 36, "type": "organization", "origin": "place"}]}
+{"id": "g02_13", "text": "My roommate used to live off Grant Avenue, near the park.", "entities": [{"start": 29, "end": 41, "type": "street", "origin": "place"}]}
+{"id": "g03_13", "text": "The apartment on Cedar Hill Way had mold everywhere.", "entities": [{"start": 17, "end": 31, "type": "street", "origin": "place"}]}
+{"id": "g04_13", "text": "Call the front desk at 739.822.1498 and ask for me.", "entities": [{"start": 23, "end": 35, "type": "phone", "origin": "number"}]}
+{"id": "g05_13", "text": "My cell is (642) 664-4152.", "entities": [{"start": 11, "end": 25, "type": "phone", "origin": "number"}]}
+{"id": "g06_13", "text": "Amara keeps telling me it'll get better.", "entities": [{"start": 0, "end": 5, "type": "first_name", "origin": "african"}]}
+{"id": "g07_13", "text": "We moved to Hanoi when I was 25.", "entities": [{"start": 12, "end": 17, "type": "city", "origin": "place"}, {"start": 29, "end": 31, "type": "age", "origin": "number"}]}
+{"id": "g08_13", "text": "It was October 20, I remember because it was raining.", "entities": [{"start": 7, "end": 17, "type": "date", "origin": "date"}]}
+{"id": "g09_13", "text": "Aditya Liu was the one who found me.", "entities": [{"start": 0, "end": 10, "type": "full_name", "origin": "indian"}]}
+{"id": "g10_13", "text": "Write to me at rohan dot delgado at gmail dot com instead.", "entities": [{"start": 15, "end": 49, "type": "email", "origin": "email"}]}
+{"id": "g11_13", "text": "Doctor Brennan wanted me back in two weeks.", "entities": [{"start": 7, "end": 14, "type": "last_name", "origin": "surname"}]}
+{"id": "g00_14", "text": "She's been working nights down at Starbucks since spring.", "entities": [{"start": 34, "end": 43, "type": "organization", "origin": "place"}]}
+{"id": "g01_14", "text": "I got a part-time job over at Amazon.", "entities": [{"start": 30, "end": 36, "type": "organization", "origin": "place"}]}
+{"id": "g02_14", "text": "My mom used to live off Willow Creek Boulevard, near the park.", "entities": [{"start": 24, "end": 46, "type": "street", "origin": "place"}]}
+{"id": "g03_14", "text": "The apartment on Lakeview Road had mold everywhere.", "entities": [{"start": 17, "end": 30, "type": "street", "origin": "place"}]}
+{"id": "g04_14", "text": "Call the front desk at (811) 407-7371 and ask for me.", "entities": [{"start": 23, "end": 37, "type": "phone", "origin": "number"}]}
+{"id": "g05_14", "text": "My cell is 803-1676.", "entities": [{"start": 11, "end": 19, "type": "phone", "origin": "number"}]}
+{"id": "g06_14", "text": "Tariq keeps telling me it'll get better.", "entities": [{"start": 0, "end": 5, "type": "first_name", "origin": "arabic"}]}
+{"id": "g07_14", "text": "We moved to Pune when I was 52.", "entities": [{"start": 12, "end": 16, "type": "city", "origin": "place"}, {"start": 28, "end": 30, "type": "age", "origin": "number"}]}
+{"id": "g08_14", "text": "It was March 25, I remember because it was raining.", "entities": [{"start": 7, "end": 15, "type": "date", "origin": "date"}]}
+{"id": "g09_14", "text": "Zhang Wei Nguyen was the one who found me.", "entities": [{"start": 0, "end": 16, "type": "full_name", "origin": "chinese"}]}
+{"id": "g10_14", "text": "Write to me at abigail dot feldman at gmail dot com instead.", "entities": [{"start": 15, "end": 51, "type": "email", "origin": "email"}]}
+{"id": "g11_14", "text": "Doctor Mensah wanted me back in two weeks.", "entities": [{"start": 7, "end": 13, "type": "last_name", "origin": "surname"}]}
+{"id": "g00_15", "text": "She's been working nights down at Costco since spring.", "entities": [{"start": 34, "end": 40, "type": "organization", "origin": "place"}]}
+{"id": "g01_15", "text": "I got a part-time job over at Target.", "entities": [{"start": 30, "end": 36, "type": "organization", "origin": "place"}]}
+{"id": "g02_15", "text": "My neighbor used to live off Mission Lane, near the park.", "entities": [{"start": 29, "end": 41, "type": "street", "origin": "place"}]}
+{"id": "g03_15", "text": "The apartment on Grant Drive had mold everywhere.", "entities": [{"start": 17, "end": 28, "type": "street", "origin": "place"}]}
+{"id": "g04_15", "text": "Call the front desk at 629-5970 and ask for me.", "entities": [{"start": 23, "end": 31, "type": "phone", "origin": "number"}]}
+{"id": "g05_15", "text": "My cell is 361-251-4711.", "entities": [{"start": 11, "end": 23, "type": "phone", "origin": "number"}]}
+{"id": "g06_15", "text": "Arjun keeps telling me it'll get better.", "entities": [{"start": 0, "end": 5, "type": "first_name", "origin": "indian"}]}
+{"id": "g07_15", "text": "We moved to Pune when I was 72.", "entities": [{"start": 12, "end": 16, "type": "city", "origin": "place"}, {"start": 28, "end": 30, "type": "age", "origin": "number"}]}
+{"id": "g08_15", "text": "It was August 13, I remember because it was raining.", "entities": [{"start": 7, "end": 16, "type": "date", "origin": "date"}]}
+{"id": "g09_15", "text": "Thao Kowalski was the one who found me.", "entities": [{"start": 0, "end": 13, "type": "full_name", "origin": "vietnamese_korean"}]}
+{"id": "g10_15", "text": "Write to me at min-jun dot delgado at gmail dot com instead.", "entities": [{"start": 15, "end": 51, "type": "email", "origin": "email"}]}
+{"id": "g11_15", "text": "Doctor Kowalski wanted me back in two weeks.", "entities": [{"start": 7, "end": 15, "type": "last_name", "origin": "surname"}]}
+{"id": "g00_16", "text": "She's been working nights down at Safeway since spring.", "entities": [{"start": 34, "end": 41, "type": "organization", "origin": "place"}]}
+{"id": "g01_16", "text": "I got a part-time job over at Target.", "entities": [{"start": 30, "end": 36, "type": "organization", "origin": "place"}]}
+{"id": "g02_16", "text": "My mom used to live off Harbor Way, near the park.", "entities": [{"start": 24, "end": 34, "type": "street", "origin": "place"}]}
+{"id": "g03_16", "text": "The apartment on Alder Place had mold everywhere.", "entities": [{"start": 17, "end": 28, "type": "street", "origin": "place"}]}
+{"id": "g04_16", "text": "Call the front desk at (363) 389-4514 and ask for me.", "entities": [{"start": 23, "end": 37, "type": "phone", "origin": "number"}]}
+{"id": "g05_16", "text": "My cell is 310-554-2648.", "entities": [{"start": 11, "end": 23, "type": "phone", "origin": "number"}]}
+{"id": "g06_16", "text": "Will keeps telling me it'll get better.", "entities": [{"start": 0, "end": 4, "type": "first_name", "origin": "common_word"}]}
+{"id": "g07_16", "text": "We moved to Duluth when I was 20.", "entities": [{"start": 12, "end": 18, "type": "city", "origin": "place"}, {"start": 30, "end": 32, "type": "age", "origin": "number"}]}
+{"id": "g08_16", "text": "It was March 18, I remember because it was raining.", "entities": [{"start": 7, "end": 15, "type": "date", "origin": "date"}]}
+{"id": "g09_16", "text": "Abigail Sharma was the one who found me.", "entities": [{"start": 0, "end": 14, "type": "full_name", "origin": "anglo"}]}
+{"id": "g10_16", "text": "Write to me at grace dot sharma at gmail dot com instead.", "entities": [{"start": 15, "end": 48, "type": "email", "origin": "email"}]}
+{"id": "g11_16", "text": "Doctor Okafor wanted me back in two weeks.", "entities": [{"start": 7, "end": 13, "type": "last_name", "origin": "surname"}]}
+{"id": "g00_17", "text": "She's been working nights down at Safeway since spring.", "entities": [{"start": 34, "end": 41, "type": "organization", "origin": "place"}]}
+{"id": "g01_17", "text": "I got a part-time job over at Amazon.", "entities": [{"start": 30, "end": 36, "type": "organization", "origin": "place"}]}
+{"id": "g02_17", "text": "My dad used to live off Cedar Hill Avenue, near the park.", "entities": [{"start": 24, "end": 41, "type": "street", "origin": "place"}]}
+{"id": "g03_17", "text": "The apartment on Cedar Hill Lane had mold everywhere.", "entities": [{"start": 17, "end": 32, "type": "street", "origin": "place"}]}
+{"id": "g04_17", "text": "Call the front desk at (819) 723-1283 and ask for me.", "entities": [{"start": 23, "end": 37, "type": "phone", "origin": "number"}]}
+{"id": "g05_17", "text": "My cell is 671 243 3840.", "entities": [{"start": 11, "end": 23, "type": "phone", "origin": "number"}]}
+{"id": "g06_17", "text": "Hope keeps telling me it'll get better.", "entities": [{"start": 0, "end": 4, "type": "first_name", "origin": "common_word"}]}
+{"id": "g07_17", "text": "We moved to Duluth when I was 29.", "entities": [{"start": 12, "end": 18, "type": "city", "origin": "place"}, {"start": 30, "end": 32, "type": "age", "origin": "number"}]}
+{"id": "g08_17", "text": "It was March 17, I remember because it was raining.", "entities": [{"start": 7, "end": 15, "type": "date", "origin": "date"}]}
+{"id": "g09_17", "text": "Hope Tran was the one who found me.", "entities": [{"start": 0, "end": 9, "type": "full_name", "origin": "common_word"}]}
+{"id": "g10_17", "text": "Write to me at june dot sharma at gmail dot com instead.", "entities": [{"start": 15, "end": 47, "type": "email", "origin": "email"}]}
+{"id": "g11_17", "text": "Doctor Delgado wanted me back in two weeks.", "entities": [{"start": 7, "end": 14, "type": "last_name", "origin": "surname"}]}
+{"id": "g00_18", "text": "She's been working nights down at Costco since spring.", "entities": [{"start": 34, "end": 40, "type": "organization", "origin": "place"}]}
+{"id": "g01_18", "text": "I got a part-time job over at Target.", "entities": [{"start": 30, "end": 36, "type": "organization", "origin": "place"}]}
+{"id": "g02_18", "text": "My boss used to live off Cedar Hill Road, near the park.", "entities": [{"start": 25, "end": 40, "type": "street", "origin": "place"}]}
+{"id": "g03_18", "text": "The apartment on Cedar Hill Place had mold everywhere.", "entities": [{"start": 17, "end": 33, "type": "street", "origin": "place"}]}
+{"id": "g04_18", "text": "Call the front desk at 448.864.2734 and ask for me.", "entities": [{"start": 23, "end": 35, "type": "phone", "origin": "number"}]}
+{"id": "g05_18", "text": "My cell is 458.701.1141.", "entities": [{"start": 11, "end": 23, "type": "phone", "origin": "number"}]}
+{"id": "g06_18", "text": "Rohan keeps telling me it'll get better.", "entities": [{"start": 0, "end": 5, "type": "first_name", "origin": "indian"}]}
+{"id": "g07_18", "text": "We moved to Monterrey when I was 50.", "entities": [{"start": 12, "end": 21, "type": "city", "origin": "place"}, {"start": 33, "end": 35, "type": "age", "origin": "number"}]}
+{"id": "g08_18", "text": "It was October 12, I remember because it was raining.", "entities": [{"start": 7, "end": 17, "type": "date", "origin": "date"}]}
+{"id": "g09_18", "text": "Lihua Kowalski was the one who found me.", "entities": [{"start": 0, "end": 14, "type": "full_name", "origin": "chinese"}]}
+{"id": "g10_18", "text": "Write to me at ngozi dot abdullah at gmail dot com instead.", "entities": [{"start": 15, "end": 50, "type": "email", "origin": "email"}]}
+{"id": "g11_18", "text": "Doctor Sharma wanted me back in two weeks.", "entities": [{"start": 7, "end": 13, "type": "last_name", "origin": "surname"}]}
+{"id": "g00_19", "text": "She's been working nights down at Amazon since spring.", "entities": [{"start": 34, "end": 40, "type": "organization", "origin": "place"}]}
+{"id": "g01_19", "text": "I got a part-time job over at Home Depot.", "entities": [{"start": 30, "end": 40, "type": "organization", "origin": "place"}]}
+{"id": "g02_19", "text": "My girlfriend used to live off Lakeview Court, near the park.", "entities": [{"start": 31, "end": 45, "type": "street", "origin": "place"}]}
+{"id": "g03_19", "text": "The apartment on Alder Lane had mold everywhere.", "entities": [{"start": 17, "end": 27, "type": "street", "origin": "place"}]}
+{"id": "g04_19", "text": "Call the front desk at 685-8030 and ask for me.", "entities": [{"start": 23, "end": 31, "type": "phone", "origin": "number"}]}
+{"id": "g05_19", "text": "My cell is 876-5664.", "entities": [{"start": 11, "end": 19, "type": "phone", "origin": "number"}]}
+{"id": "g06_19", "text": "Ji-woo keeps telling me it'll get better.", "entities": [{"start": 0, "end": 6, "type": "first_name", "origin": "vietnamese_korean"}]}
+{"id": "g07_19", "text": "We moved to Dearborn when I was 72.", "entities": [{"start": 12, "end": 20, "type": "city", "origin": "place"}, {"start": 32, "end": 34, "type": "age", "origin": "number"}]}
+{"id": "g08_19", "text": "It was December 2, I remember because it was raining.", "entities": [{"start": 7, "end": 17, "type": "date", "origin": "date"}]}
+{"id": "g09_19", "text": "Deepika Patel was the one who found me.", "entities": [{"start": 0, "end": 13, "type": "full_name", "origin": "indian"}]}
+{"id": "g10_19", "text": "Write to me at sanjana dot kowalski at gmail dot com instead.", "entities": [{"start": 15, "end": 52, "type": "email", "origin": "email"}]}
+{"id": "g11_19", "text": "Doctor Sharma wanted me back in two weeks.", "entities": [{"start": 7, "end": 13, "type": "last_name", "origin": "surname"}]}
+{"id": "g00_20", "text": "She's been working nights down at Amazon since spring.", "entities": [{"start": 34, "end": 40, "type": "organization", "origin": "place"}]}
+{"id": "g01_20", "text": "I got a part-time job over at Safeway.", "entities": [{"start": 30, "end": 37, "type": "organization", "origin": "place"}]}
+{"id": "g02_20", "text": "My dad used to live off Alder Drive, near the park.", "entities": [{"start": 24, "end": 35, "type": "street", "origin": "place"}]}
+{"id": "g03_20", "text": "The apartment on Pine Avenue had mold everywhere.", "entities": [{"start": 17, "end": 28, "type": "street", "origin": "place"}]}
+{"id": "g04_20", "text": "Call the front desk at 667.819.4341 and ask for me.", "entities": [{"start": 23, "end": 35, "type": "phone", "origin": "number"}]}
+{"id": "g05_20", "text": "My cell is 707 454 5811.", "entities": [{"start": 11, "end": 23, "type": "phone", "origin": "number"}]}
+{"id": "g06_20", "text": "Amara keeps telling me it'll get better.", "entities": [{"start": 0, "end": 5, "type": "first_name", "origin": "african"}]}
+{"id": "g07_20", "text": "We moved to Hanoi when I was 47.", "entities": [{"start": 12, "end": 17, "type": "city", "origin": "place"}, {"start": 29, "end": 31, "type": "age", "origin": "number"}]}
+{"id": "g08_20", "text": "It was October 19, I remember because it was raining.", "entities": [{"start": 7, "end": 17, "type": "date", "origin": "date"}]}
+{"id": "g09_20", "text": "Ximena Ramirez was the one who found me.", "entities": [{"start": 0, "end": 14, "type": "full_name", "origin": "hispanic"}]}
+{"id": "g10_20", "text": "Write to me at amira dot ramirez at gmail dot com instead.", "entities": [{"start": 15, "end": 49, "type": "email", "origin": "email"}]}
+{"id": "g11_20", "text": "Doctor Kowalski wanted me back in two weeks.", "entities": [{"start": 7, "end": 15, "type": "last_name", "origin": "surname"}]}
+{"id": "g00_21", "text": "She's been working nights down at Costco since spring.", "entities": [{"start": 34, "end": 40, "type": "organization", "origin": "place"}]}
+{"id": "g01_21", "text": "I got a part-time job over at Target.", "entities": [{"start": 30, "end": 36, "type": "organization", "origin": "place"}]}
+{"id": "g02_21", "text": "My boss used to live off Grant Place, near the park.", "entities": [{"start": 25, "end": 36, "type": "street", "origin": "place"}]}
+{"id": "g03_21", "text": "The apartment on Pine Way had mold everywhere.", "entities": [{"start": 17, "end": 25, "type": "street", "origin": "place"}]}
+{"id": "g04_21", "text": "Call the front desk at 420-9432 and ask for me.", "entities": [{"start": 23, "end": 31, "type": "phone", "origin": "number"}]}
+{"id": "g05_21", "text": "My cell is (807) 232-1779.", "entities": [{"start": 11, "end": 25, "type": "phone", "origin": "number"}]}
+{"id": "g06_21", "text": "June keeps telling me it'll get better.", "entities": [{"start": 0, "end": 4, "type": "first_name", "origin": "common_word"}]}
+{"id": "g07_21", "text": "We moved to Monterrey when I was 61.", "entities": [{"start": 12, "end": 21, "type": "city", "origin": "place"}, {"start": 33, "end": 35, "type": "age", "origin": "number"}]}
+{"id": "g08_21", "text": "It was January 13, I remember because it was raining.", "entities": [{"start": 7, "end": 17, "type": "date", "origin": "date"}]}
+{"id": "g09_21", "text": "Emily Abdullah was the one who found me.", "entities": [{"start": 0, "end": 14, "type": "full_name", "origin": "anglo"}]}
+{"id": "g10_21", "text": "Write to me at camila dot kowalski at gmail dot com instead.", "entities": [{"start": 15, "end": 51, "type": "email", "origin": "email"}]}
+{"id": "g11_21", "text": "Doctor Mensah wanted me back in two weeks.", "entities": [{"start": 7, "end": 13, "type": "last_name", "origin": "surname"}]}
+{"id": "g00_22", "text": "She's been working nights down at Walmart since spring.", "entities": [{"start": 34, "end": 41, "type": "organization", "origin": "place"}]}
+{"id": "g01_22", "text": "I got a part-time job over at Home Depot.", "entities": [{"start": 30, "end": 40, "type": "organization", "origin": "place"}]}
+{"id": "g02_22", "text": "My daughter used to live off Lakeview Lane, near the park.", "entities": [{"start": 29, "end": 42, "type": "street", "origin": "place"}]}
+{"id": "g03_22", "text": "The apartment on Willow Creek Boulevard had mold everywhere.", "entities": [{"start": 17, "end": 39, "type": "street", "origin": "place"}]}
+{"id": "g04_22", "text": "Call the front desk at 960.465.5652 and ask for me.", "entities": [{"start": 23, "end": 35, "type": "phone", "origin": "number"}]}
+{"id": "g05_22", "text": "My cell is 457-789-4269.", "entities": [{"start": 11, "end": 23, "type": "phone", "origin": "number"}]}
+{"id": "g06_22", "text": "Emily keeps telling me it'll get better.", "entities": [{"start": 0, "end": 5, "type": "first_name", "origin": "anglo"}]}
+{"id": "g07_22", "text": "We moved to Dearborn when I was 21.", "entities": [{"start": 12, "end": 20, "type": "city", "origin": "place"}, {"start": 32, "end": 34, "type": "age", "origin": "number"}]}
+{"id": "g08_22", "text": "It was March 3, I remember because it was raining.", "entities": [{"start": 7, "end": 14, "type": "date", "origin": "date"}]}
+{"id": "g09_22", "text": "Vikram Kowalski was the one who found me.", "entities": [{"start": 0, "end": 15, "type": "full_name", "origin": "indian"}]}
+{"id": "g10_22", "text": "Write to me at june dot liu at gmail dot com instead.", "entities": [{"start": 15, "end": 44, "type": "email", "origin": "email"}]}
+{"id": "g11_22", "text": "Doctor Tran wanted me back in two weeks.", "entities": [{"start": 7, "end": 11, "type": "last_name", "origin": "surname"}]}
+{"id": "g00_23", "text": "She's been working nights down at Amazon since spring.", "entities": [{"start": 34, "end": 40, "type": "organization", "origin": "place"}]}
+{"id": "g01_23", "text": "I got a part-time job over at Target.", "entities": [{"start": 30, "end": 36, "type": "organization", "origin": "place"}]}
+{"id": "g02_23", "text": "My girlfriend used to live off Cedar Hill Street, near the park.", "entities": [{"start": 31, "end": 48, "type": "street", "origin": "place"}]}
+{"id": "g03_23", "text": "The apartment on Lakeview Avenue had mold everywhere.", "entities": [{"start": 17, "end": 32, "type": "street", "origin": "place"}]}
+{"id": "g04_23", "text": "Call the front desk at (812) 935-1629 and ask for me.", "entities": [{"start": 23, "end": 37, "type": "phone", "origin": "number"}]}
+{"id": "g05_23", "text": "My cell is (754) 662-4938.", "entities": [{"start": 11, "end": 25, "type": "phone", "origin": "number"}]}
+{"id": "g06_23", "text": "Elena keeps telling me it'll get better.", "entities": [{"start": 0, "end": 5, "type": "first_name", "origin": "hispanic"}]}
+{"id": "g07_23", "text": "We moved to Pasadena when I was 70.", "entities": [{"start": 12, "end": 20, "type": "city", "origin": "place"}, {"start": 32, "end": 34, "type": "age", "origin": "number"}]}
+{"id": "g08_23", "text": "It was October 26, I remember because it was raining.", "entities": [{"start": 7, "end": 17, "type": "date", "origin": "date"}]}
+{"id": "g09_23", "text": "Abigail Haddad was the one who found me.", "entities": [{"start": 0, "end": 14, "type": "full_name", "origin": "anglo"}]}
+{"id": "g10_23", "text": "Write to me at minh dot okafor at gmail dot com instead.", "entities": [{"start": 15, "end": 47, "type": "email", "origin": "email"}]}
+{"id": "g11_23", "text": "Doctor Haddad wanted me back in two weeks.", "entities": [{"start": 7, "end": 13, "type": "last_name", "origin": "surname"}]}
+{"id": "g00_24", "text": "She's been working nights down at Chipotle since spring.", "entities": [{"start": 34, "end": 42, "type": "organization", "origin": "place"}]}
+{"id": "g01_24", "text": "I got a part-time job over at Walmart.", "entities": [{"start": 30, "end": 37, "type": "organization", "origin": "place"}]}
+{"id": "g02_24", "text": "My boss used to live off Lakeview Place, near the park.", "entities": [{"start": 25, "end": 39, "type": "street", "origin": "place"}]}
+{"id": "g03_24", "text": "The apartment on Alder Boulevard had mold everywhere.", "entities": [{"start": 17, "end": 32, "type": "street", "origin": "place"}]}
+{"id": "g04_24", "text": "Call the front desk at 904.880.1131 and ask for me.", "entities": [{"start": 23, "end": 35, "type": "phone", "origin": "number"}]}
+{"id": "g05_24", "text": "My cell is (330) 881-4743.", "entities": [{"start": 11, "end": 25, "type": "phone", "origin": "number"}]}
+{"id": "g06_24", "text": "Minh keeps telling me it'll get better.", "entities": [{"start": 0, "end": 4, "type": "first_name", "origin": "vietnamese_korean"}]}
+{"id": "g07_24", "text": "We moved to Dearborn when I was 49.", "entities": [{"start": 12, "end": 20, "type": "city", "origin": "place"}, {"start": 32, "end": 34, "type": "age", "origin": "number"}]}
+{"id": "g08_24", "text": "It was October 10, I remember because it was raining.", "entities": [{"start": 7, "end": 17, "type": "date", "origin": "date"}]}
+{"id": "g09_24", "text": "Min-jun Park was the one who found me.", "entities": [{"start": 0, "end": 12, "type": "full_name", "origin": "vietnamese_korean"}]}
+{"id": "g10_24", "text": "Write to me at sanjana dot park at gmail dot com instead.", "entities": [{"start": 15, "end": 48, "type": "email", "origin": "email"}]}
+{"id": "g11_24", "text": "Doctor Feldman wanted me back in two weeks.", "entities": [{"start": 7, "end": 14, "type": "last_name", "origin": "surname"}]}

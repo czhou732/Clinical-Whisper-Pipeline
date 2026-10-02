@@ -100,6 +100,51 @@ HELD_OUT_2 = [
     "I keep thinking about {NAME}, you know?",
 ]
 
+# Written Oct 2 2026 BEFORE the workplace/street/written-phone rules, to test
+# them once: held_out_3.jsonl. Half the frames target those three gaps in
+# phrasings not seen anywhere else; half are general.
+HELD_OUT_3 = [
+    "She's been working nights down at {ORG} since spring.",
+    "I got a part-time job over at {ORG}.",
+    "My {REL} used to live off {STREET}, near the park.",
+    "The apartment on {STREET} had mold everywhere.",
+    "Call the front desk at {WPHONE} and ask for me.",
+    "My cell is {WPHONE}.",
+    "{NAME} keeps telling me it'll get better.",
+    "We moved to {CITY} when I was {AGE}.",
+    "It was {DATE}, I remember because it was raining.",
+    "{FULL} was the one who found me.",
+    "Write to me at {EMAIL} instead.",
+    "Doctor {SURNAME} wanted me back in two weeks.",
+]
+BRANDS = ["Walmart", "Costco", "Target", "Starbucks", "Amazon", "Home Depot", "Safeway", "Chipotle"]
+STREET_TYPES = ["Street", "Avenue", "Drive", "Road", "Lane", "Boulevard", "Way", "Court", "Place"]
+STREET_NAMES = ["Alder", "Mission", "Cedar Hill", "Lakeview", "Grant", "Willow Creek", "Harbor", "Pine"]
+
+
+def _written_phone(rng: random.Random) -> str:
+    a, b, c = rng.randint(200, 989), rng.randint(200, 989), rng.randint(1000, 9999)
+    return rng.choice([f"{b}-{c}", f"({a}) {b}-{c}", f"{a}-{b}-{c}", f"{a}.{b}.{c}", f"{a} {b} {c}"])
+
+
+def fill3(template: str, rng: random.Random) -> tuple[str, list[dict]]:
+    """fill() with brand-name workplaces, new street names and written phone numbers."""
+    t = template.replace("{ORG}", "\x00ORG").replace("{STREET}", "\x00ST").replace("{WPHONE}", "\x00PH")
+    text, ents = fill(t, rng)
+    out, shift = text, 0
+    for key, etype, value in (("\x00ORG", "organization", lambda: rng.choice(BRANDS)),
+                              ("\x00ST", "street", lambda: f"{rng.choice(STREET_NAMES)} {rng.choice(STREET_TYPES)}"),
+                              ("\x00PH", "phone", lambda: _written_phone(rng))):
+        while key in out:
+            i, v = out.index(key), value()
+            out = out[:i] + v + out[i + len(key):]
+            for e in ents:
+                if e["start"] > i:
+                    e["start"] += len(v) - len(key)
+                    e["end"] += len(v) - len(key)
+            ents.append({"start": i, "end": i + len(v), "type": etype, "origin": "place" if etype != "phone" else "number"})
+    return out, sorted(ents, key=lambda e: e["start"])
+
 
 def _spoken_phone(rng: random.Random) -> str:
     return " ".join(DIGITS[rng.randrange(10)] for _ in range(3)) + ", " + \
@@ -170,6 +215,15 @@ def main() -> None:
     out = Path(__file__).with_name("held_out_2.jsonl")
     out.write_text("".join(json.dumps(r) + "\n" for r in held2))
     print(f"{len(held2)} replication sentences, {sum(len(r['entities']) for r in held2)} identifiers -> {out}")
+    held3 = []
+    rng = random.Random(20261003)
+    for k in range(25):
+        for t_idx, template in enumerate(HELD_OUT_3):
+            text, ents = fill3(template, rng)
+            held3.append({"id": f"g{t_idx:02d}_{k:02d}", "text": text, "entities": ents})
+    out = Path(__file__).with_name("held_out_3.jsonl")
+    out.write_text("".join(json.dumps(r) + "\n" for r in held3))
+    print(f"{len(held3)} gap-test sentences, {sum(len(r['entities']) for r in held3)} identifiers -> {out}")
 
 
 if __name__ == "__main__":
