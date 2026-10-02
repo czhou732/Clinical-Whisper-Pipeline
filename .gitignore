@@ -38,3 +38,4 @@ evals/.cache/
 .model_stage/
 plan/
 .addon_stage/
+.addon_stage_languages/

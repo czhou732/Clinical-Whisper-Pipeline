@@ -155,7 +155,7 @@ class Bridge:
         return [_file_entry(p) for p in (chosen or [])]
 
     def install_scoring(self) -> dict:
-        """Ask for the add-on folder, then copy the scoring model in (~5 GB)."""
+        """Ask for an add-on folder (Scoring or Languages) and copy it in."""
         import addons
 
         chosen = self._window.create_file_dialog(webview.FileDialog.FOLDER)
@@ -163,10 +163,10 @@ class Bridge:
             return {"status": "cancelled"}
         folder = chosen[0] if isinstance(chosen, (list, tuple)) else chosen
         try:
-            addons.install(Path(folder))
+            which = addons.install_any(Path(folder))
         except (OSError, ValueError) as exc:
             return {"status": "error", "message": str(exc)}
-        return {"status": "ok"}
+        return {"status": "ok", "addon": which}
 
     def start_batch(self, request: dict) -> dict:
         """Process the chosen recordings where they are."""

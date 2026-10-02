@@ -86,8 +86,12 @@ class PIIScrubber:
         model_name: str = DEFAULT_PII_MODEL,
         confidence_threshold: float = 0.7,
         strict: bool = True,
+        lang: str = "en",
+        cache_dir: Optional[str] = None,
     ):
         self.model_name = model_name
+        # Selects OpenMED's regex patterns (phone numbers, IDs) for the language.
+        self.lang = lang
         self.confidence_threshold = confidence_threshold
         self.strict = strict
         self.is_available = deidentify is not None
@@ -101,7 +105,7 @@ class PIIScrubber:
         # looks in ~/.cache or reaches for the network.
         self._config = None
         self.redacted_count = 0
-        cache_dir = bundled_models.openmed_cache_dir() if bundled_models else None
+        cache_dir = cache_dir or (bundled_models.openmed_cache_dir() if bundled_models else None)
         if cache_dir and OpenMedConfig is not None:
             self._config = OpenMedConfig(cache_dir=cache_dir, local_only=True)
             log.info("Using bundled OpenMED weights.")
@@ -139,6 +143,7 @@ class PIIScrubber:
                 model_name=self.model_name,
                 confidence_threshold=self.confidence_threshold,
                 config=self._config,
+                lang=self.lang,
             )
             entities = list(getattr(result, "pii_entities", []) or [])
             self.entity_count += len(entities)

@@ -139,6 +139,43 @@ def clear_stale_scratch() -> int:
     return removed
 
 
+def _english(lang: dict) -> bool:
+    """English, or too little text to tell (treated as before)."""
+    import language
+    return not lang or lang.get("code") == "und" or language.is_english(lang)
+
+
+def _masker_for(lang: dict) -> dict:
+    """Which masking model to use for a recording's language, or stop.
+
+    English uses the bundled English model. Anything else needs the Languages
+    add-on, and only for the languages its model was trained on: the English
+    model run on Spanish or Chinese text misses most names, so writing that
+    transcript would quietly break the de-identification promise.
+    """
+    import addons
+    import language
+
+    if language.is_english(lang) or lang.get("code") == "und":
+        return {}
+    name = lang.get("name", lang.get("code"))
+    if lang.get("code") not in addons.MASKABLE:
+        raise RuntimeError(
+            f"This recording is in {name}. ClinicalWhisper can't mask names in {name} yet, "
+            "so no transcript was written.")
+    cache = addons.languages_cache()
+    if cache is None:
+        raise RuntimeError(
+            f"This recording is in {name} (or mixes it with English). Masking names outside "
+            "English needs the ClinicalWhisper Languages add-on, so no transcript was written. "
+            "Install the add-on and process the file again.")
+    import pii_scrubber
+    from openmed.core.pii_i18n import SUPPORTED_LANGUAGES
+    code = lang["code"] if lang["code"] in SUPPORTED_LANGUAGES else "en"
+    return {"model_name": addons.LANGUAGES_MODEL, "lang": code, "cache_dir": str(cache)} \
+        if pii_scrubber.deidentify is not None else {}
+
+
 def _clinical_review(segments: list[dict], roles: dict, cfg: dict) -> dict:
     """Keyword screen for passages to review (see review_flags.py)."""
     review_cfg = cfg.get("review_flags", {}) or {}
@@ -656,11 +693,16 @@ class InferencePipeline:
         # so it must not emit a transcript that was never scrubbed.
         pii_cfg = self.cfg.get("pii_scrubbing", {})
         deid_summary: dict = {"enabled": False}
+        # The language decides which masker can run (see language.py).
+        import language
+        lang = language.detect(" ".join(seg.get("text", "") for seg in segments))
+        log.info("Job %s: language %s (%s)", job.get("job_id"), lang["name"], lang["code"])
         if pii_cfg.get("enabled", True):
             from pii_scrubber import PIIScrubber
             scrubber = PIIScrubber(
                 confidence_threshold=pii_cfg.get("confidence_threshold", 0.7),
                 strict=pii_cfg.get("strict", True),
+                **_masker_for(lang),
             )
             if not scrubber.is_available:
                 raise RuntimeError(
@@ -680,6 +722,7 @@ class InferencePipeline:
         # Each masked word stays in the text as one tag ("Sarah Johnson" ->
         # "[first_name_1] [last_name_1]"), so word counts include masked names.
         stats["deidentification"] = deid_summary
+        stats["language"] = lang
 
         # ── Acoustic extraction ──
         overall_acoustics = {}
@@ -812,7 +855,18 @@ class InferencePipeline:
             segments, timing_payload["subject_speaker"], state.get("audio_stats"),
             expected_speakers=self.cfg.get("moss", {}).get("num_speakers"),
         )
+        lang = stats.get("language") or {}
+        english = _english(lang)
         clinical_review = _clinical_review(segments, speaker_roles, self.cfg)
+        if not english:
+            # The keyword lists are English; an empty list would read as "nothing found".
+            clinical_review = {"items": [], "counts": {}, "note": (
+                f"The review keywords are English-only, so this {lang.get('name')} recording "
+                "wasn't screened. The transcript needs to be read.")}
+            for per in timing.values():
+                per["filler_rate"] = None  # the filler list is English
+            notes.append(f"Language: {lang.get('name')}. Filler counts and the review "
+                         "keyword screen are English-only and were not run.")
 
         def _payload(llm_scoring: dict, reliability: dict, status: str = "") -> dict:
             return {
@@ -842,6 +896,7 @@ class InferencePipeline:
                     "original_filename": original_filename,
                     "stored_path": str(file_path),
                 },
+                "language": stats.get("language"),
                 # Stretches left out before processing; null when none.
                 "audio_edits": edits.as_dict() if edits else None,
                 "statistics": stats,
@@ -864,6 +919,10 @@ class InferencePipeline:
         # scoring starts, so a crash, Stop or sleep during a long scoring stage
         # does not throw them away. The batch command resumes scoring from here.
         llm_enabled = self.cfg.get("llm_scoring", {}).get("enabled", True)
+        if llm_enabled and structured_transcript and not english:
+            llm_enabled = False
+            notes.append(f"Clinical scores were built and checked on English interviews, so "
+                         f"they weren't run on this {lang.get('name')} recording.")
         scoring_missing = bool(structured_transcript and llm_enabled
                                and not _scoring_installed(self.cfg))
         if scoring_missing:
@@ -894,7 +953,7 @@ class InferencePipeline:
             except Exception as exc:
                 log.warning("Job %s: LLM clinical scoring failed: %s", job_id, exc)
                 warnings.append(f"LLM clinical scoring failed: {exc}")
-        elif not llm_enabled and not scoring_missing:
+        elif not llm_enabled and not scoring_missing and english:
             # Asked for deliberately (the app's "transcribe only", the batch
             # command's --transcribe-only), this is a choice, not a fault: it
             # must not mark an otherwise clean run as "completed with warnings".

@@ -74,6 +74,7 @@ def _extract_row(analysis_path: str, audio_filename: str) -> dict:
         "quality_flags": ";".join(f["code"] for f in quality.get("flags", [])),
         "participant_speech_min": round((quality.get("participant_speech_s") or 0) / 60, 2),
         "snr_db": quality.get("snr_db"),
+        "language": (data.get("language") or {}).get("code", ""),
         # Keyword matches for clinician review, by category ("" when none).
         "review_flags": review_flags.summary(data.get("clinical_review") or {}),
         "word_count": stats.get("word_count", 0),
@@ -440,11 +441,13 @@ def main(argv: Optional[list[str]] = None, prog: str = "clinicalwhisper-batch") 
         help="Compute device (default: auto — MLX on Apple Silicon, else CUDA, else CPU).",
     )
     parser.add_argument(
-        "--install-scoring",
+        "--install-addon", "--install-scoring",
+        dest="install_addon",
         metavar="FOLDER",
         default=None,
-        help="Install the ClinicalWhisper Scoring add-on from FOLDER (the mounted "
-             "add-on disk or the folder inside it), then exit.",
+        help="Install a ClinicalWhisper add-on (Scoring, or Languages for recordings "
+             "not in English) from FOLDER, the mounted add-on disk or the folder in it, "
+             "then exit.",
     )
     args = parser.parse_args(argv)
 
@@ -454,19 +457,19 @@ def main(argv: Optional[list[str]] = None, prog: str = "clinicalwhisper-batch") 
     )
     import addons
 
-    if args.install_scoring:
+    if args.install_addon:
         try:
-            addons.install(Path(args.install_scoring).expanduser())
+            which = addons.install_any(Path(args.install_addon).expanduser())
         except (OSError, ValueError) as exc:
-            raise SystemExit(f"Could not install the scoring add-on: {exc}") from exc
-        print("Clinical scoring add-on installed.")
+            raise SystemExit(f"Could not install the add-on: {exc}") from exc
+        print(f"{'Clinical scoring' if which == 'scoring' else 'Languages'} add-on installed.")
         return
     if not args.input or not args.output:
         parser.error("--input and --output are required")
     if not args.transcribe_only and not addons.scoring_available():
         args.transcribe_only = True
         log.warning("Clinical scoring isn't installed on this Mac: producing transcripts "
-                    "and voice measures only. Install it with --install-scoring FOLDER.")
+                    "and voice measures only. Install it with --install-addon FOLDER.")
     if not args.transcribe_only and not args.score and _ram_gib() < 16:
         args.transcribe_only = True
         log.info("This Mac has %.0f GB of memory: clinical scoring is off by default. "

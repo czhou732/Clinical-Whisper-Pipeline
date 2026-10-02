@@ -614,6 +614,7 @@ async def diagnostics():
         "speed": _speed(),
         # False on the base app until the scoring add-on is installed.
         "scoring_available": addons.scoring_available(),
+        "languages_available": addons.languages_available(),
     }
 
 

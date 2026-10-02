@@ -1052,7 +1052,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // Measures grouped the way they are read; the clinical scores as a table
     // with each one's measured reliability beside it.
     const GROUPS = [
-        ['Recording', ['word_count', 'duration_minutes', 'participant_speech_min', 'snr_db']],
+        ['Recording', ['language', 'word_count', 'duration_minutes', 'participant_speech_min', 'snr_db']],
         ['Participant timing', ['subject_speech_rate_wps', 'subject_pause_mean_s',
             'subject_filler_rate', 'subject_response_latency_median_s']],
         ['Participant voice', ['subject_pitch_mean_st', 'subject_pitch_cv',
@@ -1063,7 +1063,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // Labels inside a titled group, where "Participant" or "whole recording"
     // would only repeat the heading.
     const SHORT = {
-        word_count: 'Words', duration_minutes: 'Length (min)',
+        language: 'Language', word_count: 'Words', duration_minutes: 'Length (min)',
         participant_speech_min: 'Participant speech (min)',
         subject_speech_rate_wps: 'Speech rate (words/s)', subject_pause_mean_s: 'Mean pause (s)',
         subject_filler_rate: 'Fillers per 100 words',
@@ -1077,6 +1077,10 @@ document.addEventListener('DOMContentLoaded', () => {
         engagement_level: 'Engagement', elaboration_positive: 'Elaboration, positive',
         elaboration_negative: 'Elaboration, negative', psychomotor_indicators: 'Psychomotor',
     };
+    const LANGUAGES = { en: 'English', es: 'Spanish', fr: 'French', de: 'German', it: 'Italian',
+        pt: 'Portuguese', nl: 'Dutch', tr: 'Turkish', vi: 'Vietnamese', zh: 'Chinese',
+        ja: 'Japanese', ko: 'Korean', ar: 'Arabic', hi: 'Hindi', bn: 'Bengali', te: 'Telugu',
+        und: 'Unknown' };
     const CLINICAL = ['hesitancy_score', 'affect_flatness', 'engagement_level',
         'elaboration_positive', 'elaboration_negative', 'psychomotor_indicators'];
     const present = v => v !== undefined && v !== null && v !== '';
@@ -1102,7 +1106,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 dt.textContent = SHORT[k] || prettify(k);
                 if (k === 'subject_response_latency_median_s') dt.textContent += ' (not reliable yet)';
                 const dd = document.createElement('dd');
-                dd.textContent = num(result[k]);
+                dd.textContent = k === 'language' ? (LANGUAGES[result[k]] || result[k]) : num(result[k]);
                 dl.append(dt, dd);
             });
             g.append(h, dl);
@@ -1266,6 +1270,26 @@ document.addEventListener('DOMContentLoaded', () => {
     // the log reaches whoever is debugging it.
     // The base app has no scoring model: scoring is a separate add-on. Until
     // it is installed, every run is a transcription run, and the page says so.
+    // Footer link for either add-on (Scoring, or Languages for recordings
+    // not in English). Only the app window can open the folder picker.
+    (async () => {
+        if (inApp) await whenBridge();
+        if (!(window.pywebview && window.pywebview.api && window.pywebview.api.install_scoring)) return;
+        const link = document.getElementById('btn-install-addon');
+        const status = document.getElementById('addon-status');
+        link.classList.remove('hidden');
+        link.addEventListener('click', async () => {
+            link.disabled = true;
+            status.textContent = 'Choose the add-on folder. Copying takes about a minute.';
+            const res = await window.pywebview.api.install_scoring();
+            link.disabled = false;
+            status.textContent = !res || res.status === 'cancelled' ? ''
+                : res.status === 'error' ? res.message
+                : res.addon === 'languages' ? 'Languages add-on installed.'
+                : 'Clinical scoring installed. Reopen the app to use it.';
+        });
+    })();
+
     async function setupScoringAddon() {
         const box = document.getElementById('transcribe-only');
         const note = document.getElementById('addon-note');

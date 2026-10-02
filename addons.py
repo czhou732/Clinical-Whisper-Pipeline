@@ -30,6 +30,69 @@ log = logging.getLogger("ClinicalWhisper")
 
 ADDON_ROOT = bundled_models.APP_SUPPORT / "addons" / "scoring"
 SCORING_MODEL = "mlx-community/Meta-Llama-3-8B-Instruct-4bit"
+
+# Masking for languages other than English (OpenMed's multilingual privacy
+# filter, MLX build, Apache-2.0, 2.8 GB). Kept in OpenMed's own cache layout
+# (``openmed/<org>_<name>/weights.safetensors``), which is how OpenMed finds
+# converted MLX weights.
+LANGUAGES_ROOT = bundled_models.APP_SUPPORT / "addons" / "languages"
+LANGUAGES_MODEL = "OpenMed/privacy-filter-multilingual-mlx"
+# What that model was trained to mask (its model card).
+MASKABLE = {"ar", "bn", "zh", "nl", "en", "fr", "de", "hi", "it", "ja", "ko", "pt",
+            "es", "te", "tr", "vi"}
+
+
+def _openmed_dir(root: Path, model: str = LANGUAGES_MODEL) -> Path:
+    return root / "openmed" / model.replace("/", "_")
+
+
+def languages_cache(root: Optional[Path] = None) -> Optional[Path]:
+    """OpenMed cache folder holding the multilingual masker, if installed."""
+    root = root or LANGUAGES_ROOT
+    d = _openmed_dir(root)
+    if (d / "weights.safetensors").is_file() and (d / "config.json").is_file():
+        return root / "openmed"
+    return None
+
+
+def languages_available() -> bool:
+    return languages_cache() is not None
+
+
+def install_languages(source: Path, root: Optional[Path] = None) -> Path:
+    """Copy the multilingual masker from the add-on folder the user picked."""
+    root = root or LANGUAGES_ROOT
+    name = LANGUAGES_MODEL.replace("/", "_")
+    found = None
+    for base in [source, source / "openmed"] + (
+            [p / "openmed" for p in source.iterdir() if p.is_dir()] if source.is_dir() else []):
+        if (base / name / "weights.safetensors").is_file():
+            found = base / name
+            break
+    if found is None:
+        raise ValueError("That folder doesn't contain the ClinicalWhisper Languages add-on.")
+    root.mkdir(parents=True, exist_ok=True)
+    tmp = root / f".installing-{uuid.uuid4().hex[:8]}"
+    try:
+        shutil.copytree(found, tmp / "openmed" / name)
+        target = root / "openmed"
+        if target.exists():
+            shutil.rmtree(target)
+        (tmp / "openmed").rename(target)
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    log.info("Languages add-on installed.")
+    return root / "openmed"
+
+
+def install_any(source: Path) -> str:
+    """Install whichever add-on ``source`` holds; returns "scoring" or "languages"."""
+    source = Path(source)
+    if find_in(source) is not None:
+        install(source)
+        return "scoring"
+    install_languages(source)
+    return "languages"
 # Files a usable MLX model folder must contain.
 _REQUIRED = ("config.json", "tokenizer.json")
 
