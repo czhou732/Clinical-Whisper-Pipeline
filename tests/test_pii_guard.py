@@ -37,9 +37,19 @@ def test_mostly_punctuation_with_letters_is_redacted_not_leaked(monkeypatch):
 def test_repeated_character_garbage_is_collapsed_then_scrubbed(monkeypatch):
     s, calls = _scrubber(monkeypatch)
     out = s.scrub_text("John said " + "a" * 150)
-    assert out == "[NAME] said aaa" and len(calls) == 1
+    assert out == "[name] said aaa" and len(calls) == 1
 
 
 def test_normal_text_is_scrubbed(monkeypatch):
     s, calls = _scrubber(monkeypatch)
-    assert s.scrub_text("My name is John.") == "My name is [NAME]."
+    assert s.scrub_text("My name is John.") == "My name is [name]."
+
+
+def test_capitalised_labels_from_language_packs_are_numbered():
+    from types import SimpleNamespace
+    from pii_scrubber import number_tags, label_name, _UPPER_TAG
+    masked = "Mi hermana [FIRSTNAME] vive en [CITY]."
+    masked = _UPPER_TAG.sub(lambda m: f"[{label_name(m.group(1))}]", masked)
+    ents = [SimpleNamespace(label="FIRSTNAME", start=11, text="María", metadata={}),
+            SimpleNamespace(label="CITY", start=30, text="Guadalajara", metadata={})]
+    assert number_tags(masked, ents, {}) == "Mi hermana [first_name_1] vive en [city_1]."

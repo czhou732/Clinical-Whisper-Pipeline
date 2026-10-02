@@ -191,16 +191,23 @@ def _masker_for(lang: dict) -> dict:
     if language.is_english(lang) or lang.get("code") == "und":
         return {}
     name = lang.get("name", lang.get("code"))
+    pack = addons.language_pack(lang.get("code"))
+    if pack is not None:
+        # Recall over precision outside English: a missed name is the worse
+        # error, and the packs score short-sentence names around 0.6.
+        return {**pack, "confidence_threshold": 0.5}
     if lang.get("code") not in addons.MASKABLE:
         raise RuntimeError(
             f"This recording is in {name}. ClinicalWhisper can't mask names in {name} yet, "
             "so no transcript was written.")
     cache = addons.languages_cache()
     if cache is None:
+        hint = (f"the {name} language pack" if lang.get("code") in addons.LANGUAGE_PACKS
+                else "the multilingual Languages add-on")
         raise RuntimeError(
             f"This recording is in {name} (or mixes it with English). Masking names outside "
-            "English needs the ClinicalWhisper Languages add-on, so no transcript was written. "
-            "Install the add-on and process the file again.")
+            f"English needs {hint}, so no transcript was written. "
+            "Install it and process the file again.")
     import pii_scrubber
     from openmed.core.pii_i18n import SUPPORTED_LANGUAGES
     code = lang["code"] if lang["code"] in SUPPORTED_LANGUAGES else "en"
@@ -734,11 +741,11 @@ class InferencePipeline:
         log.info("Job %s: language %s (%s)", job.get("job_id"), lang["name"], lang["code"])
         if pii_cfg.get("enabled", True):
             from pii_scrubber import PIIScrubber
-            scrubber = PIIScrubber(
-                confidence_threshold=pii_cfg.get("confidence_threshold", 0.7),
-                strict=pii_cfg.get("strict", True),
+            scrubber = PIIScrubber(**{
+                "confidence_threshold": pii_cfg.get("confidence_threshold", 0.7),
+                "strict": pii_cfg.get("strict", True),
                 **_masker_for(lang),
-            )
+            })
             if not scrubber.is_available:
                 raise RuntimeError(
                     "PII scrubbing is enabled but the openmed package is not "

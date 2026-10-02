@@ -495,7 +495,10 @@ def main(argv: Optional[list[str]] = None, prog: str = "clinicalwhisper-batch") 
             which = addons.install_any(Path(args.install_addon).expanduser())
         except (OSError, ValueError) as exc:
             raise SystemExit(f"Could not install the add-on: {exc}") from exc
-        print(f"{'Clinical scoring' if which == 'scoring' else 'Languages'} add-on installed.")
+        names = {"scoring": "Clinical scoring", "languages": "Languages (multilingual)",
+                 "kintsugi": "Kintsugi voice model", "praat": "Praat voice measures",
+                 "deid": "Name silencing"}
+        print(f"{names.get(which, which.replace('lang-', 'Language pack: '))} add-on installed.")
         return
     if not args.input or not args.output:
         parser.error("--input and --output are required")

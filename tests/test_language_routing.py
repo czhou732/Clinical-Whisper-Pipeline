@@ -18,7 +18,7 @@ def test_english_uses_the_default_masker():
 
 def test_other_language_without_the_addon_writes_nothing(monkeypatch, tmp_path):
     monkeypatch.setattr(addons, "LANGUAGES_ROOT", tmp_path / "none")
-    with pytest.raises(RuntimeError, match="Languages add-on"):
+    with pytest.raises(RuntimeError, match="Spanish language pack"):
         ip._masker_for(ES)
 
 
@@ -79,3 +79,17 @@ def test_non_english_skips_scores_keywords_and_fillers(monkeypatch, tmp_path):
     assert payload["clinical_review"]["items"] == []
     assert all(p["filler_rate"] is None for p in payload["timing_features"]["per_speaker"].values())
     assert any("built and checked on English" in n for n in payload["notes"])
+
+
+def test_language_pack_wins_and_uses_a_lower_threshold(monkeypatch, tmp_path):
+    model = addons.LANGUAGE_PACKS["es"]
+    pack = tmp_path / "ClinicalWhisper Spanish"
+    conv = pack / "openmed" / model.replace("/", "_")
+    conv.mkdir(parents=True)
+    (conv / "weights.safetensors").write_text("x")
+    (pack / "hub" / ("models--" + model.replace("/", "--"))).mkdir(parents=True)
+    monkeypatch.setattr(addons, "pack_root", lambda code: tmp_path / "support" / f"lang-{code}")
+    assert addons.install_any(pack) == "lang-es"
+    kwargs = ip._masker_for(ES)
+    assert kwargs["model_name"] == model and kwargs["lang"] == "es"
+    assert kwargs["confidence_threshold"] == 0.5

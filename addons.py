@@ -42,6 +42,54 @@ MASKABLE = {"ar", "bn", "zh", "nl", "en", "fr", "de", "hi", "it", "ja", "ko", "p
             "es", "te", "tr", "vi"}
 
 
+# Single-language maskers (OpenMed, Apache-2.0, ~0.6 GB each): the size-friendly
+# alternative to the 2.8 GB multilingual model. The pack for a language wins
+# over the multilingual model when both are installed.
+LANGUAGE_PACKS = {
+    "es": "OpenMed/OpenMed-PII-Spanish-SuperClinical-Small-44M-v1",
+    "fr": "OpenMed/OpenMed-PII-French-SuperClinical-Small-44M-v1",
+    "de": "OpenMed/OpenMed-PII-German-SuperClinical-Small-44M-v1",
+    "it": "OpenMed/OpenMed-PII-Italian-SuperClinical-Small-44M-v1",
+    "tr": "OpenMed/OpenMed-PII-Turkish-SuperClinical-Small-44M-v1",
+}
+
+
+def pack_root(code: str) -> Path:
+    return bundled_models.APP_SUPPORT / "addons" / f"lang-{code}"
+
+
+def language_pack(code: str, root: Optional[Path] = None) -> Optional[dict]:
+    """Masker settings for an installed single-language pack, or None."""
+    model = LANGUAGE_PACKS.get(code)
+    if model is None:
+        return None
+    root = root or pack_root(code)
+    if not (_openmed_dir(root, model) / "weights.safetensors").is_file():
+        return None
+    return {"model_name": model, "lang": code, "cache_dir": str(root / "openmed")}
+
+
+def install_language_pack(source: Path) -> str:
+    """Copy a language pack (``openmed/`` and ``hub/`` folders) into place."""
+    for code, model in LANGUAGE_PACKS.items():
+        conv = model.replace("/", "_")
+        base = next((b for b in [source, *[p for p in Path(source).iterdir() if p.is_dir()]]
+                     if (b / "openmed" / conv / "weights.safetensors").is_file()), None)
+        if base is None:
+            continue
+        root = pack_root(code)
+        tmp = root.parent / f".installing-{code}-{uuid.uuid4().hex[:8]}"
+        shutil.copytree(base / "openmed", tmp / "openmed")
+        if (base / "hub").is_dir():
+            shutil.copytree(base / "hub", tmp / "hub")
+        if root.exists():
+            shutil.rmtree(root)
+        tmp.rename(root)
+        log.info("Language pack installed: %s.", code)
+        return code
+    raise ValueError("That folder doesn't contain a ClinicalWhisper language pack.")
+
+
 def _openmed_dir(root: Path, model: str = LANGUAGES_MODEL) -> Path:
     return root / "openmed" / model.replace("/", "_")
 
@@ -156,6 +204,8 @@ def install_any(source: Path) -> str:
     import kintsugi_dam
 
     source = Path(source)
+    if not source.is_dir():
+        raise ValueError(f"Not a folder: {source}")
     if find_in(source) is not None:
         install(source)
         return "scoring"
@@ -170,6 +220,10 @@ def install_any(source: Path) -> str:
     if (source / kintsugi_dam.CHECKPOINT).is_file() or any(source.glob(f"*/{kintsugi_dam.CHECKPOINT}")):
         install_kintsugi(source)
         return "kintsugi"
+    try:
+        return "lang-" + install_language_pack(source)
+    except ValueError:
+        pass
     install_languages(source)
     return "languages"
 # Files a usable MLX model folder must contain.

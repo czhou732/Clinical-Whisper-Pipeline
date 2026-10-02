@@ -43,3 +43,4 @@ speed.json
 .addon_stage_kintsugi/
 .addon_stage_praat/
 .addon_stage_deid/
+.addon_stage_lang_*/

@@ -31,6 +31,21 @@ log = logging.getLogger("ClinicalWhisper")
 
 _ALNUM = re.compile(r"[^\W_]")
 _TAG = re.compile(r"\[([a-z_]+)\]")
+_UPPER_TAG = re.compile(r"\[([A-Z][A-Z_]*)\]")
+# The single-language models label in capitals without separators; the
+# English model uses snake_case. One vocabulary keeps the masking key, the
+# tag numbering and name silencing working in every language.
+_LABEL_NAMES = {"firstname": "first_name", "lastname": "last_name", "middlename": "middle_name",
+                "zipcode": "zip_code", "phonenumber": "phone_number", "telephonenum": "phone_number",
+                "streetaddress": "street_address", "street": "street_address",
+                "buildingnum": "building_number", "dateofbirth": "date_of_birth",
+                "idcard": "id_number", "socialnum": "ssn", "username": "username"}
+
+
+def label_name(label: str) -> str:
+    """A model's entity label in ClinicalWhisper's snake_case vocabulary."""
+    low = str(label or "other").lower()
+    return _LABEL_NAMES.get(low.replace("_", ""), low)
 _REPEATS = re.compile(r"(.)\1{20,}")
 
 
@@ -58,7 +73,7 @@ def number_tags(masked: str, entities: list, ids: dict[tuple[str, str], int]) ->
     tags = list(_TAG.finditer(masked))
     ents = sorted(entities, key=lambda e: getattr(e, "start", 0))
     if len(tags) != len(ents) or any(
-        t.group(1) != getattr(e, "label", None) for t, e in zip(tags, ents)
+        t.group(1) != label_name(getattr(e, "label", None)) for t, e in zip(tags, ents)
     ):
         return masked
     out, last = [], 0
@@ -148,9 +163,10 @@ class PIIScrubber:
             entities = list(getattr(result, "pii_entities", []) or [])
             self.entity_count += len(entities)
             for ent in entities:
-                label = getattr(ent, "label", "other")
+                label = label_name(getattr(ent, "label", "other"))
                 self.entity_types[label] = self.entity_types.get(label, 0) + 1
-            return number_tags(result.deidentified_text, entities, self._ids)
+            masked = _UPPER_TAG.sub(lambda m: f"[{label_name(m.group(1))}]", result.deidentified_text)
+            return number_tags(masked, entities, self._ids)
         except Exception as e:
             log.error("Error during PII scrubbing: %s", e)
             if self.strict:
