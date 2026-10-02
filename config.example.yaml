@@ -223,3 +223,17 @@ embeddings:
   pooling: "mean"                # or "cls"
   export_format: "csv"           # or "npy"
 
+
+# ── Speaker roles ────────────────────────────────────────────────────────────
+# Roles come from the conversation itself (questions, handing the floor,
+# consent lines), remembered staff voices, and, if given, the study's guide:
+# whoever reads its questions is the interviewer or moderator.
+roles:
+  guide_path: ""          # e.g. "~/Studies/focus_group_guide.txt", one question per line
+
+# ── Clinician review screen ──────────────────────────────────────────────────
+# Keyword matches listed for a clinician to read (English only). Not a risk
+# assessment: it misses concerns said in other words.
+review_flags:
+  enabled: true
+  extra_terms: {}         # e.g. {substance: ["xanax", "percs"], suicide_self_harm: ["unalive"]}
