@@ -14,7 +14,7 @@ from __future__ import annotations
 
 import logging
 import re
-from typing import Optional
+from typing import Callable, Optional
 
 try:
     from openmed import OpenMedConfig, deidentify
@@ -115,12 +115,21 @@ class PIIScrubber:
         lang: str = "en",
         cache_dir: Optional[str] = None,
         safety_net: bool = True,
+        rules_lang: Optional[str] = None,
+        second_check: Optional[Callable[[str], str]] = None,
     ):
         self.model_name = model_name
         # Selects OpenMED's regex patterns (phone numbers, IDs) for the language.
         self.lang = lang
-        # pii_rules.py after OpenMED (English patterns; harmless elsewhere).
+        # pii_rules.py after OpenMED: English patterns everywhere, plus the
+        # language's own (pii_rules_intl.py) for Chinese, Japanese, Korean, Hindi.
         self.safety_net = safety_net
+        # OpenMED has no patterns for some languages (Chinese), so the safety
+        # net can be told the real language separately.
+        self.rules_lang = rules_lang or lang
+        # A language model asked to list names the masker missed (name_sweep.py).
+        self.second_check = second_check
+        self.second_check_added: Optional[int] = None
         self._found: list[tuple[str, str]] = []
         self.confidence_threshold = confidence_threshold
         self.strict = strict
@@ -184,13 +193,20 @@ class PIIScrubber:
             numbered = number_tags(masked, entities, self._ids)
             if numbered != masked:
                 # Remember what was masked and as which tag, for propagation.
-                for ent, tag in zip(sorted(entities, key=lambda e: getattr(e, "start", 0)),
-                                    _NUMBERED.findall(numbered)):
+                ordered = sorted(entities, key=lambda e: getattr(e, "start", 0))
+                tags = _NUMBERED.findall(numbered)
+                for ent, tag in zip(ordered, tags):
                     self._found.append((str(getattr(ent, "text", "")), tag))
+                # A Chinese or Japanese name comes back as two touching tags
+                # ("[last_name_1][first_name_1]"); remember the whole name too,
+                # since a lone surname character is too short to propagate.
+                for (a, ta), (b, tb) in zip(zip(ordered, tags), zip(ordered[1:], tags[1:])):
+                    if getattr(a, "end", -1) == getattr(b, "start", -2):
+                        self._found.append((text[getattr(a, "start"):getattr(b, "end")], ta + tb))
             masked = numbered
             if self.safety_net:
                 import pii_rules
-                masked, extra = pii_rules.apply(masked, self._number, self._found)
+                masked, extra = pii_rules.apply(masked, self._number, self._found, self.rules_lang)
                 for label, n in extra.items():
                     self.entity_count += n
                     self.entity_types[label] = self.entity_types.get(label, 0) + n
@@ -233,6 +249,18 @@ class PIIScrubber:
             for seg, text in zip(scrubbed, texts):
                 seg["text"] = text
             self.entity_count += extra
+        if self.second_check is not None:
+            import name_sweep
+            texts, extra = name_sweep.mask([s["text"] for s in scrubbed],
+                                           [s.get("text", "") for s in segments],
+                                           self.second_check, self._number)
+            for seg, text in zip(scrubbed, texts):
+                seg["text"] = text
+            self.entity_count += extra
+            if extra:
+                self.entity_types["full_name"] = self.entity_types.get("full_name", 0) + extra
+            self.second_check_added = extra
+            log.info("Second name check masked %d more mention(s).", extra)
         self._found = []  # the surface forms are never kept past this call
 
         log.info("PII scrubbing complete — %d identifiers masked (%d distinct), "
@@ -247,6 +275,8 @@ class PIIScrubber:
             "masked_by_type": dict(sorted(self.entity_types.items())),
             "distinct_identifiers": len(set((lab, n) for (lab, _), n in self._ids.items())),
             "segments_redacted_whole": self.redacted_count,
+            # None: no second check ran (English, or the scoring model is not installed).
+            "second_check_added": self.second_check_added,
         }
 
 

@@ -200,8 +200,7 @@ def _masker_for(lang: dict) -> dict:
         raise RuntimeError(
             f"This recording is in {name}. ClinicalWhisper can't mask names in {name} yet, "
             "so no transcript was written.")
-    cache = addons.languages_cache()
-    if cache is None:
+    if not addons.languages_available():
         hint = (f"the {name} language pack" if lang.get("code") in addons.LANGUAGE_PACKS
                 else "the multilingual Languages add-on")
         raise RuntimeError(
@@ -211,8 +210,12 @@ def _masker_for(lang: dict) -> dict:
     import pii_scrubber
     from openmed.core.pii_i18n import SUPPORTED_LANGUAGES
     code = lang["code"] if lang["code"] in SUPPORTED_LANGUAGES else "en"
-    return {"model_name": addons.LANGUAGES_MODEL, "lang": code, "cache_dir": str(cache)} \
-        if pii_scrubber.deidentify is not None else {}
+    # Recall over precision outside English: 0.3 caught 10-25 points more names
+    # and places than 0.5 (evals/masking/multilingual.py), with at most 5% of
+    # other characters masked. OpenMED's own patterns for ``code``; the
+    # safety-net rules for the real language.
+    return {"model_name": addons.LANGUAGES_MODEL, "lang": code, "rules_lang": lang["code"],
+            "confidence_threshold": 0.3} if pii_scrubber.deidentify is not None else {}
 
 
 import kintsugi_dam  # noqa: E402  (after the module's own helpers it imports)
@@ -721,6 +724,41 @@ class InferencePipeline:
             if wav.exists():
                 os.unlink(str(wav))
 
+    def _second_name_check(self, masker: dict, pii_cfg: dict, warnings: list[str]):
+        """The scoring model as a second name check outside English (name_sweep.py).
+
+        Returns None for English, when switched off, or when the Research
+        scoring add-on is missing; in the last case the transcript carries a
+        warning, since the masker alone misses more names outside English.
+        """
+        if not masker:
+            return None
+        if not pii_cfg.get("second_check", True) or not _scoring_installed(self.cfg):
+            warnings.append(
+                "Names outside English were masked without the second name check (it needs "
+                "the Research scoring add-on). In testing, masking alone missed 12-36% of "
+                "names and places outside English; read the transcript before sharing it.")
+            return None
+        # Even with the check, unseen test sentences in Chinese and Korean kept
+        # about 1 name in 4 (evals/masking/README.md).
+        warnings.append(
+            "Masking outside English is less complete than in English: in testing it caught "
+            "79-100% of names and places, depending on the language. Read the transcript "
+            "before sharing it.")
+        try:
+            import name_sweep
+            # Transcription is done for this file; never hold both models at once.
+            self.release_transcriber()
+            self._emit("De-identifying", None, "second name check")
+            model = self.cfg.get("llm_scoring", {}).get("mlx_model")
+            import addons
+            return name_sweep.llama(model or addons.SCORING_MODEL)
+        except Exception as exc:  # noqa: BLE001 - masking must still run
+            log.warning("Second name check unavailable: %s", exc)
+            warnings.append(f"The second name check could not start ({exc}); "
+                            "read the transcript before sharing it.")
+            return None
+
     def _finish_job(self, prep: dict, segments: list[dict]) -> dict:
         """De-identify, compute statistics and acoustics for one transcribed file."""
         job = prep["job"]
@@ -741,10 +779,13 @@ class InferencePipeline:
         log.info("Job %s: language %s (%s)", job.get("job_id"), lang["name"], lang["code"])
         if pii_cfg.get("enabled", True):
             from pii_scrubber import PIIScrubber
+            masker = _masker_for(lang)
+            check = self._second_name_check(masker, pii_cfg, warnings)
             scrubber = PIIScrubber(**{
                 "confidence_threshold": pii_cfg.get("confidence_threshold", 0.5),
                 "strict": pii_cfg.get("strict", True),
-                **_masker_for(lang),
+                **masker,
+                "second_check": check,
             })
             if not scrubber.is_available:
                 raise RuntimeError(
@@ -758,6 +799,8 @@ class InferencePipeline:
             segments = scrubber.scrub_segments(segments)
             deid_summary = scrubber.summary()
             del scrubber
+            if check is not None:
+                self.release_scorer()  # scoring loads it again; the next file needs the room
             _free_ram()
         else:
             log.warning("PII scrubbing is DISABLED — transcript retains identifiers.")

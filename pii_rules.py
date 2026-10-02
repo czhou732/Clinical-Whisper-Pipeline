@@ -66,14 +66,18 @@ def _key(text: str) -> str:
 
 
 def apply(masked: str, number: Callable[[str, str], int],
-          found: list | None = None) -> tuple[str, dict[str, int]]:
+          found: list | None = None, lang: str = "en") -> tuple[str, dict[str, int]]:
     """Mask what the rules find in text OpenMED already masked.
 
     ``number(label, key)`` returns the tag number for an identifier (the
     scrubber's registry, so a name keeps one number across the recording).
-    Returns the new text and counts per label.
+    Returns the new text and counts per label. ``lang`` adds that language's
+    rules (pii_rules_intl.py) before the English ones.
     """
     counts: dict[str, int] = {}
+    if lang != "en":
+        import pii_rules_intl
+        masked, counts = pii_rules_intl.apply(masked, lang, number, _key, found)
     for label, rx in RULES:
         def _sub(m: re.Match) -> str:
             value = m.group(1)
@@ -117,16 +121,31 @@ def propagate(texts: list[str], found: list[tuple[str, str]]) -> tuple[list[str]
     memory only. Matching is whole-word and case-sensitive, and only for
     capitalised strings of three or more letters, so "Elena" is masked
     everywhere once caught, while ordinary lowercase words are left alone.
+    Scripts without capitals (Chinese, Japanese, Korean, Devanagari) need two
+    or more characters of that script, and are matched without word
+    boundaries, since Chinese and Japanese do not use spaces and Korean
+    attaches particles to names ("김민지는").
     """
-    pairs = {}
+    from pii_rules_intl import SCRIPT
+    pairs, plain = {}, {}
     for value, tag in found:
         value = value.strip(" ,.'")
-        if len(value) >= 3 and value[:1].isupper() and not _TAG.search(value):
+        if _TAG.search(value):
+            continue
+        if len(SCRIPT.findall(value)) >= 2:
+            plain.setdefault(value, tag)
+        elif len(value) >= 3 and value[:1].isupper():
             pairs.setdefault(value, tag)
-    if not pairs:
+    if not pairs and not plain:
         return texts, 0
-    rx = re.compile(r"(?<![\w\[])(" + "|".join(re.escape(v) for v in
-                                              sorted(pairs, key=len, reverse=True)) + r")(?![\w\]])")
+    alts = []
+    if pairs:
+        alts.append(r"(?<![\w\[])(?:" + "|".join(re.escape(v) for v in
+                                                  sorted(pairs, key=len, reverse=True)) + r")(?![\w\]])")
+    if plain:
+        alts.append("(?:" + "|".join(re.escape(v) for v in sorted(plain, key=len, reverse=True)) + ")")
+    pairs.update(plain)
+    rx = re.compile("(" + "|".join(alts) + ")")
     total = 0
     out = []
     for t in texts:

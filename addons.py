@@ -31,19 +31,70 @@ log = logging.getLogger("ClinicalWhisper")
 ADDON_ROOT = bundled_models.APP_SUPPORT / "addons" / "scoring"
 SCORING_MODEL = "mlx-community/Meta-Llama-3-8B-Instruct-4bit"
 
-# Masking for languages other than English (OpenMed's multilingual privacy
-# filter, MLX build, Apache-2.0, 2.8 GB). Kept in OpenMed's own cache layout
-# (``openmed/<org>_<name>/weights.safetensors``), which is how OpenMed finds
-# converted MLX weights.
+# Masking for languages other than English: OpenMed's multilingual privacy
+# filter v2, 8-bit MLX build (Apache-2.0, 1.5 GB; half the size of the full
+# model, which kept app + scoring + languages over 10 GB). Kept in the usual
+# Hugging Face layout under addons/languages/hub, linked in at startup.
 LANGUAGES_ROOT = bundled_models.APP_SUPPORT / "addons" / "languages"
-LANGUAGES_MODEL = "OpenMed/privacy-filter-multilingual-mlx"
-# What that model was trained to mask (its model card).
+LANGUAGES_MODEL = "OpenMed/privacy-filter-multilingual-v2-mlx-8bit"
+# The 16 languages that model was trained on (its model card).
 MASKABLE = {"ar", "bn", "zh", "nl", "en", "fr", "de", "hi", "it", "ja", "ko", "pt",
             "es", "te", "tr", "vi"}
 
 
+def languages_available(root: Optional[Path] = None) -> bool:
+    """Whether the multilingual masker is installed (or, from source, cached)."""
+    root = root or LANGUAGES_ROOT
+    snap = _hf_snapshot(root / "hub", LANGUAGES_MODEL)
+    if snap is not None:
+        return True
+    if getattr(sys, "frozen", False):
+        return False
+    try:
+        from huggingface_hub import try_to_load_from_cache
+        return isinstance(try_to_load_from_cache(LANGUAGES_MODEL, "weights.safetensors"), str)
+    except ImportError:  # pragma: no cover
+        return False
+
+
+def languages_cache(root: Optional[Path] = None):
+    """Kept for callers of the first version; True-ish when installed."""
+    return (root or LANGUAGES_ROOT) if languages_available(root) else None
+
+
+def _hf_snapshot(hub: Path, model: str) -> Optional[Path]:
+    base = hub / ("models--" + model.replace("/", "--"))
+    try:
+        rev = (base / "refs" / "main").read_text().strip()
+    except OSError:
+        return None
+    snap = base / "snapshots" / rev
+    return snap if (snap / "weights.safetensors").is_file() else None
+
+
+def install_languages(source: Path, root: Optional[Path] = None) -> Path:
+    """Copy the multilingual masker (a ``hub`` folder) from the add-on the user picked."""
+    root = root or LANGUAGES_ROOT
+    name = "models--" + LANGUAGES_MODEL.replace("/", "--")
+    candidates = [source / "hub", *[p / "hub" for p in Path(source).iterdir() if p.is_dir()]]
+    hub = next((c for c in candidates if _hf_snapshot(c, LANGUAGES_MODEL) is not None), None)
+    if hub is None:
+        raise ValueError("That folder doesn't contain the ClinicalWhisper Languages add-on.")
+    tmp = root.parent / f".installing-languages-{uuid.uuid4().hex[:8]}"
+    shutil.copytree(hub / name, tmp / "hub" / name)
+    if root.exists():
+        shutil.rmtree(root)
+    tmp.rename(root)
+    log.info("Languages add-on installed.")
+    return root
+
+
+def _openmed_dir(root: Path, model: str) -> Path:
+    return root / "openmed" / model.replace("/", "_")
+
+
 # Single-language maskers (OpenMed, Apache-2.0, ~0.6 GB each): the size-friendly
-# alternative to the 2.8 GB multilingual model. The pack for a language wins
+# alternative to the 1.5 GB multilingual model. The pack for a language wins
 # over the multilingual model when both are installed.
 LANGUAGE_PACKS = {
     "es": "OpenMed/OpenMed-PII-Spanish-SuperClinical-Small-44M-v1",
@@ -89,48 +140,6 @@ def install_language_pack(source: Path) -> str:
         return code
     raise ValueError("That folder doesn't contain a ClinicalWhisper language pack.")
 
-
-def _openmed_dir(root: Path, model: str = LANGUAGES_MODEL) -> Path:
-    return root / "openmed" / model.replace("/", "_")
-
-
-def languages_cache(root: Optional[Path] = None) -> Optional[Path]:
-    """OpenMed cache folder holding the multilingual masker, if installed."""
-    root = root or LANGUAGES_ROOT
-    d = _openmed_dir(root)
-    if (d / "weights.safetensors").is_file() and (d / "config.json").is_file():
-        return root / "openmed"
-    return None
-
-
-def languages_available() -> bool:
-    return languages_cache() is not None
-
-
-def install_languages(source: Path, root: Optional[Path] = None) -> Path:
-    """Copy the multilingual masker from the add-on folder the user picked."""
-    root = root or LANGUAGES_ROOT
-    name = LANGUAGES_MODEL.replace("/", "_")
-    found = None
-    for base in [source, source / "openmed"] + (
-            [p / "openmed" for p in source.iterdir() if p.is_dir()] if source.is_dir() else []):
-        if (base / name / "weights.safetensors").is_file():
-            found = base / name
-            break
-    if found is None:
-        raise ValueError("That folder doesn't contain the ClinicalWhisper Languages add-on.")
-    root.mkdir(parents=True, exist_ok=True)
-    tmp = root / f".installing-{uuid.uuid4().hex[:8]}"
-    try:
-        shutil.copytree(found, tmp / "openmed" / name)
-        target = root / "openmed"
-        if target.exists():
-            shutil.rmtree(target)
-        (tmp / "openmed").rename(target)
-    finally:
-        shutil.rmtree(tmp, ignore_errors=True)
-    log.info("Languages add-on installed.")
-    return root / "openmed"
 
 
 def install_kintsugi(source: Path, root: Optional[Path] = None) -> Path:

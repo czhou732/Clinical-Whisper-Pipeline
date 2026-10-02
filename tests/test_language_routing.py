@@ -16,36 +16,42 @@ def test_english_uses_the_default_masker():
     assert ip._masker_for(EN) == {}
 
 
-def test_other_language_without_the_addon_writes_nothing(monkeypatch, tmp_path):
-    monkeypatch.setattr(addons, "LANGUAGES_ROOT", tmp_path / "none")
+def test_other_language_without_the_addon_writes_nothing(monkeypatch):
+    monkeypatch.setattr(addons, "languages_available", lambda root=None: False)
     with pytest.raises(RuntimeError, match="Spanish language pack"):
         ip._masker_for(ES)
+    with pytest.raises(RuntimeError, match="multilingual Languages add-on"):
+        ip._masker_for({"code": "zh", "name": "Chinese", "confidence": 1.0, "other_share": 0.0})
 
 
-def test_language_the_masker_never_learned_is_refused(monkeypatch, tmp_path):
+def test_language_the_masker_never_learned_is_refused():
     with pytest.raises(RuntimeError, match="can't mask names in Russian"):
         ip._masker_for(RU)
 
 
+def _fake_hub(base, model):
+    snap = base / "hub" / ("models--" + model.replace("/", "--"))
+    (snap / "refs").mkdir(parents=True)
+    (snap / "refs" / "main").write_text("r1")
+    (snap / "snapshots" / "r1").mkdir(parents=True)
+    (snap / "snapshots" / "r1" / "weights.safetensors").write_text("x")
+
+
 def test_other_language_with_the_addon_uses_the_multilingual_masker(monkeypatch, tmp_path):
-    folder = tmp_path / "pack" / "openmed" / addons.LANGUAGES_MODEL.replace("/", "_")
-    folder.mkdir(parents=True)
-    for f in ("weights.safetensors", "config.json"):
-        (folder / f).write_text("x")
+    _fake_hub(tmp_path / "pack", addons.LANGUAGES_MODEL)
     root = tmp_path / "support"
     addons.install_languages(tmp_path / "pack", root=root)
-    monkeypatch.setattr(addons, "LANGUAGES_ROOT", root)
-    kwargs = ip._masker_for(ES)
+    assert addons.languages_available(root)
+    monkeypatch.setattr(addons, "languages_available", lambda r=None: True)
+    kwargs = ip._masker_for({"code": "zh", "name": "Chinese", "confidence": 1.0, "other_share": 0.0})
     assert kwargs["model_name"] == addons.LANGUAGES_MODEL
-    assert kwargs["lang"] == "es"
-    assert kwargs["cache_dir"] == str(root / "openmed")
+    assert kwargs["confidence_threshold"] == 0.3
+    # OpenMED has no Chinese patterns, but the safety net must know it is Chinese.
+    assert kwargs["lang"] == "en" and kwargs["rules_lang"] == "zh"
 
 
 def test_install_any_tells_the_two_addons_apart(tmp_path, monkeypatch):
-    folder = tmp_path / "pack" / "openmed" / addons.LANGUAGES_MODEL.replace("/", "_")
-    folder.mkdir(parents=True)
-    for f in ("weights.safetensors", "config.json"):
-        (folder / f).write_text("x")
+    _fake_hub(tmp_path / "pack", addons.LANGUAGES_MODEL)
     monkeypatch.setattr(addons, "LANGUAGES_ROOT", tmp_path / "support")
     assert addons.install_any(tmp_path / "pack") == "languages"
     with pytest.raises(ValueError):
