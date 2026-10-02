@@ -5,22 +5,22 @@
 <title>ClinicalWhisper Quick Start</title>
 <!-- Source for "Quick Start.pdf" in the DMG. Regenerate with docs/make_quickstart.sh. -->
 <style>
-  @page { size: letter; margin: 0.45in 0.65in; }
+  @page { size: letter; margin: 0.4in 0.6in; }
   body {
     margin: 0;
     background: #fff;
     color: #222;
-    font: 9.3pt/1.36 Helvetica, Arial, sans-serif;
+    font: 8.7pt/1.3 Helvetica, Arial, sans-serif;
   }
-  h1 { font-size: 15pt; margin: 0 0 10pt; }
-  h2 { font-size: 10.4pt; margin: 7pt 0 2pt; }
-  p { margin: 0 0 4pt; }
+  h1 { font-size: 14pt; margin: 0 0 7pt; }
+  h2 { font-size: 9.8pt; margin: 6pt 0 2pt; }
+  p { margin: 0 0 3pt; }
   pre {
-    font: 8.8pt/1.45 Menlo, Monaco, monospace;
+    font: 8.2pt/1.4 Menlo, Monaco, monospace;
     font-variant-ligatures: none;
     background: #f3f3f3;
-    padding: 5pt 7pt;
-    margin: 4pt 0 7pt;
+    padding: 4pt 7pt;
+    margin: 3pt 0 5pt;
     white-space: pre;
     overflow: hidden;
   }
@@ -28,12 +28,10 @@
 </style>
 </head>
 <body>
-<h1>ClinicalWhisper 5.2: getting started</h1>
+<h1>ClinicalWhisper 5.3: getting started</h1>
 
 <h2>Installing</h2>
-<p>You'll need a Mac with an M1 chip or newer, macOS 14 or later, and about 25 GB of free space.
-Scoring works best with 16 GB of memory or more; on smaller Macs the app starts with scoring
-turned off.</p>
+<p>You'll need a Mac with an M1 chip or newer, macOS 14 or later, and about 15 GB of free space.</p>
 <p>Drag ClinicalWhisper into Applications. The app isn't registered with Apple yet, so macOS will
 block it the first time. On macOS 14, right-click the app and choose Open. On macOS 15 or newer,
 try opening it once, then go to System Settings &gt; Privacy &amp; Security, scroll down, and click
@@ -42,16 +40,28 @@ Open Anyway. If neither works, paste this into Terminal:</p>
 <p>The first launch takes about a minute. Before running real recordings, please make sure
 FileVault is on (System Settings &gt; Privacy &amp; Security), since transcripts are saved to the disk.</p>
 
+<h2>Add-ons</h2>
+<p>The app transcribes and masks names on its own. A few extras are separate downloads so the app
+stays small. To install one, click "Install an add-on…" at the bottom of the window and choose the
+add-on's folder. Scoring (about 5 GB) adds the clinical scores and works best with 16 GB of memory
+or more. Languages (about 1.5 GB) is needed for recordings that aren't in English; without it,
+those recordings stop instead of being saved unmasked. Name silencing lets the app save a copy of
+the audio with the masked names silenced.</p>
+
 <h2>Running recordings</h2>
 <p>Drop files onto the window or click to pick them. Most audio formats work (wav, mp3, m4a,
 flac and so on). The app reads them where they are and doesn't move or copy them.</p>
 <p>Set "People in the recording" to the number of speakers. For a one-on-one interview, leave it
-at 2. Getting this right matters more than anything else for the speaker labels.</p>
-<p>If you only need transcripts, tick "Transcribe only". It skips the clinical scores and is a lot
-faster. Names and other identifiers are masked either way.</p>
-<p>You'll see a time estimate before you start. Keep the laptop plugged in with the lid open, and
-you'll get a notification when it's done. If the Interviewer label lands on the wrong person,
-pick the right one from the Interviewer menu and click Apply.</p>
+at 2. For a focus group, choose "Not sure, or a group". The app then labels moderators and
+participants and doesn't make clinical scores.</p>
+<p>Choose "Transcript and measures", or "Add clinical scores" if Scoring is installed. Scores need at
+least 3 minutes of the participant talking and a reasonably quiet recording. If either is missing,
+the app says why it skipped them.</p>
+<p>To cut part of a recording, click Edit next to the file, drag across the waveform, and choose
+"Leave this out" or "Process only this".</p>
+<p>Keep the laptop plugged in with the lid open, and you'll get a notification when it's done.
+Afterwards, "Check the speakers" lets you play a sample of each voice, give them names, and fix who
+the interviewer is. Click Apply when you're done.</p>
 
 <h2>Results</h2>
 <p>Everything is saved in a folder called ClinicalWhisper in your home folder. It's deliberately
@@ -60,10 +70,15 @@ Each recording gets an _analysis.json file with the masked transcript, voice fea
 and each batch gets a summary CSV.</p>
 <p>Names and other identifiers are replaced with tags like [first_name_1]. The same tag always means
 the same word, and there's a key at the top of each transcript. The masking is automatic and it does
-miss things sometimes, so please read over a transcript before sharing it with anyone.</p>
-<p>Each result also reports how far the voice sits above the background noise (SNR). Under 15 dB
-it's flagged, and the voice measures from that recording shouldn't be trusted. Response latency
-isn't reliable in this version yet, so please leave it out of any analysis.</p>
+miss things sometimes, more often in languages other than English, so please read over a transcript
+before sharing it with anyone.</p>
+<p>Statements a clinician may want to look at are listed under "For clinician review" with their
+times. It's a reading aid, not a risk score.</p>
+<p>Each score shows how consistent it was across repeated runs. Flat emotional language is the least
+consistent, so treat it with care. Each result also reports how far the voice sits above the
+background noise (SNR). Under 15 dB it's flagged, and the voice measures from that recording
+shouldn't be trusted. Response latency isn't reliable in this version yet, so please leave it out
+of any analysis.</p>
 
 <h2>Lots of files</h2>
 <p>For a big folder, Terminal is easier:</p>
@@ -72,8 +87,9 @@ isn't reliable in this version yet, so please leave it out of any analysis.</p>
     --speakers 2 --transcribe-only</pre>
 <p>It prints progress and the time left as it goes. If it gets interrupted, run the same command
 again with <span style="white-space:nowrap">--resume</span> added and it picks up where it stopped. Add <span style="white-space:nowrap">--ids ids.csv</span> to attach participant
-IDs (columns filename, participant_id, session_label), and <span style="white-space:nowrap">--help</span> lists the rest. Try not to run
-a batch while the app window is also processing, since they'll fight over memory.</p>
+IDs (columns filename, participant_id, session_label). Add <span style="white-space:nowrap">--guide guide.txt</span> (one question per
+line) and whoever reads those questions is taken as the interviewer. <span style="white-space:nowrap">--help</span> lists the rest.
+Try not to run a batch while the app window is also processing, since they'll fight over memory.</p>
 <p>For a sense of timing: on my M2 Max, a three-and-a-half-hour interview took about 12 minutes
 to transcribe and another 17 to score. Yours may be slower. The estimate adjusts after a few files.</p>
 
@@ -84,6 +100,6 @@ or transcripts.</p>
 <p>One last thing: this is a research tool, not a medical device, and the scores aren't meant
 for diagnosing anyone.</p>
 
-<p class="sign">Peter</p>
+<p class="sign">PRAXIS</p>
 </body>
 </html>
