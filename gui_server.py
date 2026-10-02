@@ -16,11 +16,13 @@ import shutil
 import subprocess
 import sys
 import threading
+import time
 import uuid
 from pathlib import Path
 
 import pandas as pd
 from fastapi import Body, FastAPI, File, Form, UploadFile
+from starlette.concurrency import run_in_threadpool
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
@@ -36,7 +38,8 @@ import offline  # noqa: E402
 
 offline.lock()  # idempotent; the launcher has usually done it already
 
-from cw_config import DATA_ROOT, load_config
+from cw_config import AUDIO_EXTENSIONS, DATA_ROOT, LEGACY_DATA_ROOT, load_config
+from mask_legend import legend as mask_legend
 
 app = FastAPI(title="ClinicalWhisper GUI Server")
 
@@ -135,7 +138,10 @@ def process_batch_task(batch_id: str, paths: list[Path]) -> None:
     cw_log.addHandler(handler)
     cw_log.setLevel(logging.INFO)
     crash_diagnostics.begin_work(f"{len(paths)} file(s)")
+    from keep_awake import keep_awake
 
+    awake = keep_awake()
+    awake.__enter__()
     try:
         # Imported here, inside the try: a missing dependency in a frozen build
         # would otherwise raise before any state is set, leaving the UI stuck.
@@ -144,6 +150,9 @@ def process_batch_task(batch_id: str, paths: list[Path]) -> None:
 
         cfg = load_config(_config_path())
         with _lock:
+            if _batches.get(batch_id, {}).get("num_speakers"):
+                # Extra speaker labels are folded into this many by voice.
+                cfg.setdefault("moss", {})["num_speakers"] = _batches[batch_id]["num_speakers"]
             if _batches.get(batch_id, {}).get("in_place"):
                 # The user's own recording, read where it is: never move or delete it.
                 cfg["audio_retention"] = "keep"
@@ -203,7 +212,15 @@ def process_batch_task(batch_id: str, paths: list[Path]) -> None:
                 b["files"][idx]["state"] = "running"
             b["log"].append(f"Transcribing {len(paths)} file(s) together...")
 
+        import speed_model
+        from progress_report import audio_seconds
+
+        durations = [audio_seconds(p) for p in paths]
+        t_phase = time.monotonic()
         outcomes = [] if _cancelled() else pipeline.transcribe_jobs(jobs)
+        speed_model.record("transcribe", sum(
+            d or 0 for d, o in zip(durations, outcomes) if not isinstance(o, Exception)),
+            time.monotonic() - t_phase)
         for idx, outcome in enumerate(outcomes):
             audio_path = paths[idx]
             if not isinstance(outcome, Exception):
@@ -242,7 +259,10 @@ def process_batch_task(batch_id: str, paths: list[Path]) -> None:
                 _batches[batch_id]["current"] = audio_path.name
 
             try:
+                t_score = time.monotonic()
                 analysis_path = pipeline.score_job(state)
+                if cfg.get("llm_scoring", {}).get("enabled", True):
+                    speed_model.record("score", durations[idx], time.monotonic() - t_score)
                 row = _extract_row(analysis_path, audio_path.name)
 
                 with open(analysis_path, "r", encoding="utf-8") as fh:
@@ -313,17 +333,33 @@ def process_batch_task(batch_id: str, paths: list[Path]) -> None:
     finally:
         # However the batch ended, the app is idle again: quitting now is not a crash.
         crash_diagnostics.end_work()
+        with _lock:
+            b = _batches.get(batch_id) or {"files": []}
+            done = sum(1 for f in b["files"] if f.get("state") == "done")
+            failed = sum(1 for f in b["files"] if f.get("state") == "error")
+        from notify import notify
+        notify("ClinicalWhisper", f"Finished: {done} file(s) done, {failed} failed.")
+        awake.__exit__(None, None, None)
         cw_log.removeHandler(handler)
 
 
-AUDIO_EXTENSIONS = {".wav", ".m4a", ".mp3", ".mp4", ".ogg", ".opus", ".flac", ".aac"}
+
+
+def _speaker_count(value) -> int | None:
+    try:
+        n = int(str(value).strip())
+    except (TypeError, ValueError):
+        return None  # "Not sure, or a group": leave the count to the model
+    return n if 1 <= n <= 10 else None
 
 
 def _launch_batch(paths: list[Path], participant_id: str, session_label: str,
-                  criterion_score: str, transcribe_only: bool, in_place: bool) -> str:
+                  criterion_score: str, transcribe_only: bool, in_place: bool,
+                  num_speakers=None) -> str:
     batch_id = _new_batch(paths)
     with _lock:
         b = _batches[batch_id]
+        b["num_speakers"] = _speaker_count(num_speakers)
         b["participant_id"] = participant_id.strip()
         b["session_label"] = session_label.strip()
         b["criterion_score"] = criterion_score.strip()
@@ -342,7 +378,7 @@ def _launch_batch(paths: list[Path], participant_id: str, session_label: str,
 
 def start_batch_from_paths(paths: list[str], participant_id: str = "",
                            session_label: str = "", criterion_score: str = "",
-                           transcribe_only: bool = False) -> dict:
+                           transcribe_only: bool = False, num_speakers=None) -> dict:
     """Process recordings where they are, without copying them.
 
     Called by the app window through pywebview's private bridge, never over
@@ -361,7 +397,7 @@ def start_batch_from_paths(paths: list[str], participant_id: str = "",
     if not files:
         raise ValueError("No files selected.")
     batch_id = _launch_batch(files, participant_id, session_label, criterion_score,
-                             transcribe_only, in_place=True)
+                             transcribe_only, in_place=True, num_speakers=num_speakers)
     return {"status": "success", "batch_id": batch_id, "count": len(files),
             "filenames": [p.name for p in files]}
 
@@ -375,6 +411,7 @@ async def upload_files(
     session_label: str = Form(""),
     criterion_score: str = Form(""),
     transcribe_only: str = Form(""),
+    num_speakers: str = Form(""),
 ):
     """Accept one or many audio files and start a single batch job.
 
@@ -411,6 +448,7 @@ async def upload_files(
             saved, participant_id, session_label, criterion_score,
             transcribe_only.strip().lower() in ("1", "true", "on", "yes"),
             in_place=False,
+            num_speakers=num_speakers,
         )
         return {
             "status": "success",
@@ -420,6 +458,23 @@ async def upload_files(
         }
     except Exception as e:
         return JSONResponse(status_code=500, content={"status": "error", "message": str(e)})
+
+
+def _speed() -> dict:
+    import speed_model
+    data = speed_model.load()
+    return {"transcribe": data["transcribe"], "score": data["score"],
+            "rough": data.get("runs", 0) < 3}
+
+
+def _version() -> str:
+    from version import __version__
+    return __version__
+
+
+def _sync_warning(path: Path):
+    from sync_check import warning_for
+    return warning_for(path)
 
 
 def _filevault_on():
@@ -437,6 +492,15 @@ async def diagnostics():
         "machine": crash_diagnostics.machine_summary(),
         # False means outputs are written to an unencrypted disk.
         "filevault": _filevault_on(),
+        "version": _version(),
+        "data_root": str(DATA_ROOT),
+        # Set when results would be uploaded by a sync service.
+        "data_root_synced": _sync_warning(DATA_ROOT),
+        # Results from before 5.2 may still sit in a synced ~/Documents folder.
+        "legacy_synced": (_sync_warning(LEGACY_DATA_ROOT)
+                          if LEGACY_DATA_ROOT.exists() and LEGACY_DATA_ROOT != DATA_ROOT else None),
+        "ram_gb": crash_diagnostics.machine_summary().get("ram_gb"),
+        "speed": _speed(),
     }
 
 
@@ -444,6 +508,26 @@ async def diagnostics():
 async def dismiss_diagnostics():
     crash_diagnostics.dismiss_previous_crash()
     return {"ok": True}
+
+
+@app.post("/api/results/reveal")
+def reveal_results():
+    """Show the results folder in Finder."""
+    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+    subprocess.run(["open", str(OUTPUT_DIR)], check=False)
+    return {"ok": True, "path": str(OUTPUT_DIR)}
+
+
+@app.post("/api/diagnostics/save")
+def save_diagnostics():
+    """Zip redacted logs and a machine summary into the data folder, then show it."""
+    import diagnostics_bundle
+
+    extra = {"version": _version(), "filevault": _filevault_on(), "speed": _speed(),
+             "data_root_synced": bool(_sync_warning(DATA_ROOT))}
+    path = diagnostics_bundle.save(DATA_ROOT, extra)
+    subprocess.run(["open", "-R", str(path)], check=False)
+    return {"ok": True, "path": str(path), "name": path.name}
 
 
 @app.post("/api/diagnostics/reveal")
@@ -479,6 +563,7 @@ async def get_status(batch_id: str):
                     "error": f["error"],
                     "transcript": f["transcript"],
                     "structured_transcript": f["structured_transcript"],
+                    "mask_legend": mask_legend(f["structured_transcript"]),
                     "speaker_roles": f.get("speaker_roles", {}),
                     "quality": f.get("quality", {}),
                     "score_reliability": f.get("score_reliability", {}),
@@ -522,8 +607,11 @@ def _batch_markdown(b: dict) -> str:
             lines += ["", "### Key Observations", ""]
             lines += [f"- {o}" for o in observations]
         if f["structured_transcript"]:
-            lines += ["", "### Transcript (de-identified)", "", "```",
-                      f["structured_transcript"], "```"]
+            key = mask_legend(f["structured_transcript"])
+            lines += ["", "### Transcript (de-identified)", ""]
+            if key:
+                lines += [key.replace("\n  ", "\n- "), ""]
+            lines += ["```", f["structured_transcript"], "```"]
         lines.append("")
     return "\n".join(lines)
 
@@ -539,6 +627,21 @@ async def cancel_batch(batch_id: str):
         b["cancelled"] = True
         b["log"].append("Cancellation requested...")
     return {"status": "cancelling"}
+
+
+def _roles_with_interviewer(segments: list[dict], interviewer: str) -> dict:
+    """The chosen speaker as Interviewer, the other main speaker as Subject."""
+    talk: dict[str, float] = {}
+    for seg in segments:
+        spk = seg.get("speaker")
+        talk[spk] = talk.get(spk, 0.0) + max(seg.get("end", 0.0) - seg.get("start", 0.0), 0.0)
+    others = sorted((s for s in talk if s != interviewer), key=lambda s: -talk[s])
+    roles = {interviewer: "Interviewer"}
+    if others:
+        roles[others[0]] = "Subject"
+    for i, spk in enumerate(others[1:], start=1):
+        roles[spk] = f"Other_{i}"
+    return roles
 
 
 @app.post("/api/rescore/{batch_id}/{index}")
@@ -571,6 +674,10 @@ async def rescore(batch_id: str, index: int, payload: dict = Body(default={})):
 
         cfg = load_config(_config_path())
         roles = payload.get("roles") or analysis.get("speaker_roles") or {}
+        if payload.get("interviewer"):
+            roles = _roles_with_interviewer(segments, payload["interviewer"])
+        with _lock:
+            transcribe_only = bool((_batches.get(batch_id) or {}).get("transcribe_only"))
         scope = payload.get("transcript_scope")
         if scope:
             cfg.setdefault("llm_scoring", {})["transcript_scope"] = scope
@@ -580,7 +687,13 @@ async def rescore(batch_id: str, index: int, payload: dict = Body(default={})):
             analysis.get("overall_acoustics", {}) or {},
             analysis.get("speaker_acoustics", {}) or {},
         )
-        scoring = score_transcript(structured, context, cfg)
+        # A transcribe-only batch just gets relabelled; otherwise re-score, off
+        # the event loop so the window keeps updating during a long re-score.
+        rescored = not transcribe_only
+        if rescored:
+            scoring = await run_in_threadpool(score_transcript, structured, context, cfg)
+        else:
+            scoring = analysis.get("llm_clinical_scoring") or {}
 
         analysis = dict(analysis)
         analysis["llm_clinical_scoring"] = scoring
@@ -599,7 +712,7 @@ async def rescore(batch_id: str, index: int, payload: dict = Body(default={})):
         previous = analysis.get("quality") or {}
         analysis["quality"] = assess_quality(
             segments, timing["subject_speaker"],
-            {k: previous.get(k) for k in ("duration_s", "rms_dbfs", "clipped_fraction")},
+            {k: previous.get(k) for k in ("duration_s", "rms_dbfs", "clipped_fraction", "snr_db")},
             expected_speakers=cfg.get("moss", {}).get("num_speakers"),
         )
         runs = (scoring.get("_meta") or {}).get("samples_per_window") or \
@@ -624,7 +737,9 @@ async def rescore(batch_id: str, index: int, payload: dict = Body(default={})):
             tgt["score_reliability"] = analysis.get("score_reliability") or {}
             _batches[batch_id]["log"].append(f"Re-scored {f['filename']}.")
 
-        return {"status": "success", "result": row,
+        return {"status": "success", "result": row, "rescored": rescored,
+                "quality": analysis.get("quality"),
+                "score_reliability": analysis.get("score_reliability"),
                 "structured_transcript": structured, "speaker_roles": roles}
     except Exception as e:
         log.warning("Re-score failed for %s: %s", batch_id, e)
@@ -680,7 +795,8 @@ async def save_output(batch_id: str, fmt: str):
         else:
             target.write_text(payload_json if fmt == "json" else payload_md, encoding="utf-8")
 
-        return {"status": "success", "path": str(target)}
+        # Saved, but say so if the chosen folder uploads what is put in it.
+        return {"status": "success", "path": str(target), "warning": _sync_warning(target)}
     except Exception as e:
         return JSONResponse(status_code=500, content={"status": "error", "message": str(e)})
 

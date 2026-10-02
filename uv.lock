@@ -580,7 +580,7 @@ wheels = [
 
 [[package]]
 name = "clinicalwhisper"
-version = "3.0.0"
+version = "5.2.0"
 source = { editable = "." }
 dependencies = [
     { name = "fastapi" },

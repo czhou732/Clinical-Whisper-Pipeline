@@ -32,8 +32,7 @@ import sys  # noqa: E402
 if len(sys.argv) > 1 and sys.argv[1] == "--batch":
     import batch_processor  # noqa: E402
 
-    batch_processor.main(sys.argv[2:], prog="ClinicalWhisper --batch")
-    sys.exit(0)
+    batch_processor.run(sys.argv[2:], prog="ClinicalWhisper --batch")
 
 # Before anything heavy imports: a crash from here on leaves a log.
 import crash_diagnostics  # noqa: E402
@@ -128,8 +127,11 @@ _AUDIO_TYPES = ("Audio files (*.wav;*.m4a;*.mp3;*.mp4;*.ogg;*.opus;*.flac;*.aac)
 
 
 def _file_entry(path: str) -> dict:
+    from progress_report import audio_seconds
+
     p = Path(path)
-    return {"path": str(p), "name": p.name, "size": p.stat().st_size}
+    return {"path": str(p), "name": p.name, "size": p.stat().st_size,
+            "duration": audio_seconds(p)}
 
 
 class Bridge:
@@ -159,6 +161,7 @@ class Bridge:
                 session_label=request.get("session_label", ""),
                 criterion_score=request.get("criterion_score", ""),
                 transcribe_only=bool(request.get("transcribe_only")),
+                num_speakers=request.get("num_speakers"),
             )
         except (OSError, ValueError) as exc:
             return {"status": "error", "message": str(exc)}
@@ -206,7 +209,9 @@ if __name__ == "__main__":
     bridge = Bridge()
     window = webview.create_window(
         "ClinicalWhisper",
-        f"http://127.0.0.1:{FREE_PORT}",
+        # ?app=1 tells the page it is in the app window, before the bridge
+        # is injected, so it never falls back to uploading files.
+        f"http://127.0.0.1:{FREE_PORT}/?app=1",
         js_api=bridge,
         width=1000,
         height=820,
@@ -219,3 +224,7 @@ if __name__ == "__main__":
     webview.start()
     crash_diagnostics.shutdown()
     release_single_instance()
+    # Skip native teardown on quit: it can abort (see batch_processor.exit_now),
+    # which macOS reports as "quit unexpectedly".
+    from batch_processor import exit_now
+    exit_now(0)

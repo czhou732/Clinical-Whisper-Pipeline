@@ -24,7 +24,7 @@ echo "Staging model weights for the bundle..."
 # The HF cache stores snapshots/ as symlinks into blobs/; dereferencing both
 # would double 6.6 GB, so copy the dereferenced snapshots and drop the blobs.
 # Verified: the loaders read this layout read-only with HF_HUB_OFFLINE=1.
-STAGE=".model_stage"   # outside build/ so cleanup does not force a 7 GB re-copy
+STAGE=".model_stage"   # models staged for PyInstaller; deleted again before the DMG step
 mkdir -p "$STAGE/hub"
 
 HF_HUB="$HOME/.cache/huggingface/hub"
@@ -148,6 +148,12 @@ echo "All binaries run on macOS $MIN_MACOS or later."
 PLIST=dist/ClinicalWhisper.app/Contents/Info.plist
 /usr/libexec/PlistBuddy -c "Delete :LSMinimumSystemVersion" "$PLIST" 2>/dev/null || true
 /usr/libexec/PlistBuddy -c "Add :LSMinimumSystemVersion string $MIN_MACOS" "$PLIST"
+# The version Finder's Get Info shows, from version.py.
+APP_VERSION=$(uv run python -c "from version import __version__; print(__version__)")
+for key in CFBundleShortVersionString CFBundleVersion; do
+    /usr/libexec/PlistBuddy -c "Delete :$key" "$PLIST" 2>/dev/null || true
+    /usr/libexec/PlistBuddy -c "Add :$key string $APP_VERSION" "$PLIST"
+done
 # Editing Info.plist invalidates the bundle signature; an invalid signature on
 # Apple Silicon reads as "damaged". Re-apply the ad-hoc signature.
 codesign --force --deep --sign - dist/ClinicalWhisper.app
@@ -158,18 +164,30 @@ echo "Creating DMG..."
 if command -v hdiutil &> /dev/null; then
     rm -rf dist/dmg_folder
     mkdir -p dist/dmg_folder
-    # ditto, not cp -r: BSD cp follows symlinks, which dereferenced the 126
-    # Frameworks -> Resources links and duplicated the whole 7.2 GB model set
-    # (an 18 GB folder from an 8.3 GB app). It also preserves the ad-hoc code
-    # signature PyInstaller applies.
-    ditto dist/ClinicalWhisper.app dist/dmg_folder/ClinicalWhisper.app
+    # Move rather than copy: a copy needs another 12 GB of disk, and cp -r
+    # also dereferenced the Frameworks -> Resources links (an 18 GB folder).
+    # The app is moved back afterwards, even if hdiutil fails.
+    rm -rf dist/ClinicalWhisper  # PyInstaller's intermediate folder, unused
+    # The models are inside the app now. Their 11 GB staging copy is rebuilt
+    # from the Hugging Face cache next time; hdiutil needs the room.
+    rm -rf "$STAGE"
+    mv dist/ClinicalWhisper.app dist/dmg_folder/ClinicalWhisper.app
+    trap 'mv dist/dmg_folder/ClinicalWhisper.app dist/ClinicalWhisper.app 2>/dev/null || true' EXIT
     ln -s /Applications dist/dmg_folder/Applications
+    # One-page guide beside the app (source: docs/quickstart.html).
+    if [ ! -f "docs/Quick Start.pdf" ]; then
+        echo "MISSING docs/Quick Start.pdf: run docs/make_quickstart.sh" >&2
+        exit 1
+    fi
+    cp "docs/Quick Start.pdf" "dist/dmg_folder/Quick Start.pdf"
 
     echo "Running hdiutil to package .app into .dmg..."
     hdiutil create -volname "ClinicalWhisper" \
         -srcfolder dist/dmg_folder \
         -ov -format UDZO \
         ClinicalWhisper.dmg
+    mv dist/dmg_folder/ClinicalWhisper.app dist/ClinicalWhisper.app
+    trap - EXIT
 
     echo "Successfully created ClinicalWhisper.dmg in the current directory!"
     echo

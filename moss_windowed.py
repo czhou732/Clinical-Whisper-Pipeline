@@ -476,7 +476,7 @@ def _apply_speaker_count(d, path, audio, segments: list[dict]) -> list[dict]:
         return segments
     voice = _voice_embedder()
     embeddings = voice.speakers(segments, audio) if voice is not None else {}
-    log.info("%s: %d speaker labels folded into the %d requested.", path, found, n)
+    log.info("%d speaker labels folded into the %d requested.", found, n)
     return limit_speakers(segments, embeddings, n)
 
 

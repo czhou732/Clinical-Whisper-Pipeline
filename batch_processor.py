@@ -7,6 +7,7 @@ import argparse
 import json
 import logging
 import sys
+import time
 import uuid
 from pathlib import Path
 from typing import Optional
@@ -18,8 +19,9 @@ offline.lock()
 
 import pandas as pd  # noqa: E402
 
-from cw_config import load_config, resolve_path  # noqa: E402
+from cw_config import AUDIO_EXTENSIONS, load_config, resolve_path  # noqa: E402
 from inference_pipeline import InferencePipeline  # noqa: E402
+from version import __version__
 
 log = logging.getLogger("ClinicalWhisper.batch")
 
@@ -30,11 +32,13 @@ def _find_audio_files(input_dir: str, extensions: list[str]) -> list[Path]:
     if not root.is_dir():
         raise FileNotFoundError(f"Input directory does not exist: {root}")
 
-    files: list[Path] = []
-    for ext in extensions:
-        files.extend(root.rglob(f"*{ext}"))
+    wanted = {e.lower() for e in extensions}
+    # Case-insensitive (recorders write ZOOM0001.WAV), and skipping hidden
+    # files: macOS leaves "._name.wav" metadata stubs on external drives.
+    files = [p for p in root.rglob("*")
+             if p.suffix.lower() in wanted and not p.name.startswith(".") and p.is_file()]
     # Sort for deterministic ordering
-    return sorted(set(files))
+    return sorted(files)
 
 
 def _extract_row(analysis_path: str, audio_filename: str) -> dict:
@@ -64,9 +68,11 @@ def _extract_row(analysis_path: str, audio_filename: str) -> dict:
         "criterion_score": data.get("criterion_score", ""),
         "analysis_json": analysis_path,
         "status": data.get("status", ""),
+        "app_version": data.get("pipeline_version", ""),
         # Codes only; the messages are in the analysis JSON and the app.
         "quality_flags": ";".join(f["code"] for f in quality.get("flags", [])),
         "participant_speech_min": round((quality.get("participant_speech_s") or 0) / 60, 2),
+        "snr_db": quality.get("snr_db"),
         "word_count": stats.get("word_count", 0),
         # Same count with masked identifiers left out, for analyses that want it.
         "word_count_excluding_masked": stats.get("word_count_excluding_masked"),
@@ -99,6 +105,14 @@ def _extract_row(analysis_path: str, audio_filename: str) -> dict:
 _ID_COLUMNS = ("participant_id", "session_label", "criterion_score")
 
 
+def _ram_gib() -> float:
+    import os
+    try:
+        return os.sysconf("SC_PAGE_SIZE") * os.sysconf("SC_PHYS_PAGES") / 2**30
+    except (ValueError, OSError):
+        return 64.0  # unknown: do not change behaviour
+
+
 def _read_ids(path: str) -> dict[str, dict]:
     """Map filename (with or without extension) -> study identifiers.
 
@@ -114,6 +128,46 @@ def _read_ids(path: str) -> dict[str, dict]:
         entry = {k: row.get(k, "").strip() for k in _ID_COLUMNS}
         ids[name] = ids[Path(name).stem] = entry
     return ids
+
+
+def _pending_scoring(analysis_dir: Path) -> dict[Path, Path]:
+    """Recordings whose transcript was saved but whose scoring never finished.
+
+    Maps the recording's path to its checkpoint analysis file.
+    """
+    from inference_pipeline import SCORING_PENDING
+
+    pending: dict[Path, Path] = {}
+    for f in Path(analysis_dir).glob("*_analysis.json"):
+        try:
+            d = json.loads(f.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            continue
+        if d.get("status") == SCORING_PENDING:
+            src = (d.get("source_audio") or {}).get("stored_path")
+            if src:
+                pending[Path(src).resolve()] = f
+    return pending
+
+
+def _state_from_checkpoint(path: Path) -> dict:
+    """Rebuild what score_job needs from a saved transcript, skipping transcription."""
+    d = json.loads(path.read_text(encoding="utf-8"))
+    job = {"job_id": d["job_id"], **{k: d.get(k, "") for k in _ID_COLUMNS}}
+    quality = d.get("quality") or {}
+    return {
+        "job": job,
+        "job_id": d["job_id"],
+        "file_path": Path(d["source_audio"]["stored_path"]),
+        "original_filename": d["source_audio"].get("original_filename", ""),
+        "segments": d["segments"],
+        "transcript": d["transcript"],
+        "stats": d["statistics"],
+        "overall_acoustics": d.get("overall_acoustics") or {},
+        "speaker_acoustics": d.get("speaker_acoustics") or {},
+        "audio_stats": {k: quality.get(k) for k in ("duration_s", "rms_dbfs", "clipped_fraction", "snr_db")},
+        "warnings": list(d.get("warnings") or []),
+    }
 
 
 def _append_row(out: Path, row: dict) -> None:
@@ -182,7 +236,7 @@ def batch_process(
         cfg.setdefault("moss", {})["num_speakers"] = num_speakers
     cfg["audio_retention"] = audio_retention
     scoring = cfg.get("llm_scoring", {}).get("enabled", True)
-    extensions: list[str] = cfg.get("audio_extensions", [".m4a", ".mp3", ".wav", ".mp4"])
+    extensions: list[str] = cfg.get("audio_extensions", list(AUDIO_EXTENSIONS))
 
     root = Path(input_dir).expanduser().resolve()
     audio_files = _find_audio_files(input_dir, extensions)
@@ -202,12 +256,29 @@ def batch_process(
         raise FileExistsError(f"{out} already exists. Pass --resume to continue it, or choose a new path.")
 
     ids = _read_ids(ids_csv) if ids_csv else {}
-    log.info("Found %d audio file(s) to process in %s", len(audio_files), input_dir)
+    log.info("ClinicalWhisper %s: found %d audio file(s) to process in %s",
+             __version__, len(audio_files), input_dir)
     analysis_dir = resolve_path(cfg.get("pipeline", {}).get(
         "analysis_output_folder", cfg.get("output_folder", "./Output")))
     log.info("Summary CSV: %s | per-file results (transcript, JSON): %s", out, analysis_dir)
+    from sync_check import warning_for
+    for place in {out.parent, Path(analysis_dir)}:
+        msg = warning_for(place)
+        if msg:
+            log.warning("WARNING: %s", msg)
 
-    pipeline = InferencePipeline(cfg)
+    from keep_awake import keep_awake
+    from progress_report import BatchProgress, audio_seconds
+
+    durations = {p: audio_seconds(p) for p in audio_files}
+    total_audio = sum(d for d in durations.values() if d)
+    progress = BatchProgress(len(audio_files), total_audio)
+    import speed_model
+    from progress_report import _fmt
+    est, rough = speed_model.estimate(total_audio, scoring)
+    log.info("Total audio: %.1f hours. Estimated time: %s%s", total_audio / 3600, _fmt(est),
+             " (rough until this Mac has finished a few files)" if rough else "")
+    pipeline = InferencePipeline(cfg, progress_cb=progress.update)
     rows: list[dict] = []
     jobs = []
     for audio_path in audio_files:
@@ -227,28 +298,65 @@ def batch_process(
     # Files are transcribed in groups of ~2 hours of audio; each group is then
     # scored and written before the next starts, so the transcription and
     # scoring models are never resident at once.
+    awake = keep_awake()  # an overnight run must not stop when the Mac idles
+    awake.__enter__()
     try:
+        # Transcribed before an interruption but never scored: score only.
+        if resume and scoring:
+            pending = _pending_scoring(Path(analysis_dir))
+            resumed = [p for p in audio_files if p.resolve() in pending]
+            if resumed:
+                log.info("Resuming scoring for %d file(s) already transcribed.", len(resumed))
+            for audio_path in resumed:
+                try:
+                    state = _state_from_checkpoint(pending[audio_path.resolve()])
+                    row = _extract_row(pipeline.score_job(state), names[audio_path])
+                    _append_row(out, row)
+                    rows.append(row)
+                    log.info("  ✓ %s complete (scoring resumed)", audio_path.name)
+                except Exception as exc:  # noqa: BLE001 - one bad file must not stop the batch
+                    log.warning("  ✗ Failed to resume %s: %s", audio_path.name, exc)
+                progress.file_done(durations.get(audio_path))
+            done_paths = set(resumed)
+            jobs = [j for j in jobs if Path(j["file_path"]) not in done_paths]
+            audio_files = [p for p in audio_files if p not in done_paths]
+            pipeline.release_scorer()
+        t_group = time.monotonic()
         for group in pipeline.iter_transcribed(jobs):
+            speed_model.record("transcribe", sum(
+                durations.get(audio_files[i]) or 0 for i, st in group
+                if not isinstance(st, Exception)), time.monotonic() - t_group)
             if scoring:
                 pipeline.release_transcriber()
             for index, state in group:
                 audio_path = audio_files[index]
                 if isinstance(state, Exception):
                     log.warning("  ✗ Failed to transcribe %s: %s", audio_path.name, state)
+                    progress.file_done(durations.get(audio_path))
                     continue
                 try:
+                    t_score = time.monotonic()
                     analysis_json_path: str = pipeline.score_job(state)
+                    if scoring:
+                        speed_model.record("score", durations.get(audio_path),
+                                           time.monotonic() - t_score)
                     row = _extract_row(analysis_json_path, names[audio_path])
                     _append_row(out, row)
                     rows.append(row)
                     log.info("  ✓ %s complete", audio_path.name)
                 except Exception as exc:
                     log.warning("  ✗ Failed to process %s: %s", audio_path.name, exc)
+                progress.file_done(durations.get(audio_path))
             if scoring:
                 pipeline.release_scorer()
+            t_group = time.monotonic()
     finally:
+        awake.__exit__(None, None, None)
         pipeline.release_all()
 
+    from notify import notify
+    notify("ClinicalWhisper", f"Batch finished: {len(rows)} of {progress.total_files} "
+                              f"file(s) processed.")
     if rows:
         log.info("Summary CSV written to %s (%d new rows)", out, len(rows))
     return pd.DataFrame(rows)
@@ -260,6 +368,7 @@ def main(argv: Optional[list[str]] = None, prog: str = "clinicalwhisper-batch") 
         prog=prog,
         description="ClinicalWhisper batch processor — run the full pipeline on a directory of audio files.",
     )
+    parser.add_argument("--version", action="version", version=f"ClinicalWhisper {__version__}")
     parser.add_argument(
         "--input", "-i",
         required=True,
@@ -280,6 +389,12 @@ def main(argv: Optional[list[str]] = None, prog: str = "clinicalwhisper-batch") 
         action="store_true",
         help="Skip LLM clinical scoring: transcript, de-identification, acoustics "
              "and timing features only.",
+    )
+    parser.add_argument(
+        "--score",
+        action="store_true",
+        help="Run clinical scoring even on a Mac with under 16 GB of memory, where it "
+             "is off by default (its 4.9 GB model pushes smaller machines into swap).",
     )
     parser.add_argument(
         "--ids",
@@ -318,6 +433,10 @@ def main(argv: Optional[list[str]] = None, prog: str = "clinicalwhisper-batch") 
         level=logging.INFO,
         format="%(asctime)s  %(name)s  %(levelname)s  %(message)s",
     )
+    if not args.transcribe_only and not args.score and _ram_gib() < 16:
+        args.transcribe_only = True
+        log.info("This Mac has %.0f GB of memory: clinical scoring is off by default. "
+                 "Add --score to include it.", _ram_gib())
     if not offline.network_allowed():
         offline.require_models(scoring=not args.transcribe_only)
 
@@ -339,5 +458,32 @@ def main(argv: Optional[list[str]] = None, prog: str = "clinicalwhisper-batch") 
     print(f"\nProcessed {len(df)} file(s). Summary saved to: {args.output}")
 
 
+def exit_now(code: int = 0) -> None:
+    """End the process without running native teardown.
+
+    Once results are written there is nothing left to clean up, and MLX's
+    static destructors can race a still-running Metal thread at interpreter
+    exit ("recursive_mutex lock failed"), aborting with code 134 after a
+    successful run. A cluster job would then be marked failed.
+    """
+    import logging as _logging
+    import os
+
+    _logging.shutdown()
+    sys.stdout.flush()
+    sys.stderr.flush()
+    os._exit(code)
+
+
+def run(argv: Optional[list[str]] = None, prog: str = "clinicalwhisper-batch") -> None:
+    """``main`` for a process that ends when the batch does."""
+    try:
+        main(argv, prog=prog)
+    except SystemExit as exc:  # argparse --help/--version, or a failed batch
+        code = exc.code
+        exit_now(code if isinstance(code, int) else (0 if code is None else 1))
+    exit_now(0)
+
+
 if __name__ == "__main__":
-    main()
+    run()

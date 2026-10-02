@@ -56,6 +56,8 @@ MOSS_TOKENS_PER_SECOND = 10.0
 # Speakers whose voice features are extracted at the same time. Each worker
 # holds one speaker's audio, so this also bounds the extra memory.
 ACOUSTIC_WORKERS = min(4, max(1, (os.cpu_count() or 2) // 2))
+# Status of an analysis saved before scoring finished (see score_job).
+SCORING_PENDING = "scoring_pending"
 # Files transcribed together are grouped up to about this much audio, or this
 # many files (see InferencePipeline.iter_transcribed).
 POOL_AUDIO_SECONDS = 2 * 3600
@@ -66,6 +68,7 @@ AMPLITUDE_BINS = 4096
 DECODE_BLOCK = 16384
 
 import crash_diagnostics
+from version import __version__
 from clinical_safeguards import (
     RESEARCH_USE_NOTICE,
     assess_quality,
@@ -160,7 +163,7 @@ class InferencePipeline:
             clear_stale_scratch()
         except OSError as exc:  # never block a run over housekeeping
             log.warning("Could not clear stale audio copies: %s", exc)
-        log.info("InferencePipeline v5.1 initialized (MOSS + OpenMED + MLX LLM)")
+        log.info("ClinicalWhisper %s pipeline initialized", __version__)
 
     def _emit(self, stage: str, fraction=None, detail: str = "") -> None:
         if stage != getattr(self, "_last_stage", None):
@@ -342,7 +345,9 @@ class InferencePipeline:
                         continue
 
                     audio_file.seek(start_sample)
-                    chunk = audio_file.read(num_frames)
+                    # float32 holds 16-bit audio exactly, so features are unchanged
+                    # and a long file's speech takes half the memory of float64.
+                    chunk = audio_file.read(num_frames, dtype="float32")
 
                     if len(chunk) > 0:
                         speaker_chunks.setdefault(speaker, []).append(chunk)
@@ -670,6 +675,9 @@ class InferencePipeline:
             msg = f"Acoustic extraction failed: {e}"
             log.error(msg)
             warnings.append(msg)
+        audio_stats = dict(prep.get("audio_stats") or {})
+        from snr import estimate_snr
+        audio_stats["snr_db"] = estimate_snr(str(acoustic_wav), segments)
         self._cleanup(prep)
 
         return {
@@ -682,7 +690,7 @@ class InferencePipeline:
             "stats": stats,
             "overall_acoustics": overall_acoustics,
             "speaker_acoustics": speaker_acoustics,
-            "audio_stats": prep.get("audio_stats"),
+            "audio_stats": audio_stats,
             "warnings": warnings,
         }
 
@@ -729,32 +737,6 @@ class InferencePipeline:
         except Exception as exc:
             log.warning("Job %s: acoustic context serialization failed: %s", job_id, exc)
 
-        # ── Stage 5b: LLM Clinical Scoring (MLX) ──
-        llm_scoring = {}
-        llm_enabled = self.cfg.get("llm_scoring", {}).get("enabled", True)
-        if structured_transcript and llm_enabled:
-            try:
-                from llm_clinical_scorer import score_transcript
-                log.info("Job %s: running LLM clinical scoring...", job_id)
-                self._emit("Clinical scoring", None, "")
-                llm_scoring = score_transcript(
-                    structured_transcript, acoustic_context, self.cfg
-                )
-                log.info("Job %s: LLM scoring complete", job_id)
-            except Exception as exc:
-                log.warning("Job %s: LLM clinical scoring failed: %s", job_id, exc)
-                warnings.append(f"LLM clinical scoring failed: {exc}")
-        elif not llm_enabled:
-            # Asked for deliberately (the app's "transcribe only", the batch
-            # command's --transcribe-only), this is a choice, not a fault: it
-            # must not mark an otherwise clean run as "completed with warnings".
-            msg = "Clinical scoring was skipped; the scores are blank."
-            log.info("Job %s: %s", job_id, msg)
-            if not self.cfg.get("llm_scoring", {}).get("skipped_by_request"):
-                warnings.append(msg)
-            else:
-                notes.append(msg)
-
         # ── Provenance ──
         # Recorded per job so a result stays reproducible even if a model repo
         # is updated in place later.
@@ -788,50 +770,99 @@ class InferencePipeline:
             segments, timing_payload["subject_speaker"], state.get("audio_stats"),
             expected_speakers=self.cfg.get("moss", {}).get("num_speakers"),
         )
-        # Reliability at the number of runs actually averaged for this file.
-        runs = (llm_scoring.get("_meta") or {}).get("samples_per_window") or \
-            self.cfg.get("llm_scoring", {}).get("samples", 1)
-        reliability = score_reliability(runs) if llm_scoring else {}
+        def _payload(llm_scoring: dict, reliability: dict, status: str = "") -> dict:
+            return {
+                "job_id": job_id,
+                # Free-text study identifiers, so a results CSV can be grouped by
+                # participant and session rather than by filename alone.
+                "participant_id": job.get("participant_id", ""),
+                "session_label": job.get("session_label", ""),
+                # Criterion measure captured at recording time (e.g. "SHAPS 34").
+                # Free text so it is not locked to one instrument. This is what makes
+                # a later validity analysis possible — it cannot be retrofitted onto
+                # audio that was collected without it.
+                "criterion_score": job.get("criterion_score", ""),
+                "status": status or ("completed_with_warnings" if warnings else "completed"),
+                "warnings": warnings,
+                # Deliberate choices worth recording, which are not problems.
+                "notes": notes,
+                "intended_use": RESEARCH_USE_NOTICE,
+                # Input problems that make the measures less trustworthy.
+                "quality": quality,
+                # Measured test-retest reliability of each LLM score at this run count.
+                "score_reliability": reliability,
+                "storage": {"filevault": _FILEVAULT},
+                "pipeline_version": __version__,
+                "provenance": provenance_record,
+                "source_audio": {
+                    "original_filename": original_filename,
+                    "stored_path": str(file_path),
+                },
+                "statistics": stats,
+                "overall_acoustics": overall_acoustics,
+                "speaker_acoustics": speaker_acoustics,
+                # Deterministic pause / rate / latency measures from segment timing.
+                "timing_features": timing_payload,
+                "speaker_roles": speaker_roles,
+                "speaker_stats": speaker_stats,
+                "structured_transcript": structured_transcript,
+                "llm_clinical_scoring": llm_scoring,
+                "segments": segments,
+                "transcript": transcript,
+            }
 
-        payload = {
-            "job_id": job_id,
-            # Free-text study identifiers, so a results CSV can be grouped by
-            # participant and session rather than by filename alone.
-            "participant_id": job.get("participant_id", ""),
-            "session_label": job.get("session_label", ""),
-            # Criterion measure captured at recording time (e.g. "SHAPS 34").
-            # Free text so it is not locked to one instrument. This is what makes
-            # a later validity analysis possible — it cannot be retrofitted onto
-            # audio that was collected without it.
-            "criterion_score": job.get("criterion_score", ""),
-            "status": "completed_with_warnings" if warnings else "completed",
-            "warnings": warnings,
-            # Deliberate choices worth recording, which are not problems.
-            "notes": notes,
-            "intended_use": RESEARCH_USE_NOTICE,
-            # Input problems that make the measures less trustworthy.
-            "quality": quality,
-            # Measured test-retest reliability of each LLM score at this run count.
-            "score_reliability": reliability,
-            "storage": {"filevault": _FILEVAULT},
-            "pipeline_version": "5.1",
-            "provenance": provenance_record,
-            "source_audio": {
-                "original_filename": original_filename,
-                "stored_path": str(file_path),
-            },
-            "statistics": stats,
-            "overall_acoustics": overall_acoustics,
-            "speaker_acoustics": speaker_acoustics,
-            # Deterministic pause / rate / latency measures from segment timing.
-            "timing_features": timing_payload,
-            "speaker_roles": speaker_roles,
-            "speaker_stats": speaker_stats,
-            "structured_transcript": structured_transcript,
-            "llm_clinical_scoring": llm_scoring,
-            "segments": segments,
-            "transcript": transcript,
-        }
+
+        # Checkpoint: the transcript, timing and voice features are saved before
+        # scoring starts, so a crash, Stop or sleep during a long scoring stage
+        # does not throw them away. The batch command resumes scoring from here.
+        llm_enabled = self.cfg.get("llm_scoring", {}).get("enabled", True)
+        if structured_transcript and llm_enabled:
+            output_path.write_text(json.dumps(
+                _payload({}, {}, status=SCORING_PENDING), indent=2, default=str), encoding="utf-8")
+            os.chmod(output_path, 0o600)
+
+        # ── Stage 5b: LLM Clinical Scoring (MLX) ──
+        llm_scoring = {}
+        if structured_transcript and llm_enabled:
+            try:
+                from llm_clinical_scorer import score_transcript
+                log.info("Job %s: running LLM clinical scoring...", job_id)
+                self._emit("Clinical scoring", None, "")
+                llm_scoring = score_transcript(
+                    structured_transcript, acoustic_context, self.cfg,
+                    progress=lambda frac, detail: self._emit("Clinical scoring", frac, detail),
+                    should_cancel=self.should_cancel,
+                )
+                log.info("Job %s: LLM scoring complete", job_id)
+            except Exception as exc:
+                log.warning("Job %s: LLM clinical scoring failed: %s", job_id, exc)
+                warnings.append(f"LLM clinical scoring failed: {exc}")
+        elif not llm_enabled:
+            # Asked for deliberately (the app's "transcribe only", the batch
+            # command's --transcribe-only), this is a choice, not a fault: it
+            # must not mark an otherwise clean run as "completed with warnings".
+            msg = "Clinical scoring was skipped; the scores are blank."
+            log.info("Job %s: %s", job_id, msg)
+            if not self.cfg.get("llm_scoring", {}).get("skipped_by_request"):
+                warnings.append(msg)
+            else:
+                notes.append(msg)
+
+
+        # Reliability at the number of runs actually averaged per chunk.
+        meta = llm_scoring.get("_meta") or {}
+        runs = meta.get("samples_per_window") or self.cfg.get("llm_scoring", {}).get("samples", 1)
+        if meta.get("runs_used") and meta.get("windows"):
+            runs = max(1, min(runs, meta["runs_used"] // meta["windows"]))
+        reliability = score_reliability(runs) if llm_scoring else {}
+        if meta.get("runs_failed"):
+            quality["flags"].append({
+                "code": "scoring_runs_failed",
+                "message": (f"{meta['runs_failed']} of {meta['runs_expected']} scoring runs "
+                            f"could not be used; reliability is shown for {runs} run(s) per chunk."),
+            })
+
+        payload = _payload(llm_scoring, reliability)
 
         output_path.write_text(json.dumps(payload, indent=2, default=str), encoding="utf-8")
         os.chmod(output_path, 0o600)

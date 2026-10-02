@@ -19,19 +19,27 @@ def _default_data_root() -> Path:
     """Where Input/Output/Processed live.
 
     When running from source this is the repo directory. Inside a frozen .app
-    bundle ``PROJECT_ROOT`` points into the read-only bundle, so relative paths
-    are anchored to a user-visible folder instead — otherwise results are
-    written where nobody can find (or write) them.
+    bundle ``PROJECT_ROOT`` points into the read-only bundle, so data goes to
+    ``~/ClinicalWhisper``: visible in Finder, and outside Desktop & Documents,
+    which iCloud commonly syncs. (Earlier versions used ~/Documents, which on
+    such Macs uploaded every transcript and audio copy to iCloud.)
     """
     override = os.environ.get("CLINICALWHISPER_DATA_DIR")
     if override:
         return Path(override).expanduser()
     if getattr(sys, "frozen", False):
-        return Path.home() / "Documents" / "ClinicalWhisper"
+        return Path.home() / "ClinicalWhisper"
     return PROJECT_ROOT
 
 
+# Where versions before 5.2 kept their data, for the one-time notice.
+LEGACY_DATA_ROOT = Path.home() / "Documents" / "ClinicalWhisper"
+
+
 DATA_ROOT = _default_data_root()
+
+# Formats the app and the batch command accept (decoded by PyAV).
+AUDIO_EXTENSIONS = (".wav", ".m4a", ".mp3", ".mp4", ".ogg", ".opus", ".flac", ".aac")
 
 DEFAULT_CONFIG: dict[str, Any] = {
     "model": "medium.en",

@@ -133,20 +133,16 @@ def classify_speakers(segments: list[dict]) -> dict[str, str]:
         scores[spk] = score
 
     # ── Assign roles ──
-    ranked = sorted(scores, key=scores.get, reverse=True)  # type: ignore[arg-type]
-    roles: dict[str, str] = {}
-    roles[ranked[0]] = "Interviewer"
-
-    if len(ranked) == 2:
-        roles[ranked[1]] = "Subject"
-    else:
-        # Two-speaker core: highest score → Interviewer, lowest → Subject,
-        # everyone else → Other_N.
-        roles[ranked[-1]] = "Subject"
-        other_idx = 1
-        for spk in ranked[1:-1]:
-            roles[spk] = f"Other_{other_idx}"
-            other_idx += 1
+    # Only the two speakers who talk most can be Interviewer and Subject.
+    # Among extra labels, which are often fragments of one person split off by
+    # diarization, a short one wins every "interviewer-like" signal above
+    # (few words, short turns): it once beat the real host to "Interviewer".
+    by_talk = sorted(speaker_data, key=lambda s: speaker_data[s]["total_duration"],
+                     reverse=True)
+    core = sorted(by_talk[:2], key=scores.get, reverse=True)  # type: ignore[arg-type]
+    roles: dict[str, str] = {core[0]: "Interviewer", core[1]: "Subject"}
+    for other_idx, spk in enumerate(by_talk[2:], start=1):
+        roles[spk] = f"Other_{other_idx}"
 
     log.info("Speaker roles: %s", roles)
     return roles

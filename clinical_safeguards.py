@@ -74,6 +74,9 @@ MIN_RECORDING_S = 60.0
 MIN_PARTICIPANT_SPEECH_S = 180.0
 MAX_CLIPPED_FRACTION = 0.001
 QUIET_DBFS = -40.0
+# Voice under this many dB above the background noise: jitter, shimmer and
+# pause measures are unreliable (see snr.py).
+NOISY_SNR_DB = 15.0
 
 
 def _flag(code: str, message: str) -> dict:
@@ -117,6 +120,11 @@ def assess_quality(
         flags.append(_flag("quiet_recording",
                            f"The recording is very quiet ({level:.0f} dBFS); words and "
                            "pauses may be missed."))
+    snr_db = stats.get("snr_db")
+    if snr_db is not None and snr_db < NOISY_SNR_DB:
+        flags.append(_flag("noisy_recording",
+                           f"Background noise is close to the voice level (SNR {snr_db:.0f} dB); "
+                           "jitter, shimmer, pitch and pause measures are unreliable."))
     brief = sorted({s["speaker"] for s in segments if s.get("speaker_uncertain")})
     if brief:
         flags.append(_flag("brief_speakers",
@@ -132,6 +140,7 @@ def assess_quality(
         "duration_s": None if duration is None else round(duration, 1),
         "rms_dbfs": None if level is None else round(level, 1),
         "clipped_fraction": clipped,
+        "snr_db": snr_db,
     }
 
 

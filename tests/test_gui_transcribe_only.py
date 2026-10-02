@@ -152,3 +152,43 @@ def test_uploaded_files_with_the_same_name_do_not_overwrite(client, tmp_path):
     saved = started[-1]["args"][1]
     assert len(saved) == 2 and saved[0] != saved[1]
     assert soundfile.read(saved[0])[0].mean() != soundfile.read(saved[1])[0].mean()
+
+
+def test_choosing_the_interviewer_gives_subject_to_the_other_main_speaker():
+    segs = [{"speaker": "S01", "start": 0, "end": 100}, {"speaker": "S02", "start": 100, "end": 130},
+            {"speaker": "S03", "start": 130, "end": 132}]
+    roles = gui_server._roles_with_interviewer(segs, "S02")
+    assert roles == {"S02": "Interviewer", "S01": "Subject", "S03": "Other_1"}
+
+
+def test_speaker_count_is_parsed_and_bounded():
+    assert gui_server._speaker_count("2") == 2
+    assert gui_server._speaker_count("") is None
+    assert gui_server._speaker_count("99") is None
+
+
+def test_save_diagnostics_writes_zip_to_data_folder_and_refuses_other_sites(client, tmp_path,
+                                                                            monkeypatch):
+    import crash_diagnostics
+
+    api, _ = client
+    logs = tmp_path / "logs"
+    logs.mkdir()
+    (logs / "clinicalwhisper.log").write_text("wrote /Users/x/Output/P01.json\n")
+    monkeypatch.setattr(crash_diagnostics, "LOG_DIR", logs)
+    monkeypatch.setattr(crash_diagnostics, "LOG_PATH", logs / "clinicalwhisper.log")
+    monkeypatch.setattr(gui_server, "DATA_ROOT", tmp_path / "data")
+    opened = []
+    real_run = gui_server.subprocess.run
+    monkeypatch.setattr(gui_server.subprocess, "run", lambda cmd, **k: (
+        opened.append(cmd) if cmd[0] == "open" else real_run(cmd, **k)))
+
+    refused = api.post("/api/diagnostics/save", headers={"Origin": "http://evil.example"})
+    assert refused.status_code == 403
+    assert not (tmp_path / "data").exists()
+
+    res = api.post("/api/diagnostics/save")
+    assert res.status_code == 200
+    saved = tmp_path / "data" / res.json()["name"]
+    assert saved.exists()
+    assert opened[-1][:2] == ["open", "-R"]

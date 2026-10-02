@@ -156,13 +156,15 @@ llm_scoring:
 moss:
   model: "OpenMOSS-Team/MOSS-Transcribe-Diarize"
   device: "auto"        # auto | mps | cuda | cpu
-  # Domain terms the transcriber should favour — drug names, scale names, local
-  # jargon. Appended to the model's prompt as hotwords.
-  # A general transcriber mangles clinical vocabulary ("anhedonia" came out as
-  # "Adonia" on a journal-club recording). Add your own drug, scale and site names.
-  hotwords: [anhedonia, anhedonic, PHQ-8, PHQ-9, SHAPS, DARS, TEPS, MADRS,
-             HAM-D, DAIC-WOZ, ketamine, dopamine, ventral striatum,
-             nucleus accumbens, eGeMAPS, openSMILE, ClinicalWhisper, PRAXIS]
+  # Domain terms the transcriber should favour, appended to its prompt as
+  # hotwords. Off by default: tested on two AMI meetings (2026-09-29), an
+  # 18-term list raised speaker-attributed word error from 21.7% to 35.8% on
+  # one meeting, and a 53-term SCID/medication list raised word error from
+  # 29.5% to 38.3% on the other and inserted a term nobody said. No list was
+  # never worse. A few terms may still help a study with unusual vocabulary;
+  # check them on its own recordings first. Example:
+  #   hotwords: [anhedonia, SHAPS, MADRS]
+  hotwords: []
   # auto picks float16 on Apple Silicon (~2.4x faster than float32, identical
   # output in testing). Set float32 if a recording ever transcribes poorly.
   dtype: "auto"         # auto | float16 | bfloat16 | float32

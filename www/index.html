@@ -20,11 +20,15 @@
             <div class="crash-notice hidden" id="crash-notice" role="alert">
                 <p><strong>ClinicalWhisper stopped while processing last time</strong>
                     <span id="crash-stage"></span></p>
-                <p class="crash-help">A diagnostic log was saved. If you are reporting the problem, please attach the files in the log folder.</p>
+                <p class="crash-help">To report it, save diagnostics and email the zip. It holds logs and a description of this Mac, with file names removed; no audio or transcripts.</p>
                 <div class="crash-actions">
-                    <button class="btn-secondary" id="btn-reveal-logs">Show log folder</button>
+                    <button class="btn-secondary save-diagnostics" id="btn-reveal-logs">Save diagnostics</button>
                     <button class="btn-clear" id="btn-dismiss-crash">Dismiss</button>
                 </div>
+            </div>
+            <div class="crash-notice hidden" id="sync-notice" role="alert">
+                <p><strong>Some results are in a folder that syncs to the cloud</strong></p>
+                <p class="crash-help" id="sync-notice-text"></p>
             </div>
             <div class="crash-notice hidden" id="filevault-notice" role="alert">
                 <p><strong>This Mac's disk is not encrypted</strong></p>
@@ -58,13 +62,25 @@
                     <input type="text" id="criterion-score" placeholder="SHAPS / PHQ-9 (optional)">
                 </div>
 
+                <label class="option-row" for="num-speakers">
+                    <span>People in the recording</span>
+                    <select id="num-speakers">
+                        <option value="2" selected>2 (interviewer and participant)</option>
+                        <option value="3">3</option>
+                        <option value="4">4</option>
+                        <option value="">Not sure, or a group</option>
+                    </select>
+                </label>
+
                 <label class="option-row">
                     <input type="checkbox" id="transcribe-only">
                     <span>Transcribe only, skip clinical scoring. Much faster on long
                         interviews, and the scores it skips are the least reliable part
-                        of the output.</span>
+                        of the output. Names are still masked.
+                        <em id="transcribe-only-hint"></em></span>
                 </label>
 
+                <p class="text-sm estimate" id="estimate"></p>
                 <button class="btn-primary" id="btn-process" disabled>Process Audio</button>
             </div>
 
@@ -88,6 +104,7 @@
                         <button class="btn-secondary" data-fmt="csv">CSV</button>
                         <button class="btn-secondary" data-fmt="json">JSON</button>
                         <button class="btn-secondary" data-fmt="md">Report</button>
+                        <button class="btn-secondary" id="btn-open-results">Open results folder</button>
                     </div>
                 </div>
 
@@ -96,16 +113,21 @@
                 <div class="roles-bar hidden" id="roles-bar">
                     <span class="text-sm">Speakers:</span>
                     <span id="roles-summary" class="roles-summary"></span>
-                    <button class="btn-secondary" id="btn-swap-roles">Swap roles &amp; re-score</button>
+                    <label class="text-sm" for="interviewer-select">Interviewer:</label>
+                    <select id="interviewer-select"></select>
+                    <button class="btn-secondary" id="btn-swap-roles">Apply</button>
                 </div>
 
                 <div class="view-switch" id="view-switch">
-                    <button class="view-btn active" data-view="scores">Scores</button>
+                    <button class="view-btn active" data-view="scores">Measurements</button>
                     <button class="view-btn" data-view="transcript">Transcript</button>
                     <button class="view-btn" data-view="json">JSON</button>
                 </div>
 
                 <div id="view-scores" class="result-view">
+                    <p class="text-sm scores-note hidden" id="scores-note">Clinical scores were not run for this
+                        recording (Transcribe only). The numbers below are voice and timing measurements
+                        taken directly from the audio.</p>
                     <div id="result-content" class="result-grid"></div>
                     <div id="impression-block"></div>
                 </div>
@@ -120,6 +142,8 @@
         <footer class="intended-use">
             Research use only. ClinicalWhisper is not a medical device: it does not diagnose,
             screen for, or monitor any condition. Runs on this Mac; recordings never leave it.
+            <span id="app-version"></span>
+            <button class="link-button save-diagnostics" id="btn-save-diagnostics">Save diagnostics for a bug report</button>
         </footer>
     </div>
 

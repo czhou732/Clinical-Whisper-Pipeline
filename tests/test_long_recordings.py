@@ -158,3 +158,15 @@ def test_resume_with_nothing_left_is_success_not_failure(tmp_path, monkeypatch, 
     monkeypatch.setattr(batch_processor, "batch_process", lambda *a, **k: pd.DataFrame())
     batch_processor.main(["-i", str(tmp_path), "-o", str(out), "--resume"])  # no SystemExit
     assert "Nothing left to process" in capsys.readouterr().out
+
+
+def test_batch_finds_uppercase_extensions_and_skips_macos_stubs(tmp_path):
+    from batch_processor import _find_audio_files
+    from cw_config import AUDIO_EXTENSIONS
+
+    (tmp_path / "sub").mkdir()
+    for name in ("ZOOM0001.WAV", "sub/b.flac", "._ZOOM0001.WAV", ".hidden.wav", "notes.txt"):
+        (tmp_path / name).write_bytes(b"x")
+    found = [p.relative_to(tmp_path).as_posix()
+             for p in _find_audio_files(str(tmp_path), list(AUDIO_EXTENSIONS))]
+    assert found == ["ZOOM0001.WAV", "sub/b.flac"]

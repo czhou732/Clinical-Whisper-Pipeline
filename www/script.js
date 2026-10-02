@@ -38,6 +38,8 @@ document.addEventListener('DOMContentLoaded', () => {
                                window.pywebview.api.pick_files);
 
     let selectedFiles = [];
+    // Seconds of processing per second of audio on this Mac (from /api/diagnostics).
+    let speed = null;
     let pollInterval = null;
     let currentBatchId = null;
     let batchFiles = [];
@@ -45,18 +47,41 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- File selection ---
 
+    // In the app window the page can open before the bridge is ready. Wait
+    // for it briefly: without it, files fall back to an upload, and the app's
+    // web view cannot read file contents, so that upload never finishes.
+    const inApp = new URLSearchParams(location.search).has('app') || !!window.pywebview;
+    function whenBridge(ms = 5000) {
+        if (hasBridge()) return Promise.resolve(true);
+        return new Promise(resolve => {
+            const t = setTimeout(() => resolve(hasBridge()), ms);
+            window.addEventListener('pywebviewready', () => {
+                clearTimeout(t);
+                resolve(hasBridge());
+            }, { once: true });
+        });
+    }
+
     dropZone.addEventListener('click', async () => {
-        if (!hasBridge()) { fileInput.click(); return; }
+        // In a browser, open the picker straight away: it only opens from a click.
+        if (!inApp) { fileInput.click(); return; }
+        if (!(await whenBridge())) {
+            alert('ClinicalWhisper is still starting. Wait a moment and click again.');
+            return;
+        }
         try {
             addPathEntries(await window.pywebview.api.pick_files());
         } catch (e) {
-            fileInput.click();  // bridge unavailable after all: fall back to upload
+            alert('Could not open the file chooser. Quit ClinicalWhisper and open it again.');
         }
     });
 
     // Called by the app (launcher.py) with the real paths of dropped files.
-    // Each replaces the matching upload entry the drop handler just added.
-    window.cwAddPaths = (entries) => addPathEntries(entries);
+    let dropTimer = null;
+    window.cwAddPaths = (entries) => {
+        clearTimeout(dropTimer);
+        addPathEntries(entries);
+    };
 
     function addPathEntries(entries) {
         (entries || []).forEach(entry => {
@@ -78,7 +103,15 @@ document.addEventListener('DOMContentLoaded', () => {
     dropZone.addEventListener('drop', (e) => {
         e.preventDefault();
         dropZone.classList.remove('dragover');
-        addFiles(Array.from(e.dataTransfer.files));
+        if (!inApp) { addFiles(Array.from(e.dataTransfer.files)); return; }
+        // In the app, the dropped files' locations arrive from launcher.py
+        // through cwAddPaths. If they don't, say so rather than queue files
+        // the app cannot read.
+        const names = Array.from(e.dataTransfer.files).map(f => f.name);
+        clearTimeout(dropTimer);
+        dropTimer = setTimeout(() => alert(
+            `ClinicalWhisper couldn't get the location of ${names.join(', ') || 'the dropped files'}. ` +
+            'Click the box to choose the files instead.'), 3000);
     });
 
     fileInput.addEventListener('change', (e) => addFiles(Array.from(e.target.files)));
@@ -119,10 +152,53 @@ document.addEventListener('DOMContentLoaded', () => {
         fileInfo.classList.toggle('hidden', selectedFiles.length === 0);
         dropZone.classList.toggle('hidden', selectedFiles.length > 0);
         btnProcess.disabled = selectedFiles.length === 0;
+        updateEstimate();
         btnProcess.textContent = selectedFiles.length > 1
             ? `Process ${selectedFiles.length} Files`
             : 'Process Audio';
     }
+
+    // Audio length of a picked file: known for files read in place; for an
+    // upload, read from the file's own header by the browser.
+    function durationOf(entry) {
+        if (entry.duration) return Promise.resolve(entry.duration);
+        if (!(entry instanceof File)) return Promise.resolve(null);
+        return new Promise(resolve => {
+            const audio = new Audio();
+            const url = URL.createObjectURL(entry);
+            const done = (v) => { URL.revokeObjectURL(url); resolve(v); };
+            audio.preload = 'metadata';
+            audio.onloadedmetadata = () => done(isFinite(audio.duration) ? audio.duration : null);
+            audio.onerror = () => done(null);
+            audio.src = url;
+        });
+    }
+
+    function friendly(seconds) {
+        const m = Math.round(seconds / 60);
+        if (m < 1) return 'under a minute';
+        if (m < 60) return `about ${m} min`;
+        return `about ${Math.floor(m / 60)} h ${String(m % 60).padStart(2, '0')} min`;
+    }
+
+    async function updateEstimate() {
+        const el = document.getElementById('estimate');
+        if (!selectedFiles.length || !speed) { el.textContent = ''; return; }
+        const durations = await Promise.all(selectedFiles.map(durationOf));
+        const known = durations.filter(d => d);
+        if (!known.length) { el.textContent = ''; return; }
+        const audio = known.reduce((a, b) => a + b, 0);
+        const scoring = !document.getElementById('transcribe-only').checked;
+        const base = audio * speed.transcribe;
+        const total = base + (scoring ? audio * speed.score : 0);
+        let text = `Estimated time: ${friendly(total)}`;
+        if (scoring) text += ` (${friendly(base)} if you tick "Transcribe only")`;
+        if (known.length < durations.length) text += '; some file lengths unknown';
+        if (speed.rough) text += '. Rough until this Mac has processed a few files.';
+        el.textContent = text;
+    }
+
+    document.getElementById('transcribe-only').addEventListener('change', updateEstimate);
 
     fileList.addEventListener('click', (e) => {
         const btn = e.target.closest('.btn-remove');
@@ -153,49 +229,66 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- Correct speaker roles and re-score (no re-transcription) ---
 
+    // Pick who the interviewer is; the server gives Subject to the other main
+    // speaker and re-scores (or, for a transcribe-only batch, only relabels).
     btnSwapRoles.addEventListener('click', async () => {
         const f = batchFiles[activeIndex];
-        if (!f || !currentBatchId) return;
-
-        const roles = f.speaker_roles || {};
-        const swapped = {};
-        Object.keys(roles).forEach(spk => {
-            const r = roles[spk];
-            swapped[spk] = r === 'Interviewer' ? 'Subject'
-                         : r === 'Subject' ? 'Interviewer' : r;
-        });
-
+        const chosen = document.getElementById('interviewer-select').value;
+        if (!f || !currentBatchId || !chosen) return;
         btnSwapRoles.disabled = true;
-        btnSwapRoles.textContent = 'Re-scoring...';
+        btnSwapRoles.textContent = 'Applying...';
         try {
             const res = await fetch(`/api/rescore/${currentBatchId}/${activeIndex}`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ roles: swapped })
+                body: JSON.stringify({ interviewer: chosen })
             });
             const data = await res.json();
             if (data.status === 'success') {
                 batchFiles[activeIndex] = Object.assign({}, f, {
                     result: data.result,
                     structured_transcript: data.structured_transcript,
-                    speaker_roles: data.speaker_roles
+                    speaker_roles: data.speaker_roles,
+                    quality: data.quality || f.quality,
+                    score_reliability: data.score_reliability || f.score_reliability,
                 });
                 renderActive();
-                appendLog('Re-scored with corrected speaker roles.');
+                appendLog(data.rescored ? 'Re-scored with the corrected interviewer.'
+                                        : 'Speaker roles updated.');
             } else {
-                appendLog(`Re-score failed: ${data.message}`);
+                appendLog(`Could not update roles: ${data.message}`);
             }
         } catch (e) {
-            appendLog(`Re-score failed: ${e.message}`);
+            appendLog(`Could not update roles: ${e.message}`);
         } finally {
             btnSwapRoles.disabled = false;
-            btnSwapRoles.textContent = 'Swap roles & re-score';
+            btnSwapRoles.textContent = 'Apply';
         }
     });
 
     // --- Export ---
 
-    document.querySelectorAll('.export-group .btn-secondary').forEach(btn => {
+    // Zip redacted logs into the results folder and show it in Finder.
+    document.querySelectorAll('.save-diagnostics').forEach(btn => {
+        btn.addEventListener('click', async () => {
+            const label = btn.textContent;
+            btn.disabled = true;
+            try {
+                const res = await fetch('/api/diagnostics/save', { method: 'POST' });
+                const data = await res.json();
+                btn.textContent = res.ok ? `Saved ${data.name}` : 'Could not save diagnostics';
+            } catch (e) {
+                btn.textContent = 'Could not save diagnostics';
+            }
+            setTimeout(() => { btn.textContent = label; btn.disabled = false; }, 6000);
+        });
+    });
+
+    document.getElementById('btn-open-results').addEventListener('click', () => {
+        fetch('/api/results/reveal', { method: 'POST' });
+    });
+
+    document.querySelectorAll('.export-group [data-fmt]').forEach(btn => {
         btn.addEventListener('click', async () => {
             if (!currentBatchId) return;
             const fmt = btn.dataset.fmt;
@@ -207,6 +300,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const data = await res.json();
                 if (data.status === 'success') {
                     appendLog(`Saved ${fmt.toUpperCase()} to ${data.path}`);
+                    if (data.warning) alert(data.warning);
                 } else if (data.status === 'error') {
                     appendLog(`Save failed: ${data.message}`);
                 }
@@ -242,12 +336,19 @@ document.addEventListener('DOMContentLoaded', () => {
             participant_id: document.getElementById('participant-id').value || '',
             session_label: document.getElementById('session-label').value || '',
             transcribe_only: document.getElementById('transcribe-only').checked,
+            num_speakers: document.getElementById('num-speakers').value || '',
             // Criterion measure, recorded alongside the audio so the scores can
             // later be correlated against it. Cannot be added retrospectively.
             criterion_score: document.getElementById('criterion-score').value || '',
         };
 
         const withPaths = selectedFiles.filter(f => f.path);
+        if (inApp && withPaths.length < selectedFiles.length) {
+            // Never upload from the app window: its web view cannot read the files.
+            handleError('Some files could not be located. Click "Clear all", then click ' +
+                        'the box to choose the files again.');
+            return;
+        }
         try {
             if (withPaths.length === selectedFiles.length && hasBridge()) {
                 // Read in place: nothing is uploaded or copied.
@@ -273,6 +374,7 @@ document.addEventListener('DOMContentLoaded', () => {
             formData.append('participant_id', meta.participant_id);
             formData.append('session_label', meta.session_label);
             formData.append('transcribe_only', meta.transcribe_only ? '1' : '');
+            formData.append('num_speakers', meta.num_speakers);
             formData.append('criterion_score', meta.criterion_score);
             const { ok, data } = await uploadWithProgress(formData);
             if (ok && data.batch_id) {
@@ -315,6 +417,25 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    // "45% · about 2 min left" for the current stage, like the command line.
+    // Time left is extrapolated from this stage's own pace so far.
+    let stageStart = { key: null, t: 0 };
+    function stageProgress(data) {
+        const f = data.stage_fraction;
+        const key = `${data.current}|${data.stage}`;
+        if (key !== stageStart.key) stageStart = { key, t: Date.now() };
+        // A raw token count means nothing to a reader; the percentage replaces it.
+        const detail = /^\d+ tokens$/.test(data.stage_detail || '') ? '' : (data.stage_detail || '');
+        if (typeof f !== 'number' || f <= 0) return detail;
+        const parts = [detail, `${Math.round(f * 100)}%`].filter(Boolean);
+        const elapsed = (Date.now() - stageStart.t) / 1000;
+        if (f >= 0.05 && f < 1 && elapsed > 10) {
+            const left = elapsed * (1 - f) / f;
+            parts.push(left < 60 ? 'under a minute left' : `about ${friendly(left).replace('about ', '')} left`);
+        }
+        return parts.join(' · ');
+    }
+
     function startPolling(batchId) {
         if (pollInterval) clearInterval(pollInterval);
 
@@ -339,7 +460,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
 
                 stageLabel.textContent = data.stage || '';
-                stageDetail.textContent = data.stage_detail || '';
+                stageDetail.textContent = stageProgress(data);
 
                 const finished = data.status.startsWith('COMPLETED');
                 const errored = data.status.startsWith('ERROR');
@@ -407,7 +528,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     const SCORE_KEYS = [
-        'word_count', 'duration_minutes', 'participant_speech_min',
+        'word_count', 'duration_minutes', 'participant_speech_min', 'snr_db',
         // Measured from the timestamps: identical on every run.
         'subject_speech_rate_wps', 'subject_response_latency_median_s',
         'subject_pause_mean_s', 'subject_filler_rate',
@@ -441,6 +562,15 @@ document.addEventListener('DOMContentLoaded', () => {
         const roleEntries = Object.keys(roles);
         if (roleEntries.length && f.state === 'done') {
             rolesSummary.textContent = roleEntries.map(k => `${k} → ${roles[k]}`).join(', ');
+            const pick = document.getElementById('interviewer-select');
+            pick.innerHTML = '';
+            roleEntries.forEach(k => {
+                const o = document.createElement('option');
+                o.value = k;
+                o.textContent = k;
+                if (roles[k] === 'Interviewer') o.selected = true;
+                pick.appendChild(o);
+            });
             rolesBar.classList.remove('hidden');
         } else {
             rolesBar.classList.add('hidden');
@@ -510,14 +640,18 @@ document.addEventListener('DOMContentLoaded', () => {
             resultContent.appendChild(item);
         });
 
-        transcriptContent.textContent =
-            f.structured_transcript || f.transcript || '(no transcript produced)';
+        const transcript = f.structured_transcript || f.transcript || '(no transcript produced)';
+        transcriptContent.textContent = f.mask_legend ? `${f.mask_legend}\n\n${transcript}` : transcript;
 
         fetch(`/api/analysis/${currentBatchId}/${activeIndex}`)
             .then(r => r.json())
             .then(a => {
                 jsonContent.textContent = JSON.stringify(a, null, 2);
                 const scoring = a.llm_clinical_scoring || {};
+                // Say plainly when there are no clinical scores, so the
+                // measurements are not mistaken for them.
+                document.getElementById('scores-note').classList.toggle(
+                    'hidden', Object.keys(scoring).length > 0);
                 if (scoring.clinical_impression) {
                     const h = document.createElement('h4');
                     h.textContent = 'Clinical Impression';
@@ -559,6 +693,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // Plain names for the measures; anything unlisted falls back to Title Case.
     const LABELS = {
         participant_speech_min: 'Participant speech (min)',
+        snr_db: 'Voice above background noise (SNR, dB)',
         subject_speech_rate_wps: 'Participant speech rate (words/s)',
         subject_response_latency_median_s: 'Participant response latency (s, median)',
         subject_pause_mean_s: 'Participant mean pause (s)',
@@ -608,15 +743,30 @@ document.addEventListener('DOMContentLoaded', () => {
             if (data.filevault === false) {
                 document.getElementById('filevault-notice').classList.remove('hidden');
             }
+            if (data.speed) { speed = data.speed; updateEstimate(); }
+            if (data.version) {
+                document.getElementById('app-version').textContent = `Version ${data.version}.`;
+            }
+            const syncText = [data.data_root_synced,
+                data.legacy_synced && ('Results from earlier versions: ' + data.legacy_synced)]
+                .filter(Boolean).join(' ');
+            if (syncText) {
+                document.getElementById('sync-notice-text').textContent = syncText;
+                document.getElementById('sync-notice').classList.remove('hidden');
+            }
+            // Smaller Macs: scoring's 4.9 GB model would push memory into swap,
+            // so start with it off. It can still be ticked back on.
+            if (data.ram_gb && data.ram_gb < 16) {
+                document.getElementById('transcribe-only').checked = true;
+                document.getElementById('transcribe-only-hint').textContent =
+                    `Recommended on this Mac (${Math.round(data.ram_gb)} GB memory).`;
+            }
             const crash = data.previous_crash;
             if (!crash) return;
             const notice = document.getElementById('crash-notice');
             const where = [crash.stage, crash.detail].filter(Boolean).join(' — ');
             document.getElementById('crash-stage').textContent = where ? `while: ${where}.` : '';
             notice.classList.remove('hidden');
-            document.getElementById('btn-reveal-logs').addEventListener('click', () => {
-                fetch('/api/diagnostics/reveal', { method: 'POST' });
-            });
             document.getElementById('btn-dismiss-crash').addEventListener('click', () => {
                 fetch('/api/diagnostics/dismiss', { method: 'POST' });
                 notice.classList.add('hidden');
@@ -627,5 +777,6 @@ document.addEventListener('DOMContentLoaded', () => {
     function enableInputs() {
         btnClear.disabled = false;
         btnProcess.disabled = selectedFiles.length === 0;
+        updateEstimate();
     }
 });

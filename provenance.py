@@ -20,7 +20,7 @@ from typing import Any, Optional
 
 log = logging.getLogger("ClinicalWhisper")
 
-APP_VERSION = "5.1"
+from version import __version__ as APP_VERSION  # noqa: E402
 
 
 def _hf_revision(repo_id: str) -> Optional[str]:

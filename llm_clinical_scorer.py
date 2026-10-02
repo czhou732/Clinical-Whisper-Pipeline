@@ -392,6 +392,88 @@ def unload_models() -> int:
         log.info("Released clinical scoring model from memory.")
     return freed
 
+def _llama_prompt(prompt: str) -> str:
+    return (f"<|begin_of_text|><|start_header_id|>user<|end_header_id|>\n\n{prompt}"
+            f"<|eot_id|><|start_header_id|>assistant<|end_header_id|>\n\n")
+
+
+def _answer_complete(text: str) -> bool:
+    """True once the answer holds every score and the closing impression.
+
+    clinical_impression is the last field, so nothing is tested before it
+    appears; otherwise a repair could close the object after the first
+    observation and truncate the answer.
+    """
+    if '"clinical_impression"' not in text:
+        return False
+    candidate = _first_json_object(text, quiet=True)
+    if not candidate:
+        return False
+    try:
+        data = json.loads(candidate)
+    except json.JSONDecodeError:
+        return False
+    return all(k in data for k in REQUIRED_SCORE_KEYS) and bool(data.get("clinical_impression"))
+
+
+def _mlx_model(model_name: str):
+    if model_name not in _MODEL_CACHE:
+        log.info(f"Loading MLX model {model_name}...")
+        _MODEL_CACHE[model_name] = load(model_name)
+    return _MODEL_CACHE[model_name]
+
+
+def call_local_lm_reusing_prompt(
+    prompt: str,
+    temperatures: list[float],
+    model_name: str,
+    max_tokens: int = 1200,
+    should_cancel=None,
+    on_pass=None,
+) -> list[str]:
+    """Several scoring passes over one chunk, reading the chunk only once.
+
+    Measured on a 6,030-token chunk: reading the prompt takes 10.4 s of a
+    12.6 s pass, writing the answer 2.3 s. Re-reading an identical chunk for
+    each of the 5 passes is the cost, so the model reads it once, and after
+    each pass its memory is rewound to the end of the prompt for the next.
+    Each pass is otherwise the same as before: same sampling, same early stop.
+    """
+    from mlx_lm.models.cache import make_prompt_cache, trim_prompt_cache
+
+    model, tokenizer = _mlx_model(model_name)
+    text = _llama_prompt(prompt)
+    add_special = tokenizer.bos_token is None or not text.startswith(tokenizer.bos_token)
+    tokens = tokenizer.encode(text, add_special_tokens=add_special)
+
+    # Read everything but the last token, in the same 2,048-token pieces
+    # mlx-lm uses, then let each pass start from the last token.
+    cache = make_prompt_cache(model)
+    prefix = tokens[:-1]
+    for i in range(0, len(prefix), 2048):
+        model(mx.array(prefix[i:i + 2048])[None], cache=cache)
+        mx.eval([c.state for c in cache])
+    read_to = cache[0].offset
+
+    answers = []
+    for s_idx, temp in enumerate(temperatures):
+        if should_cancel is not None and should_cancel():
+            raise ScoringCancelled("Scoring stopped.")
+        kwargs = {"sampler": make_sampler(temp=temp)} if temp > 0 else {}
+        chunks: list[str] = []
+        for n, part in enumerate(stream_generate(
+                model, tokenizer, prompt=mx.array(tokens[-1:]), max_tokens=max_tokens,
+                prompt_cache=cache, **kwargs), start=1):
+            chunks.append(part.text)
+            if (n % 8 == 0 or '"}' in part.text) and _answer_complete("".join(chunks)):
+                break
+        answers.append("".join(chunks))
+        trim_prompt_cache(cache, cache[0].offset - read_to)  # rewind for the next pass
+        if on_pass is not None:
+            on_pass(s_idx)
+    return answers
+
+
 def call_local_lm(
     prompt: str,
     model_name: str = "mlx-community/Meta-Llama-3-8B-Instruct-4bit",
@@ -648,18 +730,14 @@ def parse_scoring_response(raw: str) -> dict[str, Any]:
     json_str = _first_json_object(cleaned)
 
     if json_str is None:
-        raise ValueError(
-            f"No JSON object found in LLM response. "
-            f"Preview: {raw[:300]!r}"
-        )
+        # No preview of the answer in the message: it lands in the log, and the
+        # model's answer quotes the (de-identified) transcript.
+        raise ValueError(f"No JSON object found in LLM response ({len(raw)} characters).")
 
     try:
         data = json.loads(json_str)
     except json.JSONDecodeError as exc:
-        raise ValueError(
-            f"Invalid JSON in LLM response: {exc}. "
-            f"Preview: {json_str[:400]!r}"
-        ) from exc
+        raise ValueError(f"Invalid JSON in LLM response: {exc}.") from exc
 
     if not isinstance(data, dict):
         raise ValueError(
@@ -710,10 +788,16 @@ def parse_scoring_response(raw: str) -> dict[str, Any]:
 # Main scoring function
 # ===================================================================
 
+class ScoringCancelled(RuntimeError):
+    """Stop was pressed during scoring."""
+
+
 def score_transcript(
     structured_transcript: str,
     acoustic_context: str = "No acoustic data available.",
     config: Optional[dict[str, Any]] = None,
+    progress=None,
+    should_cancel=None,
 ) -> dict[str, Any]:
     """
     Score a clinical interview transcript using a local LLM.
@@ -775,40 +859,70 @@ def score_transcript(
     per_window: list[dict[str, Any]] = []
     errors: list[str] = []
 
+    # Sample 2..N with temperature so the spread is meaningful; by default the
+    # first pass stays greedy so the headline score is reproducible. Set
+    # greedy_first: false to sample every pass (needed to measure decoding
+    # sensitivity, since repeated greedy runs are identical by construction).
+    temps = [temperature if (s_idx > 0 or not greedy_first) else 0.0 for s_idx in range(samples)]
+    total_passes = len(windows) * samples
+    passes_done = 0
+    # On Apple Silicon each chunk is read once and reused for all its passes
+    # (identical answers, ~2x faster); elsewhere passes run one at a time.
+    reuse = load is not None and sys.platform == "darwin" and stream_generate is not None
+
+    def _tick(w_idx: int, s_idx: int) -> None:
+        nonlocal passes_done
+        passes_done += 1
+        if progress is not None:
+            progress(passes_done / total_passes,
+                     f"chunk {w_idx + 1} of {len(windows)}, run {s_idx + 1} of {samples}")
+
+    def _check_cancel() -> None:
+        if should_cancel is not None and should_cancel():
+            raise ScoringCancelled("Scoring stopped.")
+
     for w_idx, window in enumerate(windows):
-        for s_idx in range(samples):
-            prompt = CLINICAL_SCORING_PROMPT.format(
-                transcript=window,
-                acoustic_context=acoustic_context,
-            )
+        prompt = CLINICAL_SCORING_PROMPT.format(
+            transcript=window,
+            acoustic_context=acoustic_context,
+        )
+        raws: list[Optional[str]] = []
+        if reuse:
             try:
-                raw = call_local_lm(
-                    prompt=prompt,
-                    model_name=model,
-                    timeout=timeout,
-                    hf_model_name=hf_model,
-                    max_tokens=max_tokens,
-                    # Sample 2..N with temperature so the spread is meaningful;
-                    # by default the first pass stays greedy so the headline
-                    # score is reproducible. Set greedy_first: false to sample
-                    # every pass — needed to measure decoding sensitivity, since
-                    # repeated greedy runs are identical by construction and
-                    # would report a spurious zero spread.
-                    temperature=temperature if (s_idx > 0 or not greedy_first) else 0.0,
+                raws = call_local_lm_reusing_prompt(
+                    prompt, temps, model, max_tokens=max_tokens,
+                    should_cancel=should_cancel,
+                    on_pass=lambda s_idx, w=w_idx: _tick(w, s_idx),
                 )
+            except ScoringCancelled:
+                raise
             except Exception as exc:
                 log.error("LLM generation failed (window %d): %s", w_idx + 1, exc)
                 errors.append(str(exc))
-                continue
+                raws = []
+        else:
+            for s_idx, temp in enumerate(temps):
+                _check_cancel()
+                try:
+                    raws.append(call_local_lm(
+                        prompt=prompt, model_name=model, timeout=timeout,
+                        hf_model_name=hf_model, max_tokens=max_tokens, temperature=temp,
+                    ))
+                except Exception as exc:
+                    log.error("LLM generation failed (window %d): %s", w_idx + 1, exc)
+                    errors.append(str(exc))
+                    raws.append(None)
+                _tick(w_idx, s_idx)
 
+        for raw in raws:
+            if raw is None:
+                continue
             try:
                 parsed = parse_scoring_response(raw)
             except ValueError as exc:
                 log.error("Failed to parse LLM response (window %d): %s", w_idx + 1, exc)
-                log.debug("Raw response: %s", raw[:500])
                 errors.append(str(exc))
                 continue
-
             parsed["_window"] = w_idx
             per_window.append(parsed)
 
@@ -832,6 +946,10 @@ def score_transcript(
         "windows": len(windows),
         "samples_per_window": samples,
         "runs_used": len(per_window),
+        # Passes whose answer could not be used (generation error or malformed
+        # JSON). The reliability shown is for the runs actually averaged.
+        "runs_expected": total_passes,
+        "runs_failed": total_passes - len(per_window),
         "transcript_words": total_words,
         "window_words": window_words,
         "transcript_scope": scope,
