@@ -1360,6 +1360,13 @@ document.addEventListener('DOMContentLoaded', () => {
         });
         table.appendChild(body);
         g.append(h, table);
+        const on = Object.values(reliability).map(r => r && r.measured_on).find(Boolean);
+        if (on) {
+            const n = document.createElement('p');
+            n.className = 'text-sm';
+            n.textContent = `ICC measured on ${on}.`;
+            g.appendChild(n);
+        }
         resultContent.appendChild(g);
     }
 

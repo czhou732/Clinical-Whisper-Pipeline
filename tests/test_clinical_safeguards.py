@@ -14,11 +14,13 @@ def test_spearman_brown_matches_the_reliability_report():
     assert "subject_response_latency_median_s" not in rel["psychomotor_indicators"]["use_instead"]
 
 
-def test_version_2_never_borrows_version_1_reliability():
+def test_version_2_has_its_own_reliability():
     rel = score_reliability(5)
     assert set(rel) == {"anhedonia_content", "depressed_mood_content", "affect_flatness",
                         "engagement_level"}
-    assert all(r["icc"] is None and not r["measured"] for r in rel.values())
+    assert rel["anhedonia_content"]["icc"] == 0.99 and rel["anhedonia_content"]["adequate"]
+    assert not rel["affect_flatness"]["adequate"]
+    assert "synthetic" in rel["engagement_level"]["measured_on"]
 
 
 def _seg(spk, start, end, **kw):

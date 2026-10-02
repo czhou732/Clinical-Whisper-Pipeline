@@ -80,7 +80,7 @@ def main() -> None:
         missing_runs = sum(1 for g in groups for v in g if v is None)
         report["per_score"][key] = {
             "transcripts_used": len(complete), "missing_runs": missing_runs,
-            **({k: comp[k] for k in ("icc", "icc_ci95") if k in comp} if comp else {}),
+            **({k: comp[k] for k in ("icc_1_1", "icc_ci95") if k in comp} if comp else {}),
         }
         # Direction check on the vignettes: group means by category.
         by_cat: dict[str, list[float]] = {}

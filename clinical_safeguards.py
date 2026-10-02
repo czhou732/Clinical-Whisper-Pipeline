@@ -41,11 +41,17 @@ _ICC_SINGLE_RUN_BY_VERSION = {
         "elaboration_negative": 0.533,
         "psychomotor_indicators": 0.217,
     },
-    # Version 2 (four 0-3 scores with quoted evidence): filled in from
-    # evals/reports/reliability_v2.md once measured. Until then each score
-    # is shown as "not yet measured", never with version 1's numbers.
-    "2": {},
+    # Version 2 (four 0-3 scores with quoted evidence): evals/reports/
+    # reliability_v2.md. Measured on 13 SYNTHETIC transcripts, so likely
+    # optimistic; re-measure on real interviews before relying on them.
+    "2": {
+        "anhedonia_content": 0.956,
+        "depressed_mood_content": 0.826,
+        "affect_flatness": 0.309,
+        "engagement_level": 0.693,
+    },
 }
+_MEASURED_ON = {"1": "9 real recordings", "2": "13 synthetic transcripts (likely optimistic)"}
 _V2_KEYS = ("anhedonia_content", "depressed_mood_content", "affect_flatness", "engagement_level")
 # "Good" reliability starts at 0.75 (Koo & Li, 2016).
 ADEQUATE_ICC = 0.75
@@ -80,7 +86,8 @@ def score_reliability(runs: int, version: str = "2") -> dict[str, dict]:
             out[key] = {"icc": None, "runs": runs, "adequate": False, "measured": False}
             continue
         icc = round(spearman_brown(icc1, runs), 2)
-        entry = {"icc": icc, "runs": runs, "adequate": icc >= ADEQUATE_ICC, "measured": True}
+        entry = {"icc": icc, "runs": runs, "adequate": icc >= ADEQUATE_ICC, "measured": True,
+                 "measured_on": _MEASURED_ON.get(str(version), "")}
         if key in _MEASURED_INSTEAD:
             entry["use_instead"] = _MEASURED_INSTEAD[key]
         out[key] = entry

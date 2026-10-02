@@ -1,0 +1,515 @@
+{
+ "scorer_version": "2",
+ "runs": 5,
+ "transcripts": 13,
+ "per_score": {
+  "anhedonia_content": {
+   "transcripts_used": 8,
+   "missing_runs": 12,
+   "icc1": 0.956,
+   "icc_ci95": [
+    0.887,
+    0.99
+   ],
+   "icc_mean5": 0.99,
+   "category_means": {
+    "clinical_masking": 0.33,
+    "anhedonia": 3.0,
+    "engaged_control": 0.4,
+    "hesitancy_psychomotor": 0.5,
+    "flat_affect": 1.8,
+    "edge_case": 0.0,
+    "recording": 2.8
+   }
+  },
+  "depressed_mood_content": {
+   "transcripts_used": 5,
+   "missing_runs": 28,
+   "icc1": 0.826,
+   "icc_ci95": [
+    0.547,
+    0.977
+   ],
+   "icc_mean5": 0.96,
+   "category_means": {
+    "clinical_masking": 0.42,
+    "anhedonia": 2.3,
+    "engaged_control": 1.0,
+    "hesitancy_psychomotor": 2.0,
+    "flat_affect": 1.0,
+    "recording": 2.8
+   }
+  },
+  "affect_flatness": {
+   "transcripts_used": 9,
+   "missing_runs": 10,
+   "icc1": 0.309,
+   "icc_ci95": [
+    0.05,
+    0.697
+   ],
+   "icc_mean5": 0.69,
+   "category_means": {
+    "clinical_masking": 1.8,
+    "anhedonia": 2.3,
+    "engaged_control": 0.5,
+    "hesitancy_psychomotor": 2.0,
+    "flat_affect": 2.0,
+    "edge_case": 1.0,
+    "recording": 2.0
+   }
+  },
+  "engagement_level": {
+   "transcripts_used": 11,
+   "missing_runs": 2,
+   "icc1": 0.693,
+   "icc_ci95": [
+    0.457,
+    0.886
+   ],
+   "icc_mean5": 0.92,
+   "category_means": {
+    "clinical_masking": 1.15,
+    "anhedonia": 1.7,
+    "engaged_control": 2.0,
+    "hesitancy_psychomotor": 1.0,
+    "flat_affect": 1.0,
+    "edge_case": 1.0,
+    "recording": 2.0
+   }
+  }
+ },
+ "raw": {
+  "mask_01": [
+   {
+    "anhedonia_content": 1.0,
+    "depressed_mood_content": 1.0,
+    "affect_flatness": 2.0,
+    "engagement_level": 1.0
+   },
+   {
+    "anhedonia_content": 1.0,
+    "depressed_mood_content": 1.0,
+    "affect_flatness": null,
+    "engagement_level": 1.0
+   },
+   {
+    "anhedonia_content": 1.0,
+    "depressed_mood_content": 1.0,
+    "affect_flatness": 2.0,
+    "engagement_level": 1.0
+   },
+   {
+    "anhedonia_content": 1.0,
+    "depressed_mood_content": null,
+    "affect_flatness": null,
+    "engagement_level": null
+   },
+   {
+    "anhedonia_content": 1.0,
+    "depressed_mood_content": null,
+    "affect_flatness": 2.0,
+    "engagement_level": 1.0
+   }
+  ],
+  "mask_02": [
+   {
+    "anhedonia_content": 0.0,
+    "depressed_mood_content": null,
+    "affect_flatness": 0.0,
+    "engagement_level": 2.0
+   },
+   {
+    "anhedonia_content": 0.0,
+    "depressed_mood_content": null,
+    "affect_flatness": 2.0,
+    "engagement_level": 1.0
+   },
+   {
+    "anhedonia_content": 0.0,
+    "depressed_mood_content": 0.0,
+    "affect_flatness": 3.0,
+    "engagement_level": 1.0
+   },
+   {
+    "anhedonia_content": 0.0,
+    "depressed_mood_content": 2.0,
+    "affect_flatness": 2.0,
+    "engagement_level": 1.0
+   },
+   {
+    "anhedonia_content": 0.0,
+    "depressed_mood_content": 0.0,
+    "affect_flatness": 2.0,
+    "engagement_level": 1.0
+   }
+  ],
+  "mask_03": [
+   {
+    "anhedonia_content": null,
+    "depressed_mood_content": null,
+    "affect_flatness": 2.0,
+    "engagement_level": 2.0
+   },
+   {
+    "anhedonia_content": 0.0,
+    "depressed_mood_content": 0.0,
+    "affect_flatness": 2.0,
+    "engagement_level": 1.0
+   },
+   {
+    "anhedonia_content": 0.0,
+    "depressed_mood_content": null,
+    "affect_flatness": 1.0,
+    "engagement_level": 1.0
+   },
+   {
+    "anhedonia_content": null,
+    "depressed_mood_content": null,
+    "affect_flatness": 2.0,
+    "engagement_level": 1.0
+   },
+   {
+    "anhedonia_content": 1.0,
+    "depressed_mood_content": null,
+    "affect_flatness": 1.0,
+    "engagement_level": 1.0
+   }
+  ],
+  "anh_01": [
+   {
+    "anhedonia_content": 3.0,
+    "depressed_mood_content": 3.0,
+    "affect_flatness": 2.0,
+    "engagement_level": 2.0
+   },
+   {
+    "anhedonia_content": 3.0,
+    "depressed_mood_content": 2.0,
+    "affect_flatness": 2.0,
+    "engagement_level": 2.0
+   },
+   {
+    "anhedonia_content": 3.0,
+    "depressed_mood_content": 2.0,
+    "affect_flatness": 2.0,
+    "engagement_level": 2.0
+   },
+   {
+    "anhedonia_content": 3.0,
+    "depressed_mood_content": 2.0,
+    "affect_flatness": 2.0,
+    "engagement_level": 2.0
+   },
+   {
+    "anhedonia_content": 3.0,
+    "depressed_mood_content": 3.0,
+    "affect_flatness": 2.0,
+    "engagement_level": 2.0
+   }
+  ],
+  "anh_02": [
+   {
+    "anhedonia_content": 3.0,
+    "depressed_mood_content": 2.0,
+    "affect_flatness": 2.0,
+    "engagement_level": 1.0
+   },
+   {
+    "anhedonia_content": 3.0,
+    "depressed_mood_content": 2.0,
+    "affect_flatness": 2.0,
+    "engagement_level": 2.0
+   },
+   {
+    "anhedonia_content": 3.0,
+    "depressed_mood_content": 3.0,
+    "affect_flatness": 3.0,
+    "engagement_level": 2.0
+   },
+   {
+    "anhedonia_content": 3.0,
+    "depressed_mood_content": 2.0,
+    "affect_flatness": 3.0,
+    "engagement_level": 1.0
+   },
+   {
+    "anhedonia_content": 3.0,
+    "depressed_mood_content": 2.0,
+    "affect_flatness": 3.0,
+    "engagement_level": 1.0
+   }
+  ],
+  "ctrl_01": [
+   {
+    "anhedonia_content": 0.0,
+    "depressed_mood_content": 1.0,
+    "affect_flatness": 0.0,
+    "engagement_level": 2.0
+   },
+   {
+    "anhedonia_content": 1.0,
+    "depressed_mood_content": 1.0,
+    "affect_flatness": 2.0,
+    "engagement_level": 2.0
+   },
+   {
+    "anhedonia_content": 1.0,
+    "depressed_mood_content": 1.0,
+    "affect_flatness": 1.0,
+    "engagement_level": 2.0
+   },
+   {
+    "anhedonia_content": 1.0,
+    "depressed_mood_content": 1.0,
+    "affect_flatness": 1.0,
+    "engagement_level": 2.0
+   },
+   {
+    "anhedonia_content": 1.0,
+    "depressed_mood_content": 1.0,
+    "affect_flatness": 1.0,
+    "engagement_level": 2.0
+   }
+  ],
+  "ctrl_02": [
+   {
+    "anhedonia_content": 0.0,
+    "depressed_mood_content": null,
+    "affect_flatness": null,
+    "engagement_level": 2.0
+   },
+   {
+    "anhedonia_content": 0.0,
+    "depressed_mood_content": null,
+    "affect_flatness": null,
+    "engagement_level": 2.0
+   },
+   {
+    "anhedonia_content": 0.0,
+    "depressed_mood_content": null,
+    "affect_flatness": null,
+    "engagement_level": 2.0
+   },
+   {
+    "anhedonia_content": 0.0,
+    "depressed_mood_content": null,
+    "affect_flatness": 0.0,
+    "engagement_level": 2.0
+   },
+   {
+    "anhedonia_content": 0.0,
+    "depressed_mood_content": null,
+    "affect_flatness": 0.0,
+    "engagement_level": 2.0
+   }
+  ],
+  "hes_01": [
+   {
+    "anhedonia_content": null,
+    "depressed_mood_content": null,
+    "affect_flatness": null,
+    "engagement_level": null
+   },
+   {
+    "anhedonia_content": 1.0,
+    "depressed_mood_content": 2.0,
+    "affect_flatness": 2.0,
+    "engagement_level": 1.0
+   },
+   {
+    "anhedonia_content": 1.0,
+    "depressed_mood_content": 2.0,
+    "affect_flatness": 2.0,
+    "engagement_level": 1.0
+   },
+   {
+    "anhedonia_content": null,
+    "depressed_mood_content": null,
+    "affect_flatness": 2.0,
+    "engagement_level": 1.0
+   },
+   {
+    "anhedonia_content": null,
+    "depressed_mood_content": null,
+    "affect_flatness": 2.0,
+    "engagement_level": 1.0
+   }
+  ],
+  "flat_01": [
+   {
+    "anhedonia_content": 2.0,
+    "depressed_mood_content": 1.0,
+    "affect_flatness": 2.0,
+    "engagement_level": 1.0
+   },
+   {
+    "anhedonia_content": 2.0,
+    "depressed_mood_content": 1.0,
+    "affect_flatness": 2.0,
+    "engagement_level": 1.0
+   },
+   {
+    "anhedonia_content": 2.0,
+    "depressed_mood_content": 1.0,
+    "affect_flatness": 2.0,
+    "engagement_level": 1.0
+   },
+   {
+    "anhedonia_content": 2.0,
+    "depressed_mood_content": 1.0,
+    "affect_flatness": 2.0,
+    "engagement_level": 1.0
+   },
+   {
+    "anhedonia_content": 1.0,
+    "depressed_mood_content": 1.0,
+    "affect_flatness": 2.0,
+    "engagement_level": 1.0
+   }
+  ],
+  "psy_01": [
+   {
+    "anhedonia_content": 0.0,
+    "depressed_mood_content": null,
+    "affect_flatness": 2.0,
+    "engagement_level": 1.0
+   },
+   {
+    "anhedonia_content": 0.0,
+    "depressed_mood_content": 2.0,
+    "affect_flatness": 2.0,
+    "engagement_level": 1.0
+   },
+   {
+    "anhedonia_content": 0.0,
+    "depressed_mood_content": null,
+    "affect_flatness": 2.0,
+    "engagement_level": 1.0
+   },
+   {
+    "anhedonia_content": null,
+    "depressed_mood_content": null,
+    "affect_flatness": 2.0,
+    "engagement_level": 1.0
+   },
+   {
+    "anhedonia_content": null,
+    "depressed_mood_content": 2.0,
+    "affect_flatness": 2.0,
+    "engagement_level": 1.0
+   }
+  ],
+  "daic_01": [
+   {
+    "anhedonia_content": null,
+    "depressed_mood_content": null,
+    "affect_flatness": 2.0,
+    "engagement_level": 1.0
+   },
+   {
+    "anhedonia_content": 0.0,
+    "depressed_mood_content": 0.0,
+    "affect_flatness": 2.0,
+    "engagement_level": 2.0
+   },
+   {
+    "anhedonia_content": 0.0,
+    "depressed_mood_content": null,
+    "affect_flatness": 1.0,
+    "engagement_level": 1.0
+   },
+   {
+    "anhedonia_content": 0.0,
+    "depressed_mood_content": null,
+    "affect_flatness": 2.0,
+    "engagement_level": 1.0
+   },
+   {
+    "anhedonia_content": 0.0,
+    "depressed_mood_content": null,
+    "affect_flatness": 2.0,
+    "engagement_level": 1.0
+   }
+  ],
+  "edge_01": [
+   {
+    "anhedonia_content": null,
+    "depressed_mood_content": null,
+    "affect_flatness": null,
+    "engagement_level": 1.0
+   },
+   {
+    "anhedonia_content": null,
+    "depressed_mood_content": null,
+    "affect_flatness": null,
+    "engagement_level": 1.0
+   },
+   {
+    "anhedonia_content": null,
+    "depressed_mood_content": null,
+    "affect_flatness": null,
+    "engagement_level": 1.0
+   },
+   {
+    "anhedonia_content": null,
+    "depressed_mood_content": null,
+    "affect_flatness": null,
+    "engagement_level": 1.0
+   },
+   {
+    "anhedonia_content": 0.0,
+    "depressed_mood_content": null,
+    "affect_flatness": 1.0,
+    "engagement_level": 1.0
+   }
+  ],
+  "batch_450d786cce79_analysis": [
+   {
+    "anhedonia_content": 3.0,
+    "depressed_mood_content": 3.0,
+    "affect_flatness": 2.0,
+    "engagement_level": 2.0
+   },
+   {
+    "anhedonia_content": 3.0,
+    "depressed_mood_content": 3.0,
+    "affect_flatness": 2.0,
+    "engagement_level": 2.0
+   },
+   {
+    "anhedonia_content": 2.0,
+    "depressed_mood_content": 3.0,
+    "affect_flatness": 2.0,
+    "engagement_level": 2.0
+   },
+   {
+    "anhedonia_content": 3.0,
+    "depressed_mood_content": 3.0,
+    "affect_flatness": 2.0,
+    "engagement_level": 2.0
+   },
+   {
+    "anhedonia_content": 3.0,
+    "depressed_mood_content": 2.0,
+    "affect_flatness": 2.0,
+    "engagement_level": 2.0
+   }
+  ]
+ },
+ "categories": {
+  "mask_01": "clinical_masking",
+  "mask_02": "clinical_masking",
+  "mask_03": "clinical_masking",
+  "anh_01": "anhedonia",
+  "anh_02": "anhedonia",
+  "ctrl_01": "engaged_control",
+  "ctrl_02": "engaged_control",
+  "hes_01": "hesitancy_psychomotor",
+  "flat_01": "flat_affect",
+  "psy_01": "hesitancy_psychomotor",
+  "daic_01": "clinical_masking",
+  "edge_01": "edge_case",
+  "batch_450d786cce79_analysis": "recording"
+ }
+}
