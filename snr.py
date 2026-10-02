@@ -24,6 +24,7 @@ FRAME_S = 0.03
 EDGE_S = 0.2
 MIN_GAP_S = 20.0
 NOISY_DB = 15.0
+MAX_DB = 60.0
 _BLOCK_S = 60.0
 
 
@@ -74,4 +75,6 @@ def estimate_snr(path: str, segments: list[dict]) -> float | None:
         noise = float(np.percentile(db[gaps], 10))
     else:
         noise = float(np.percentile(db, 5))
-    return round(speech - noise, 1)
+    # Above 60 dB is "clean" for every purpose here; larger values only mean
+    # the gaps are digital silence (a synthetic or edited file).
+    return round(min(speech - noise, MAX_DB), 1)

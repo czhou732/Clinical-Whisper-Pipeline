@@ -1065,7 +1065,8 @@ document.addEventListener('DOMContentLoaded', () => {
             resultContent.appendChild(block);
         }
 
-        renderMeasures(f.result || {}, f.score_reliability || {});
+        renderMeasures(f.result || {}, f.score_reliability || {},
+                       (f.speaker_assignment || {}).mode === 'group');
 
         renderTranscript(f);
 
@@ -1147,9 +1148,11 @@ document.addEventListener('DOMContentLoaded', () => {
         return v.toFixed(a >= 100 ? 0 : a >= 10 ? 1 : 2);
     };
 
-    function renderMeasures(result, reliability) {
+    function renderMeasures(result, reliability, group) {
         GROUPS.forEach(([title, keys]) => {
-            const shown = keys.filter(k => present(result[k]));
+            // A group has no single participant; its measures are per speaker.
+            if (group && title.startsWith('Participant')) return;
+            const shown = keys.filter(k => present(result[k]) && !(group && k === 'participant_speech_min'));
             if (!shown.length) return;
             const g = document.createElement('div');
             g.className = 'measure-group';

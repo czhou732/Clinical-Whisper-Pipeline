@@ -102,3 +102,34 @@ def test_late_unmatched_voice_is_kept_separate():
     assert {s["speaker"] for s in moss_chunking.limit_speakers(segs, emb, 2)} == {"S1", "S2"}
     early = [seg("S1", 0, 300, "a"), seg("S2", 300, 600, "b"), seg("S3", 30, 40, "early")]
     assert {s["speaker"] for s in moss_chunking.limit_speakers(early, emb, 2, keep_new_below=0.5)} == {"S1", "S2"}
+
+
+def test_short_group_with_brief_moderators():
+    """A one-minute group: moderators talk 12-17 s, participants 21 s each."""
+    segs = [seg("S01", 0, 10, "Welcome everyone, and thank you for joining. Your participation "
+                "is completely voluntary, and you may skip any question."),
+            seg("S02", 10, 16, "Thanks. Let's start. What about you, [first_name_1]? Where do you run into trouble?"),
+            seg("S03", 16, 37, "Well, usually I make coffee first, and then I try to find my keys."),
+            seg("S01", 37, 44, "That makes sense. And you, [first_name_2]? How do you get around?"),
+            seg("S04", 44, 65, "I mostly use my cane and an app on my phone that reads labels out loud."),
+            seg("S02", 65, 71, "Okay, let's move on to the next question. What would you want?")]
+    r = assign(segs)
+    assert r["mode"] == "group" and not r["uncertain"]
+    assert r["roles"]["S01"].startswith("Moderator") and r["roles"]["S02"].startswith("Moderator")
+
+
+def test_known_voice_does_not_demote_the_other_moderator(tmp_path):
+    lib = tmp_path / "voices.json"
+    voice_library.remember("Moderator A", "Moderator 1", np.array([1.0, 0, 0, 0]), path=lib)
+    segs = [seg("S01", 0, 10, "Welcome everyone, and thank you for joining. Your participation "
+                "is completely voluntary, and you may skip any question."),
+            seg("S02", 10, 16, "Thanks. Let's start. What about you, [first_name_1]? Where do you run into trouble?"),
+            seg("S03", 16, 37, "Well, usually I make coffee first, and then I try to find my keys."),
+            seg("S01", 37, 44, "That makes sense. And you, [first_name_2]? How do you get around?"),
+            seg("S04", 44, 65, "I mostly use my cane and an app on my phone that reads labels out loud."),
+            seg("S02", 65, 71, "Okay, let's move on to the next question. What would you want?")]
+    voices = {"S01": np.array([1.0, 0, 0, 0]), "S02": np.array([0, 1.0, 0, 0]),
+              "S03": np.array([0, 0, 1.0, 0]), "S04": np.array([0, 0, 0, 1.0])}
+    r = assign(segs, voices=voices, library=voice_library.load(lib))
+    assert r["roles"]["S01"].startswith("Moderator") and r["roles"]["S02"].startswith("Moderator")
+    assert r["roles"]["S03"].startswith("Participant") and r["roles"]["S04"].startswith("Participant")

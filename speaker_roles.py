@@ -70,6 +70,7 @@ class Evidence:
     known_sim: float = 0.0
     first_s: float = 0.0
     score: float = 0.0
+    base: float = 0.0            # score without the remembered-voice bonus
     reasons: list[str] = field(default_factory=list)
 
 
@@ -157,11 +158,12 @@ def _score(e: Evidence, first: bool, most_talk: float) -> float:
     if e.guide:
         score += 4.0 * e.guide
         reasons.append(f"asks {round(100 * e.guide)}% of the guide questions")
+    if first:
+        score += 0.3
+    e.base = round(score, 2)
     if e.known:
         score += 5.0
         reasons.append(f"voice matches {e.known}")
-    if first:
-        score += 0.3
     e.score, e.reasons = round(score, 2), reasons
     return score
 
@@ -183,7 +185,9 @@ def assign(segments: list[dict], guide_text: Optional[str] = None,
     for spk in ev:
         _score(ev[spk], spk == order[0], most_talk)
     total = sum(e.talk_s for e in ev.values()) or 1.0
-    substantial = [s for s in ev if ev[s].talk_s >= max(SUBSTANTIAL_S, SUBSTANTIAL_SHARE * total)]
+    # A minute of talk, or less in a short recording (15% of its talk time).
+    floor = max(SUBSTANTIAL_SHARE * total, min(SUBSTANTIAL_S, 0.15 * total))
+    substantial = [s for s in ev if ev[s].talk_s >= floor]
     by_talk = sorted(ev, key=lambda s: -ev[s].talk_s)
     evidence = {s: {"score": e.score, "reasons": e.reasons, "talk_s": round(e.talk_s, 1),
                     "known_voice": e.known} for s, e in ev.items()}
@@ -209,10 +213,12 @@ def assign(segments: list[dict], guide_text: Optional[str] = None,
     # Group: moderators are the clear high scorers. A moderator can talk
     # little (a co-facilitator's occasional question), so the bar for them is
     # lower than the one for counting someone as a participant.
-    present = [s for s in ev if ev[s].talk_s >= max(20.0, 0.02 * total)]
+    present = [s for s in ev if ev[s].talk_s >= max(0.02 * total, min(20.0, 0.05 * total))]
     ranked = sorted(present, key=lambda s: -ev[s].score)
-    top = ev[ranked[0]].score
-    moderators = [s for s in ranked if ev[s].known or ev[s].score >= max(1.5, 0.6 * top)]
+    # Compared on the text evidence alone: a recognised voice adds its owner
+    # as a moderator but must not raise the bar for everyone else.
+    top = max(ev[s].base for s in present)
+    moderators = [s for s in ranked if ev[s].known or ev[s].base >= max(1.5, 0.6 * top)]
     moderators = moderators[:max(1, len(present) // 2)] or ranked[:1]
     participants = [s for s in by_talk if s in substantial and s not in moderators]
     roles: dict[str, str] = {}
@@ -224,6 +230,8 @@ def assign(segments: list[dict], guide_text: Optional[str] = None,
         roles[spk] = f"Other_{i}"
     weakest_mod = min(ev[s].score for s in moderators)
     strongest_part = max((ev[s].score for s in participants), default=0.0)
+    if any(ev[s].known for s in moderators):
+        weakest_mod = min(ev[s].base if not ev[s].known else ev[s].score for s in moderators)
     certain = (weakest_mod - strongest_part >= UNCERTAIN_GAP
                or all(ev[s].known for s in moderators))
     why = "" if certain else (
