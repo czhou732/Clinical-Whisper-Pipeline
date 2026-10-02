@@ -32,6 +32,7 @@ log = logging.getLogger("ClinicalWhisper")
 _ALNUM = re.compile(r"[^\W_]")
 _TAG = re.compile(r"\[([a-z_]+)\]")
 _UPPER_TAG = re.compile(r"\[([A-Z][A-Z_]*)\]")
+_NUMBERED = re.compile(r"\[[a-z_]+_\d+\]")
 # The single-language models label in capitals without separators; the
 # English model uses snake_case. One vocabulary keeps the masking key, the
 # tag numbering and name silencing working in every language.
@@ -54,6 +55,11 @@ def _mostly_punctuation(text: str) -> bool:
     return len(re.findall(r"[^\w\s]", text)) / len(text) > 0.5
 
 DEFAULT_PII_MODEL = "OpenMed/OpenMed-PII-SuperClinical-Small-44M-v1"
+
+
+def next_number(ids: dict[tuple[str, str], int], label: str) -> int:
+    """The next unused number for ``label``."""
+    return 1 + max((n for (lab, _), n in ids.items() if lab == label), default=0)
 
 
 def number_tags(masked: str, entities: list, ids: dict[tuple[str, str], int]) -> str:
@@ -81,7 +87,12 @@ def number_tags(masked: str, entities: list, ids: dict[tuple[str, str], int]) ->
         meta = getattr(ent, "metadata", None) or {}
         key = meta.get("normalized_text_hash") or str(getattr(ent, "text", "")).strip().lower()
         label = tag.group(1)
-        n = ids.setdefault((label, key), 1 + sum(1 for lab, _ in ids if lab == label))
+        n = ids.get((label, key)) or next_number(ids, label)
+        ids[(label, key)] = n
+        # Also under a key of the text itself, so the safety-net rules
+        # (pii_rules.py) give a name they catch the same number.
+        import pii_rules
+        ids.setdefault((label, pii_rules._key(str(getattr(ent, "text", "")))), n)
         out.append(masked[last:tag.start()])
         out.append(f"[{label}_{n}]")
         last = tag.end()
@@ -99,14 +110,18 @@ class PIIScrubber:
     def __init__(
         self,
         model_name: str = DEFAULT_PII_MODEL,
-        confidence_threshold: float = 0.7,
+        confidence_threshold: float = 0.5,
         strict: bool = True,
         lang: str = "en",
         cache_dir: Optional[str] = None,
+        safety_net: bool = True,
     ):
         self.model_name = model_name
         # Selects OpenMED's regex patterns (phone numbers, IDs) for the language.
         self.lang = lang
+        # pii_rules.py after OpenMED (English patterns; harmless elsewhere).
+        self.safety_net = safety_net
+        self._found: list[tuple[str, str]] = []
         self.confidence_threshold = confidence_threshold
         self.strict = strict
         self.is_available = deidentify is not None
@@ -166,12 +181,30 @@ class PIIScrubber:
                 label = label_name(getattr(ent, "label", "other"))
                 self.entity_types[label] = self.entity_types.get(label, 0) + 1
             masked = _UPPER_TAG.sub(lambda m: f"[{label_name(m.group(1))}]", result.deidentified_text)
-            return number_tags(masked, entities, self._ids)
+            numbered = number_tags(masked, entities, self._ids)
+            if numbered != masked:
+                # Remember what was masked and as which tag, for propagation.
+                for ent, tag in zip(sorted(entities, key=lambda e: getattr(e, "start", 0)),
+                                    _NUMBERED.findall(numbered)):
+                    self._found.append((str(getattr(ent, "text", "")), tag))
+            masked = numbered
+            if self.safety_net:
+                import pii_rules
+                masked, extra = pii_rules.apply(masked, self._number, self._found)
+                for label, n in extra.items():
+                    self.entity_count += n
+                    self.entity_types[label] = self.entity_types.get(label, 0) + n
+            return masked
         except Exception as e:
             log.error("Error during PII scrubbing: %s", e)
             if self.strict:
                 raise RuntimeError(f"PII scrubbing failed: {e}") from e
             return text
+
+    def _number(self, label: str, key: str) -> int:
+        n = self._ids.get((label, key)) or next_number(self._ids, label)
+        self._ids[(label, key)] = n
+        return n
 
     def scrub_segments(self, segments: list[dict]) -> list[dict]:
         """Mask PII across a list of MOSS segments.
@@ -187,15 +220,24 @@ class PIIScrubber:
         self.entity_types = {}
         self._ids = {}
 
+        self._found = []
         scrubbed = []
         for seg in segments:
             new_seg = dict(seg)
             new_seg["text"] = self.scrub_text(seg.get("text", ""))
             scrubbed.append(new_seg)
+        if self.safety_net:
+            # A name caught once is masked everywhere it is said again.
+            import pii_rules
+            texts, extra = pii_rules.propagate([s["text"] for s in scrubbed], self._found)
+            for seg, text in zip(scrubbed, texts):
+                seg["text"] = text
+            self.entity_count += extra
+        self._found = []  # the surface forms are never kept past this call
 
         log.info("PII scrubbing complete — %d identifiers masked (%d distinct), "
                  "%d segment(s) redacted whole.",
-                 self.entity_count, len(self._ids), self.redacted_count)
+                 self.entity_count, len(set((lab, n) for (lab, _), n in self._ids.items())), self.redacted_count)
         return scrubbed
 
     def summary(self) -> dict:
@@ -203,7 +245,7 @@ class PIIScrubber:
         return {
             "masked_mentions": self.entity_count,
             "masked_by_type": dict(sorted(self.entity_types.items())),
-            "distinct_identifiers": len(self._ids),
+            "distinct_identifiers": len(set((lab, n) for (lab, _), n in self._ids.items())),
             "segments_redacted_whole": self.redacted_count,
         }
 

@@ -203,7 +203,8 @@ moss:
 # an unscrubbed transcript.
 pii_scrubbing:
   enabled: true
-  confidence_threshold: 0.7
+  # 0.5 measured on evals/masking: recall 94% -> 95.5% for +0.2 pt over-masking.
+  confidence_threshold: 0.5
   strict: true
 
 # Clinical Question Detection — categorizes interviewer probes

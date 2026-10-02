@@ -1,0 +1,74 @@
+{
+ "label": "tuning set new default",
+ "threshold": 0.5,
+ "sentences": 400,
+ "recall": 0.988,
+ "identifiers": 600,
+ "over_masking": 0.027,
+ "recall_by_type": {
+  "age": 1.0,
+  "city": 1.0,
+  "date": 1.0,
+  "email": 1.0,
+  "first_name": 1.0,
+  "full_name": 1.0,
+  "last_name": 1.0,
+  "organization": 0.86,
+  "phone": 1.0,
+  "street": 1.0
+ },
+ "name_recall_by_origin": {
+  "african": 1.0,
+  "anglo": 1.0,
+  "arabic": 1.0,
+  "chinese": 1.0,
+  "common_word": 1.0,
+  "hispanic": 1.0,
+  "indian": 1.0,
+  "vietnamese_korean": 1.0
+ },
+ "misses_sample": [
+  {
+   "id": "09_00",
+   "type": "organization",
+   "text": "Bayview High School",
+   "sentence": "Doctor Chen at Bayview High School changed my medication."
+  },
+  {
+   "id": "09_06",
+   "type": "organization",
+   "text": "Kroger",
+   "sentence": "Doctor Abdullah at Kroger changed my medication."
+  },
+  {
+   "id": "09_12",
+   "type": "organization",
+   "text": "Kroger",
+   "sentence": "Doctor Park at Kroger changed my medication."
+  },
+  {
+   "id": "09_13",
+   "type": "organization",
+   "text": "Kroger",
+   "sentence": "Doctor Brennan at Kroger changed my medication."
+  },
+  {
+   "id": "09_15",
+   "type": "organization",
+   "text": "Kroger",
+   "sentence": "Doctor Feldman at Kroger changed my medication."
+  },
+  {
+   "id": "09_18",
+   "type": "organization",
+   "text": "Bayview High School",
+   "sentence": "Doctor Ramirez at Bayview High School changed my medication."
+  },
+  {
+   "id": "05_20",
+   "type": "organization",
+   "text": "Saint Mary's Hospital",
+   "sentence": "I work at Saint Mary's Hospital over on Vermont Avenue."
+  }
+ ]
+}

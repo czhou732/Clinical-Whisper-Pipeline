@@ -1,0 +1,164 @@
+{
+ "label": "OpenMed 0.5, no safety net",
+ "threshold": 0.5,
+ "sentences": 400,
+ "recall": 0.963,
+ "identifiers": 600,
+ "over_masking": 0.027,
+ "recall_by_type": {
+  "age": 1.0,
+  "city": 1.0,
+  "date": 1.0,
+  "email": 1.0,
+  "first_name": 1.0,
+  "full_name": 1.0,
+  "last_name": 1.0,
+  "organization": 0.58,
+  "phone": 0.96,
+  "street": 1.0
+ },
+ "name_recall_by_origin": {
+  "african": 1.0,
+  "anglo": 1.0,
+  "arabic": 1.0,
+  "chinese": 1.0,
+  "common_word": 1.0,
+  "hispanic": 1.0,
+  "indian": 1.0,
+  "vietnamese_korean": 1.0
+ },
+ "misses_sample": [
+  {
+   "id": "05_00",
+   "type": "organization",
+   "text": "Bayview High School",
+   "sentence": "I work at Bayview High School over on Elm Court."
+  },
+  {
+   "id": "09_00",
+   "type": "organization",
+   "text": "Bayview High School",
+   "sentence": "Doctor Chen at Bayview High School changed my medication."
+  },
+  {
+   "id": "09_01",
+   "type": "organization",
+   "text": "Saint Mary's Hospital",
+   "sentence": "Doctor Okafor at Saint Mary's Hospital changed my medication."
+  },
+  {
+   "id": "05_02",
+   "type": "organization",
+   "text": "Saint Mary's Hospital",
+   "sentence": "I work at Saint Mary's Hospital over on Maple Avenue."
+  },
+  {
+   "id": "05_04",
+   "type": "organization",
+   "text": "Bayview High School",
+   "sentence": "I work at Bayview High School over on Hollis Street."
+  },
+  {
+   "id": "07_05",
+   "type": "phone",
+   "text": "one one four, two one zero six",
+   "sentence": "You can reach me at one one four, two one zero six."
+  },
+  {
+   "id": "09_05",
+   "type": "organization",
+   "text": "Saint Mary's Hospital",
+   "sentence": "Doctor Chen at Saint Mary's Hospital changed my medication."
+  },
+  {
+   "id": "09_06",
+   "type": "organization",
+   "text": "Kroger",
+   "sentence": "Doctor Abdullah at Kroger changed my medication."
+  },
+  {
+   "id": "05_09",
+   "type": "organization",
+   "text": "Bayview High School",
+   "sentence": "I work at Bayview High School over on Kingsley Road."
+  },
+  {
+   "id": "05_12",
+   "type": "organization",
+   "text": "Kroger",
+   "sentence": "I work at Kroger over on Figueroa Street."
+  },
+  {
+   "id": "09_12",
+   "type": "organization",
+   "text": "Kroger",
+   "sentence": "Doctor Park at Kroger changed my medication."
+  },
+  {
+   "id": "09_13",
+   "type": "organization",
+   "text": "Kroger",
+   "sentence": "Doctor Brennan at Kroger changed my medication."
+  },
+  {
+   "id": "05_15",
+   "type": "organization",
+   "text": "Bayview High School",
+   "sentence": "I work at Bayview High School over on Hollis Street."
+  },
+  {
+   "id": "09_15",
+   "type": "organization",
+   "text": "Kroger",
+   "sentence": "Doctor Feldman at Kroger changed my medication."
+  },
+  {
+   "id": "05_17",
+   "type": "organization",
+   "text": "Kroger",
+   "sentence": "I work at Kroger over on Kingsley Road."
+  },
+  {
+   "id": "09_17",
+   "type": "organization",
+   "text": "Saint Mary's Hospital",
+   "sentence": "Doctor Chen at Saint Mary's Hospital changed my medication."
+  },
+  {
+   "id": "09_18",
+   "type": "organization",
+   "text": "Bayview High School",
+   "sentence": "Doctor Ramirez at Bayview High School changed my medication."
+  },
+  {
+   "id": "09_19",
+   "type": "organization",
+   "text": "Lincoln Elementary",
+   "sentence": "Doctor Haddad at Lincoln Elementary changed my medication."
+  },
+  {
+   "id": "05_20",
+   "type": "organization",
+   "text": "Saint Mary's Hospital",
+   "sentence": "I work at Saint Mary's Hospital over on Vermont Avenue."
+  },
+  {
+   "id": "09_21",
+   "type": "organization",
+   "text": "Saint Mary's Hospital",
+   "sentence": "Doctor Haddad at Saint Mary's Hospital changed my medication."
+  },
+  {
+   "id": "05_23",
+   "type": "organization",
+   "text": "Lincoln Elementary",
+   "sentence": "I work at Lincoln Elementary over on Ocean Drive."
+  },
+  {
+   "id": "05_24",
+   "type": "organization",
+   "text": "Bayview High School",
+   "sentence": "I work at Bayview High School over on Ocean Drive."
+  }
+ ]
+}

@@ -17,6 +17,8 @@ def _scrubber(monkeypatch):
     s = object.__new__(PIIScrubber)
     s.is_available, s.strict, s.model_name, s.confidence_threshold = True, True, "m", 0.7
     s._config, s.entity_count, s.redacted_count, s.lang = None, 0, 0, "en"
+    s.safety_net = False
+    s._found = []
     s.entity_types, s._ids = {}, {}
     return s, calls
 

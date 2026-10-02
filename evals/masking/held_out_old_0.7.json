@@ -1,0 +1,182 @@
+{
+ "label": "held-out old 0.7",
+ "threshold": 0.7,
+ "sentences": 300,
+ "recall": 0.905,
+ "identifiers": 475,
+ "over_masking": 0.017,
+ "recall_by_type": {
+  "age": 1.0,
+  "city": 1.0,
+  "date": 1.0,
+  "email": 0.72,
+  "first_name": 0.953,
+  "full_name": 1.0,
+  "last_name": 0.98,
+  "organization": 0.48,
+  "phone": 0.92,
+  "street": 0.92
+ },
+ "name_recall_by_origin": {
+  "african": 1.0,
+  "anglo": 1.0,
+  "arabic": 1.0,
+  "chinese": 1.0,
+  "common_word": 1.0,
+  "hispanic": 1.0,
+  "indian": 1.0,
+  "vietnamese_korean": 0.708
+ },
+ "misses_sample": [
+  {
+   "id": "h01_00",
+   "type": "organization",
+   "text": "Lincoln Elementary",
+   "sentence": "Her name's Javier, we met at Lincoln Elementary like ten years ago."
+  },
+  {
+   "id": "h05_00",
+   "type": "organization",
+   "text": "Desert Valley Bank",
+   "sentence": "The place on Kingsley Road, near the Desert Valley Bank, that's where it happened."
+  },
+  {
+   "id": "h04_01",
+   "type": "phone",
+   "text": "nine two two, two zero nine zero",
+   "sentence": "Text me at nine two two, two zero nine zero if anything changes."
+  },
+  {
+   "id": "h05_01",
+   "type": "organization",
+   "text": "Hollis Clinic",
+   "sentence": "The place on Maple Avenue, near the the Hollis Clinic, that's where it happened."
+  },
+  {
+   "id": "h06_01",
+   "type": "email",
+   "text": "lucia dot liu at gmail dot com",
+   "sentence": "It's lucia dot liu at gmail dot com, all lowercase."
+  },
+  {
+   "id": "h05_02",
+   "type": "street",
+   "text": "Ocean Drive",
+   "sentence": "The place on Ocean Drive, near the Riverside Logistics, that's where it happened."
+  },
+  {
+   "id": "h01_03",
+   "type": "organization",
+   "text": "Lincoln Elementary",
+   "sentence": "Her name's Rohan, we met at Lincoln Elementary like ten years ago."
+  },
+  {
+   "id": "h05_03",
+   "type": "organization",
+   "text": "Saint Mary's Hospital",
+   "sentence": "The place on Figueroa Street, near the Saint Mary's Hospital, that's where it happened."
+  },
+  {
+   "id": "h06_03",
+   "type": "email",
+   "text": "ananya dot kowalski at gmail dot com",
+   "sentence": "It's ananya dot kowalski at gmail dot com, all lowercase."
+  },
+  {
+   "id": "h01_04",
+   "type": "organization",
+   "text": "Kroger",
+   "sentence": "Her name's Ximena, we met at Kroger like ten years ago."
+  },
+  {
+   "id": "h05_04",
+   "type": "organization",
+   "text": "Saint Mary's Hospital",
+   "sentence": "The place on Kingsley Road, near the Saint Mary's Hospital, that's where it happened."
+  },
+  {
+   "id": "h05_05",
+   "type": "organization",
+   "text": "Bayview High School",
+   "sentence": "The place on Hollis Street, near the Bayview High School, that's where it happened."
+  },
+  {
+   "id": "h11_05",
+   "type": "first_name",
+   "text": "Thao",
+   "sentence": "Okay. So. Thao. Thao is my therapist, and honestly that's complicated."
+  },
+  {
+   "id": "h11_05",
+   "type": "first_name",
+   "text": "Thao",
+   "sentence": "Okay. So. Thao. Thao is my therapist, and honestly that's complicated."
+  },
+  {
+   "id": "h01_06",
+   "type": "organization",
+   "text": "Lincoln Elementary",
+   "sentence": "Her name's Ximena, we met at Lincoln Elementary like ten years ago."
+  },
+  {
+   "id": "h01_08",
+   "type": "organization",
+   "text": "Kroger",
+   "sentence": "Her name's Summer, we met at Kroger like ten years ago."
+  },
+  {
+   "id": "h01_09",
+   "type": "organization",
+   "text": "Saint Mary's Hospital",
+   "sentence": "Her name's Aditya, we met at Saint Mary's Hospital like ten years ago."
+  },
+  {
+   "id": "h04_09",
+   "type": "phone",
+   "text": "two zero two, eight one six one",
+   "sentence": "Text me at two zero two, eight one six one if anything changes."
+  },
+  {
+   "id": "h05_09",
+   "type": "organization",
+   "text": "Bayview High School",
+   "sentence": "The place on Vermont Avenue, near the Bayview High School, that's where it happened."
+  },
+  {
+   "id": "h05_11",
+   "type": "organization",
+   "text": "Desert Valley Bank",
+   "sentence": "The place on Kingsley Road, near the Desert Valley Bank, that's where it happened."
+  },
+  {
+   "id": "h06_12",
+   "type": "email",
+   "text": "vikram dot okafor at gmail dot com",
+   "sentence": "It's vikram dot okafor at gmail dot com, all lowercase."
+  },
+  {
+   "id": "h01_13",
+   "type": "organization",
+   "text": "Saint Mary's Hospital",
+   "sentence": "Her name's Faith, we met at Saint Mary's Hospital like ten years ago."
+  },
+  {
+   "id": "h05_13",
+   "type": "organization",
+   "text": "Saint Mary's Hospital",
+   "sentence": "The place on Kingsley Road, near the Saint Mary's Hospital, that's where it happened."
+  },
+  {
+   "id": "h01_14",
+   "type": "organization",
+   "text": "Lincoln Elementary",
+   "sentence": "Her name's Jacob, we met at Lincoln Elementary like ten years ago."
+  },
+  {
+   "id": "h05_14",
+   "type": "organization",
+   "text": "Hollis Clinic",
+   "sentence": "The place on Kingsley Road, near the the Hollis Clinic, that's where it happened."
+  }
+ ]
+}

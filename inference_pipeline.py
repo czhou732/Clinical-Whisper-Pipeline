@@ -742,7 +742,7 @@ class InferencePipeline:
         if pii_cfg.get("enabled", True):
             from pii_scrubber import PIIScrubber
             scrubber = PIIScrubber(**{
-                "confidence_threshold": pii_cfg.get("confidence_threshold", 0.7),
+                "confidence_threshold": pii_cfg.get("confidence_threshold", 0.5),
                 "strict": pii_cfg.get("strict", True),
                 **_masker_for(lang),
             })
