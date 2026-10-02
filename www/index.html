@@ -115,13 +115,25 @@
 
                 <div class="result-tabs" id="result-tabs"></div>
 
-                <div class="roles-bar hidden" id="roles-bar">
-                    <span class="text-sm">Speakers:</span>
-                    <span id="roles-summary" class="roles-summary"></span>
-                    <label class="text-sm" for="interviewer-select">Interviewer:</label>
-                    <select id="interviewer-select"></select>
-                    <button class="btn-secondary" id="btn-swap-roles">Apply</button>
-                </div>
+                <details class="speakers-panel hidden" id="speakers-panel">
+                    <summary><span class="text-sm">Speakers:</span>
+                        <span id="roles-summary" class="roles-summary"></span>
+                        <span class="text-sm speakers-edit">Check or rename</span></summary>
+                    <p class="text-sm speakers-help">Set each speaker's role, and give them a
+                        label if you like. Use codes such as P01 or Moderator A, not real
+                        names: labels appear in the transcript and in exports.</p>
+                    <div class="speakers-scroll">
+                        <table class="speakers-table">
+                            <thead><tr><th>Speaker</th><th>For example, says</th>
+                                <th>Role</th><th>Label</th></tr></thead>
+                            <tbody id="speakers-rows"></tbody>
+                        </table>
+                    </div>
+                    <div class="speakers-actions">
+                        <button class="btn-secondary" id="btn-swap-roles">Apply</button>
+                        <span class="text-sm" id="speakers-status"></span>
+                    </div>
+                </details>
 
                 <div class="view-switch" id="view-switch">
                     <button class="view-btn active" data-view="scores">Measurements</button>

@@ -41,6 +41,7 @@ offline.lock()  # idempotent; the launcher has usually done it already
 
 from cw_config import AUDIO_EXTENSIONS, DATA_ROOT, LEGACY_DATA_ROOT, load_config
 from mask_legend import legend as mask_legend
+from transcript_formatter import speaker_samples
 
 app = FastAPI(title="ClinicalWhisper GUI Server")
 
@@ -285,6 +286,8 @@ def process_batch_task(batch_id: str, paths: list[Path]) -> None:
                     # without paying for transcription again.
                     f["segments"] = analysis.get("segments", [])
                     f["speaker_roles"] = analysis.get("speaker_roles", {})
+                    f["speaker_names"] = analysis.get("speaker_names", {})
+                    f["speaker_samples"] = speaker_samples(f["segments"])
                     _batches[batch_id]["done"] += 1
             except Exception as exc:
                 log.warning("Batch %s: scoring %s failed: %s",
@@ -568,6 +571,8 @@ async def get_status(batch_id: str):
                     "structured_transcript": f["structured_transcript"],
                     "mask_legend": mask_legend(f["structured_transcript"]),
                     "speaker_roles": f.get("speaker_roles", {}),
+                    "speaker_names": f.get("speaker_names", {}),
+                    "speaker_samples": f.get("speaker_samples", {}),
                     "quality": f.get("quality", {}),
                     "score_reliability": f.get("score_reliability", {}),
                 }
@@ -632,6 +637,34 @@ async def cancel_batch(batch_id: str):
     return {"status": "cancelling"}
 
 
+def _normalise_roles(chosen: dict, segments: list[dict]) -> dict:
+    """Roles picked in the window, checked and with "Other" numbered.
+
+    Participant measures are taken from the single Subject, so two Subjects
+    are refused rather than one silently winning.
+    """
+    talk: dict[str, float] = {}
+    for seg in segments:
+        spk = seg.get("speaker")
+        talk[spk] = talk.get(spk, 0.0) + max(seg.get("end", 0.0) - seg.get("start", 0.0), 0.0)
+    roles: dict[str, str] = {}
+    for spk in sorted(talk, key=lambda s: -talk[s]):
+        role = str(chosen.get(spk) or "Other")
+        if role.startswith("Other"):
+            role = "Other"
+        if role not in {"Interviewer", "Subject", "Other"}:
+            raise ValueError(f"Unknown role {role!r}.")
+        roles[spk] = role
+    if sum(r == "Subject" for r in roles.values()) > 1:
+        raise ValueError("Only one speaker can be the participant.")
+    n = 0
+    for spk, role in roles.items():
+        if role == "Other":
+            n += 1
+            roles[spk] = f"Other_{n}"
+    return roles
+
+
 def _roles_with_interviewer(segments: list[dict], interviewer: str) -> dict:
     """The chosen speaker as Interviewer, the other main speaker as Subject."""
     talk: dict[str, float] = {}
@@ -673,26 +706,32 @@ async def rescore(batch_id: str, index: int, payload: dict = Body(default={})):
     try:
         from acoustic_context import build_acoustic_prompt_context
         from llm_clinical_scorer import score_transcript
-        from transcript_formatter import format_structured_transcript, compute_speaker_stats
+        from transcript_formatter import (clean_names, compute_speaker_stats,
+                                          format_structured_transcript)
 
         cfg = load_config(_config_path())
-        roles = payload.get("roles") or analysis.get("speaker_roles") or {}
+        old_roles = analysis.get("speaker_roles") or {}
+        roles = _normalise_roles(payload["roles"], segments) if payload.get("roles") else old_roles
         if payload.get("interviewer"):
             roles = _roles_with_interviewer(segments, payload["interviewer"])
+        speakers = {seg.get("speaker") for seg in segments}
+        names = (clean_names(payload["names"], speakers) if "names" in payload
+                 else analysis.get("speaker_names") or {})
         with _lock:
             transcribe_only = bool((_batches.get(batch_id) or {}).get("transcribe_only"))
         scope = payload.get("transcript_scope")
         if scope:
             cfg.setdefault("llm_scoring", {})["transcript_scope"] = scope
 
-        structured = format_structured_transcript(segments, roles)
+        structured = format_structured_transcript(segments, roles, names)
         context = build_acoustic_prompt_context(
             analysis.get("overall_acoustics", {}) or {},
             analysis.get("speaker_acoustics", {}) or {},
         )
-        # A transcribe-only batch just gets relabelled; otherwise re-score, off
-        # the event loop so the window keeps updating during a long re-score.
-        rescored = not transcribe_only
+        # A transcribe-only batch, or a change of names only, just gets
+        # relabelled; a role change re-scores, off the event loop so the window
+        # keeps updating during a long re-score.
+        rescored = not transcribe_only and roles != old_roles
         if rescored:
             scoring = await run_in_threadpool(score_transcript, structured, context, cfg)
         else:
@@ -701,6 +740,7 @@ async def rescore(batch_id: str, index: int, payload: dict = Body(default={})):
         analysis = dict(analysis)
         analysis["llm_clinical_scoring"] = scoring
         analysis["speaker_roles"] = roles
+        analysis["speaker_names"] = names
         analysis["structured_transcript"] = structured
         analysis["speaker_stats"] = compute_speaker_stats(segments, roles)
 
@@ -736,14 +776,19 @@ async def rescore(batch_id: str, index: int, payload: dict = Body(default={})):
             tgt["result"] = row
             tgt["structured_transcript"] = structured
             tgt["speaker_roles"] = roles
+            tgt["speaker_names"] = names
             tgt["quality"] = analysis.get("quality") or {}
             tgt["score_reliability"] = analysis.get("score_reliability") or {}
-            _batches[batch_id]["log"].append(f"Re-scored {f['filename']}.")
+            _batches[batch_id]["log"].append(
+                f"Re-scored {f['filename']}." if rescored else f"Updated speakers for {f['filename']}.")
 
         return {"status": "success", "result": row, "rescored": rescored,
                 "quality": analysis.get("quality"),
                 "score_reliability": analysis.get("score_reliability"),
-                "structured_transcript": structured, "speaker_roles": roles}
+                "structured_transcript": structured, "speaker_roles": roles,
+                "speaker_names": names}
+    except ValueError as e:
+        return JSONResponse(status_code=400, content={"status": "error", "message": str(e)})
     except Exception as e:
         log.warning("Re-score failed for %s: %s", batch_id, e)
         return JSONResponse(status_code=500, content={"status": "error", "message": str(e)})

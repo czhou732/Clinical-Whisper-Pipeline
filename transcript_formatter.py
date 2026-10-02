@@ -155,9 +155,13 @@ def classify_speakers(segments: list[dict]) -> dict[str, str]:
 def format_structured_transcript(
     segments: list[dict],
     roles: dict[str, str],
+    names: Optional[dict[str, str]] = None,
 ) -> str:
     """
     Format diarized segments into a clean, timestamped clinical transcript.
+
+    A speaker the user has named reads "Name (Role)", so the role the scorer
+    relies on stays on every line.
 
     Consecutive segments from the same speaker are merged into a single turn.
 
@@ -203,11 +207,62 @@ def format_structured_transcript(
     for turn in merged_turns:
         ts_start = _seconds_to_mmss(turn["start"])
         ts_end = _seconds_to_mmss(turn["end"])
-        role = roles.get(turn["speaker"], turn["speaker"])
+        role = speaker_label(turn["speaker"], roles, names)
         combined_text = " ".join(turn["texts"])
         lines.append(f"[{ts_start} - {ts_end}] {role}: {combined_text}")
 
     return "\n".join(lines)
+
+
+def speaker_label(spk: str, roles: dict[str, str],
+                  names: Optional[dict[str, str]] = None) -> str:
+    """How a speaker appears in the transcript: their role, or "Name (Role)"."""
+    role = roles.get(spk, spk)
+    name = (names or {}).get(spk)
+    return f"{name} ({role})" if name else role
+
+
+_NAME_MAX = 40
+
+
+def clean_names(names: Optional[dict], speakers) -> dict[str, str]:
+    """Keep user-typed labels that are safe to put on a transcript line.
+
+    One line, no colon (the line format uses one), at most 40 characters,
+    and only for speakers this recording actually has.
+    """
+    out: dict[str, str] = {}
+    for spk, name in (names or {}).items():
+        if spk not in speakers or not isinstance(name, str):
+            continue
+        name = " ".join(name.replace(":", " ").split())[:_NAME_MAX].strip()
+        if name:
+            out[spk] = name
+    return out
+
+
+def speaker_samples(segments: list[dict], per_speaker: int = 2,
+                    max_chars: int = 140) -> dict[str, dict]:
+    """A few lines and the talk time for each speaker, to tell them apart.
+
+    Takes each speaker's earliest turns of at least six words: short ones
+    ("yeah", "mm-hmm") identify nobody. Text is the masked transcript.
+    """
+    out: dict[str, dict] = {}
+    for seg in segments:
+        spk = seg.get("speaker", "Unknown")
+        entry = out.setdefault(spk, {"talk_s": 0.0, "lines": [], "first_s": None})
+        start, end = float(seg.get("start", 0.0)), float(seg.get("end", 0.0))
+        entry["talk_s"] += max(0.0, end - start)
+        if entry["first_s"] is None:
+            entry["first_s"] = start
+        text = " ".join((seg.get("text") or "").split())
+        if len(entry["lines"]) < per_speaker and len(text.split()) >= 6:
+            entry["lines"].append(text if len(text) <= max_chars
+                                  else text[:max_chars].rsplit(" ", 1)[0] + "…")
+    for entry in out.values():
+        entry["talk_s"] = round(entry["talk_s"], 1)
+    return out
 
 
 # ---------------------------------------------------------------------------

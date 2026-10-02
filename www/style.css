@@ -578,15 +578,25 @@ input:focus {
     margin-top: var(--space-2);
 }
 
-.roles-bar {
-    display: flex;
-    align-items: center;
-    gap: var(--space-3);
-    padding: var(--space-2) 0 var(--space-3);
-    flex-wrap: wrap;
-}
-
-.roles-bar.hidden { display: none; }
+.speakers-panel { padding: var(--space-2) 0 var(--space-3); }
+.speakers-panel.hidden { display: none; }
+.speakers-panel summary { display: flex; align-items: center; gap: var(--space-3);
+    flex-wrap: wrap; cursor: pointer; }
+.speakers-edit { color: var(--color-text-muted); text-decoration: underline; }
+.speakers-help { color: var(--color-text-muted); max-width: 70ch; margin: var(--space-2) 0; }
+.speakers-scroll { overflow-x: auto; }
+.speakers-table { border-collapse: collapse; width: 100%; font-size: var(--text-sm); }
+.speakers-table th { text-align: left; color: var(--color-text-muted); font-weight: 500;
+    padding: var(--space-1) var(--space-2); }
+.speakers-table td { padding: var(--space-2); vertical-align: top;
+    border-top: 1px solid var(--color-border, rgba(128,128,128,.25)); }
+.speakers-table .spk-id { font-family: var(--font-mono); white-space: nowrap; }
+.speakers-table .spk-talk { display: block; color: var(--color-text-muted); }
+.speakers-table .spk-lines { max-width: 46ch; }
+.speakers-table .spk-lines p { margin: 0 0 var(--space-1); }
+.speakers-table input { width: 12ch; }
+.speakers-actions { display: flex; align-items: center; gap: var(--space-3);
+    margin-top: var(--space-2); }
 
 .roles-summary {
     font-family: var(--font-mono);

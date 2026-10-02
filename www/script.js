@@ -16,7 +16,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const btnCancel = document.getElementById('btn-cancel');
     const stageLabel = document.getElementById('stage-label');
     const stageDetail = document.getElementById('stage-detail');
-    const rolesBar = document.getElementById('roles-bar');
+    const rolesBar = document.getElementById('speakers-panel');
     const rolesSummary = document.getElementById('roles-summary');
     const btnSwapRoles = document.getElementById('btn-swap-roles');
 
@@ -227,21 +227,93 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // --- Correct speaker roles and re-score (no re-transcription) ---
+    // --- Speakers: correct roles, add labels (no re-transcription) ---
 
-    // Pick who the interviewer is; the server gives Subject to the other main
-    // speaker and re-scores (or, for a transcribe-only batch, only relabels).
+    const ROLE_CHOICES = [['Interviewer', 'Interviewer'], ['Subject', 'Participant'],
+                          ['Other', 'Other']];
+    const roleText = r => r === 'Subject' ? 'Participant'
+        : (r || '').startsWith('Other') ? 'Other' : r;
+    const minutes = s => s >= 60 ? `${Math.round(s / 60)} min` : `${Math.round(s)} s`;
+
+    function renderSpeakers(f) {
+        const roles = f.speaker_roles || {};
+        const names = f.speaker_names || {};
+        const samples = f.speaker_samples || {};
+        const ids = Object.keys(roles).sort(
+            (a, b) => ((samples[b] || {}).talk_s || 0) - ((samples[a] || {}).talk_s || 0));
+        rolesSummary.textContent = ids.map(k =>
+            `${names[k] ? names[k] + ' · ' : ''}${roleText(roles[k])}`).join(', ');
+        const body = document.getElementById('speakers-rows');
+        body.innerHTML = '';
+        ids.forEach(k => {
+            const tr = document.createElement('tr');
+            tr.dataset.speaker = k;
+            const idCell = document.createElement('td');
+            idCell.className = 'spk-id';
+            idCell.textContent = k;
+            const talk = document.createElement('span');
+            talk.className = 'spk-talk';
+            talk.textContent = minutes((samples[k] || {}).talk_s || 0);
+            idCell.appendChild(talk);
+            const lines = document.createElement('td');
+            lines.className = 'spk-lines';
+            ((samples[k] || {}).lines || []).forEach(t => {
+                const para = document.createElement('p');
+                para.textContent = `“${t}”`;
+                lines.appendChild(para);
+            });
+            if (!lines.childNodes.length) lines.textContent = '(only short replies)';
+            const roleCell = document.createElement('td');
+            const sel = document.createElement('select');
+            sel.className = 'spk-role';
+            sel.setAttribute('aria-label', `Role for ${k}`);
+            const current = (roles[k] || '').startsWith('Other') ? 'Other' : roles[k];
+            ROLE_CHOICES.forEach(([value, label]) => {
+                const o = document.createElement('option');
+                o.value = value;
+                o.textContent = label;
+                if (value === current) o.selected = true;
+                sel.appendChild(o);
+            });
+            roleCell.appendChild(sel);
+            const nameCell = document.createElement('td');
+            const input = document.createElement('input');
+            input.type = 'text';
+            input.className = 'spk-name';
+            input.maxLength = 40;
+            input.placeholder = 'e.g. P01';
+            input.value = names[k] || '';
+            input.setAttribute('aria-label', `Label for ${k}`);
+            nameCell.appendChild(input);
+            tr.append(idCell, lines, roleCell, nameCell);
+            body.appendChild(tr);
+        });
+        document.getElementById('speakers-status').textContent = '';
+    }
+
     btnSwapRoles.addEventListener('click', async () => {
         const f = batchFiles[activeIndex];
-        const chosen = document.getElementById('interviewer-select').value;
-        if (!f || !currentBatchId || !chosen) return;
+        if (!f || !currentBatchId) return;
+        const status = document.getElementById('speakers-status');
+        const roles = {};
+        const names = {};
+        document.querySelectorAll('#speakers-rows tr').forEach(tr => {
+            const k = tr.dataset.speaker;
+            roles[k] = tr.querySelector('.spk-role').value;
+            names[k] = tr.querySelector('.spk-name').value.trim();
+        });
+        if (Object.values(roles).filter(r => r === 'Subject').length > 1) {
+            status.textContent = 'Only one speaker can be the participant.';
+            return;
+        }
         btnSwapRoles.disabled = true;
         btnSwapRoles.textContent = 'Applying...';
+        status.textContent = '';
         try {
             const res = await fetch(`/api/rescore/${currentBatchId}/${activeIndex}`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ interviewer: chosen })
+                body: JSON.stringify({ roles, names })
             });
             const data = await res.json();
             if (data.status === 'success') {
@@ -249,17 +321,18 @@ document.addEventListener('DOMContentLoaded', () => {
                     result: data.result,
                     structured_transcript: data.structured_transcript,
                     speaker_roles: data.speaker_roles,
+                    speaker_names: data.speaker_names,
                     quality: data.quality || f.quality,
                     score_reliability: data.score_reliability || f.score_reliability,
                 });
                 renderActive();
-                appendLog(data.rescored ? 'Re-scored with the corrected interviewer.'
-                                        : 'Speaker roles updated.');
+                appendLog(data.rescored ? 'Re-scored with the corrected roles.'
+                                        : 'Speakers updated.');
             } else {
-                appendLog(`Could not update roles: ${data.message}`);
+                status.textContent = data.message || 'Could not update speakers.';
             }
         } catch (e) {
-            appendLog(`Could not update roles: ${e.message}`);
+            status.textContent = `Could not update speakers: ${e.message}`;
         } finally {
             btnSwapRoles.disabled = false;
             btnSwapRoles.textContent = 'Apply';
@@ -561,16 +634,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const roles = f.speaker_roles || {};
         const roleEntries = Object.keys(roles);
         if (roleEntries.length && f.state === 'done') {
-            rolesSummary.textContent = roleEntries.map(k => `${k} → ${roles[k]}`).join(', ');
-            const pick = document.getElementById('interviewer-select');
-            pick.innerHTML = '';
-            roleEntries.forEach(k => {
-                const o = document.createElement('option');
-                o.value = k;
-                o.textContent = k;
-                if (roles[k] === 'Interviewer') o.selected = true;
-                pick.appendChild(o);
-            });
+            renderSpeakers(f);
             rolesBar.classList.remove('hidden');
         } else {
             rolesBar.classList.add('hidden');
