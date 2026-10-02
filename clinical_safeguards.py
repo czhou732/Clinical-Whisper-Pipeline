@@ -29,19 +29,28 @@ RESEARCH_USE_NOTICE = (
     "exploratory research measures, not clinical assessments."
 )
 
-# ICC(1,1) of a single scoring run, from evals/reports/reliability.md.
-_ICC_SINGLE_RUN = {
-    "hesitancy_score": 0.288,
-    "affect_flatness": 0.501,
-    "engagement_level": 0.366,
-    "elaboration_positive": 0.596,
-    "elaboration_negative": 0.533,
-    "psychomotor_indicators": 0.217,
+# ICC(1,1) of a single scoring run, per scorer version.
+# Version 1 (six 0-10 scores): evals/reports/reliability.md. Kept for reading
+# old results only; version 2 asks different questions on a different scale.
+_ICC_SINGLE_RUN_BY_VERSION = {
+    "1": {
+        "hesitancy_score": 0.288,
+        "affect_flatness": 0.501,
+        "engagement_level": 0.366,
+        "elaboration_positive": 0.596,
+        "elaboration_negative": 0.533,
+        "psychomotor_indicators": 0.217,
+    },
+    # Version 2 (four 0-3 scores with quoted evidence): filled in from
+    # evals/reports/reliability_v2.md once measured. Until then each score
+    # is shown as "not yet measured", never with version 1's numbers.
+    "2": {},
 }
+_V2_KEYS = ("anhedonia_content", "depressed_mood_content", "affect_flatness", "engagement_level")
 # "Good" reliability starts at 0.75 (Koo & Li, 2016).
 ADEQUATE_ICC = 0.75
-# Two LLM scores ask for timing the model cannot see in a text transcript. The
-# pipeline measures that timing directly, so these columns are the ones to use.
+# Version-1 scores that asked for timing the model cannot see in a transcript;
+# the pipeline measures that timing directly.
 _MEASURED_INSTEAD = {
     "hesitancy_score": ["subject_pause_mean_s", "subject_pause_proportion", "subject_filler_rate"],
     # Response latency would be the natural measure here, but segment
@@ -55,13 +64,23 @@ def spearman_brown(icc: float, runs: int) -> float:
     return runs * icc / (1 + (runs - 1) * icc)
 
 
-def score_reliability(runs: int) -> dict[str, dict]:
-    """Per score: expected ICC for the mean of ``runs`` scorings, and what it means."""
+def score_reliability(runs: int, version: str = "2") -> dict[str, dict]:
+    """Per score: expected ICC for the mean of ``runs`` scorings, and what it means.
+
+    A score whose reliability hasn't been measured for this scorer version
+    gets ``icc: None`` and ``measured: False``.
+    """
     runs = max(1, int(runs))
+    table = _ICC_SINGLE_RUN_BY_VERSION.get(str(version), {})
+    keys = list(table) if version == "1" else list(_V2_KEYS)
     out = {}
-    for key, icc1 in _ICC_SINGLE_RUN.items():
+    for key in keys:
+        icc1 = table.get(key)
+        if icc1 is None:
+            out[key] = {"icc": None, "runs": runs, "adequate": False, "measured": False}
+            continue
         icc = round(spearman_brown(icc1, runs), 2)
-        entry = {"icc": icc, "runs": runs, "adequate": icc >= ADEQUATE_ICC}
+        entry = {"icc": icc, "runs": runs, "adequate": icc >= ADEQUATE_ICC, "measured": True}
         if key in _MEASURED_INSTEAD:
             entry["use_instead"] = _MEASURED_INSTEAD[key]
         out[key] = entry

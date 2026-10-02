@@ -48,3 +48,10 @@ def test_plain_english_is_english():
 
 def test_too_little_text_is_unknown():
     assert detect("ok yeah")["code"] == "und"
+
+
+def test_short_english_excerpt_full_of_names_stays_english():
+    text = ("Who didn't agree, or people who would like to. So we had Mateo, we had Sofia. "
+            "Me, Diego is me, Camila, I think said yes. Valentina, I guess we don't have "
+            "Valentina today. And Lucas, I'm sure we don't have Lucas here. Okay.")
+    assert detect(text)["code"] == "en"

@@ -6,12 +6,19 @@ from clinical_safeguards import assess_quality, level_stats, score_reliability, 
 def test_spearman_brown_matches_the_reliability_report():
     # evals/reports/reliability.md: hesitancy ICC(1,1) 0.288 -> mean of 5 = 0.67
     assert round(spearman_brown(0.288, 5), 2) == 0.67
-    rel = score_reliability(5)
+    rel = score_reliability(5, version="1")
     assert rel["elaboration_positive"]["icc"] == 0.88 and rel["elaboration_positive"]["adequate"]
     assert not rel["psychomotor_indicators"]["adequate"]
     assert "subject_speech_rate_wps" in rel["psychomotor_indicators"]["use_instead"]
     # Latency is not reliable in this version, so it is never suggested.
     assert "subject_response_latency_median_s" not in rel["psychomotor_indicators"]["use_instead"]
+
+
+def test_version_2_never_borrows_version_1_reliability():
+    rel = score_reliability(5)
+    assert set(rel) == {"anhedonia_content", "depressed_mood_content", "affect_flatness",
+                        "engagement_level"}
+    assert all(r["icc"] is None and not r["measured"] for r in rel.values())
 
 
 def _seg(spk, start, end, **kw):

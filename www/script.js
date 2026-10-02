@@ -257,6 +257,13 @@ document.addEventListener('DOMContentLoaded', () => {
         li.className = 'file-editor';
         const e = Object.assign({ start: '', end: '', skip: '' }, file.cwEdits || {});
         li.innerHTML = `
+            <canvas class="editor-wave" aria-label="Drag across the waveform to select a stretch"></canvas>
+            <div class="editor-actions editor-sel">
+                <span class="text-sm editor-sel-text">Drag across the waveform to select a stretch, or click to jump there.</span>
+                <button class="link-button" data-sel="play" disabled>Play selection</button>
+                <button class="link-button" data-sel="cut" disabled>Leave this out</button>
+                <button class="link-button" data-sel="only" disabled>Process only this</button>
+            </div>
             <audio controls preload="metadata" class="editor-player"></audio>
             <p class="text-sm editor-noplay hidden">This format can't be played here;
                 type the times instead.</p>
@@ -291,6 +298,115 @@ document.addEventListener('DOMContentLoaded', () => {
         field('end').value = e.end;
         field('skip').value = e.skip;
         let markFrom = null;
+
+        // Waveform: drag to select, click to seek, skipped stretches shaded.
+        const wave = li.querySelector('.editor-wave');
+        let sel = null, dragFrom = null, stopAt = null;
+        const dur = () => (isFinite(player.duration) && player.duration) || file.duration || 0;
+        const tAt = x => {
+            const r = wave.getBoundingClientRect();
+            return Math.max(0, Math.min(1, (x - r.left) / r.width)) * dur();
+        };
+        function skips() {
+            return field('skip').value.split(/[,;\n]+/).map(r => r.split(/\s*[-–]\s*/))
+                .filter(r => r.length === 2).map(r => [secondsOf(r[0]), secondsOf(r[1])])
+                .filter(r => r[0] !== null && r[1] !== null);
+        }
+        async function paint() {
+            const r = wave.getBoundingClientRect(), dpr = window.devicePixelRatio || 1;
+            wave.width = Math.max(1, Math.round(r.width * dpr));
+            wave.height = Math.max(1, Math.round(r.height * dpr));
+            const ctx = wave.getContext('2d');
+            ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+            ctx.clearRect(0, 0, r.width, r.height);
+            const css = getComputedStyle(document.documentElement);
+            const D = dur();
+            const peaks = await peaksFor(file);
+            const x = t => D ? (t / D) * r.width : 0;
+            ctx.fillStyle = css.getPropertyValue('--line').trim();
+            skips().forEach(([a, b]) => ctx.fillRect(x(a), 0, x(b) - x(a), r.height));
+            const st = secondsOf(field('start').value), en = secondsOf(field('end').value);
+            if (st) ctx.fillRect(0, 0, x(st), r.height);
+            if (en) ctx.fillRect(x(en), 0, r.width - x(en), r.height);
+            if (peaks) {
+                const step = r.width / peaks.length;
+                ctx.fillStyle = css.getPropertyValue('--muted').trim();
+                peaks.forEach((a, i) => {
+                    const h = Math.max(1.5, a * (r.height - 10));
+                    ctx.fillRect(i * step + step * 0.2, (r.height - h) / 2, Math.max(1, step * 0.6), h);
+                });
+            }
+            if (sel) {
+                ctx.fillStyle = css.getPropertyValue('--accent-dim').trim() || 'rgba(110,155,255,.2)';
+                ctx.fillRect(x(sel[0]), 0, x(sel[1]) - x(sel[0]), r.height);
+            }
+            if (D && player.currentTime) {
+                ctx.fillStyle = css.getPropertyValue('--accent').trim();
+                ctx.fillRect(x(player.currentTime), 0, 1.5, r.height);
+            }
+        }
+        function showSel() {
+            const has = !!sel && sel[1] - sel[0] >= 0.3;
+            li.querySelector('[data-sel="play"]').disabled = !has;
+            li.querySelector('[data-sel="cut"]').disabled = !has;
+            li.querySelector('[data-sel="only"]').disabled = !has;
+            li.querySelector('.editor-sel-text').textContent = has
+                ? `Selected ${mmss(sel[0])}–${mmss(sel[1])}`
+                : 'Drag across the waveform to select a stretch, or click to jump there.';
+            paint();
+        }
+        wave.addEventListener('pointerdown', ev => {
+            if (!dur()) return;
+            wave.setPointerCapture(ev.pointerId);
+            dragFrom = tAt(ev.clientX);
+            sel = null;
+        });
+        wave.addEventListener('pointermove', ev => {
+            if (dragFrom === null) return;
+            const t = tAt(ev.clientX);
+            sel = [Math.min(dragFrom, t), Math.max(dragFrom, t)];
+            showSel();
+        });
+        wave.addEventListener('pointerup', ev => {
+            if (dragFrom === null) return;
+            const t = tAt(ev.clientX);
+            if (Math.abs(t - dragFrom) < 0.3) {  // a click: jump there
+                sel = null;
+                player.currentTime = t;
+                player.play().catch(() => {});
+            }
+            dragFrom = null;
+            showSel();
+        });
+        player.addEventListener('timeupdate', () => {
+            if (stopAt !== null && player.currentTime >= stopAt) { player.pause(); stopAt = null; }
+            paint();
+        });
+        player.addEventListener('loadedmetadata', paint);
+        setTimeout(paint, 0);
+        ['start', 'end', 'skip'].forEach(id => field(id).addEventListener('input', paint));
+
+        li.addEventListener('click', ev => {
+            const t0 = ev.target;
+            if (t0.dataset.sel === 'play' && sel) {
+                player.currentTime = sel[0];
+                stopAt = sel[1];
+                player.play().catch(() => {});
+            }
+            if (t0.dataset.sel === 'only' && sel) {
+                // Transcribe and score just this section; times stay those of the file.
+                field('start').value = mmss(sel[0]);
+                field('end').value = mmss(sel[1]);
+                sel = null;
+                showSel();
+            }
+            if (t0.dataset.sel === 'cut' && sel) {
+                const range = `${mmss(sel[0])}-${mmss(sel[1])}`;
+                field('skip').value = [field('skip').value.trim(), range].filter(Boolean).join(', ');
+                sel = null;
+                showSel();
+            }
+        });
         li.addEventListener('click', ev => {
             const t = ev.target;
             if (t.dataset.set) field(t.dataset.set).value = mmss(player.currentTime);
@@ -1076,23 +1192,32 @@ document.addEventListener('DOMContentLoaded', () => {
                 jsonContent.textContent = JSON.stringify(a, null, 2);
                 if ((a.speaker_assignment || {}).mode === 'group') renderPerSpeaker(a);
                 if (a.kintsugi) renderKintsugi(a.kintsugi);
+                const ev = (a.llm_clinical_scoring || {}).evidence;
+                if (ev && Object.keys(ev).length) {
+                    evidenceFor = ev;
+                    resultContent.querySelectorAll('.measure-group').forEach(g => {
+                        if (g.querySelector('h4').textContent.startsWith('Clinical scores')) g.remove();
+                    });
+                    renderClinical(f.result || {}, f.score_reliability || {});
+                    evidenceFor = {};
+                }
                 const scoring = a.llm_clinical_scoring || {};
                 // Say plainly when there are no clinical scores, so the
                 // measurements are not mistaken for them.
                 document.getElementById('scores-note').classList.toggle(
                     'hidden', Object.keys(scoring).length > 0);
-                if (scoring.clinical_impression) {
+                if (scoring.summary || scoring.clinical_impression) {
                     const h = document.createElement('h4');
-                    h.textContent = 'Clinical Impression';
+                    h.textContent = 'Summary of what was said';
                     const p = document.createElement('p');
                     p.className = 'impression';
-                    p.textContent = scoring.clinical_impression;
+                    p.textContent = scoring.summary || scoring.clinical_impression;
                     impressionBlock.appendChild(h);
                     impressionBlock.appendChild(p);
                 }
                 if ((scoring.key_observations || []).length) {
                     const h = document.createElement('h4');
-                    h.textContent = 'Key Observations';
+                    h.textContent = 'Evidence';
                     const ul = document.createElement('ul');
                     ul.className = 'observations';
                     scoring.key_observations.forEach(o => {
@@ -1113,6 +1238,9 @@ document.addEventListener('DOMContentLoaded', () => {
         ['Recording', ['language', 'word_count', 'duration_minutes', 'participant_speech_min', 'snr_db']],
         ['Participant timing', ['subject_speech_rate_wps', 'subject_pause_mean_s',
             'subject_filler_rate', 'subject_response_latency_median_s']],
+        ['Elaboration, measured', ['subject_words_per_answer_positive',
+            'subject_words_per_answer_neutral', 'subject_words_per_answer_negative',
+            'subject_positive_to_neutral_elaboration']],
         ['Participant voice', ['subject_pitch_mean_st', 'subject_pitch_cv',
             'subject_loudness_mean_db', 'subject_jitter', 'subject_shimmer']],
         ['Whole recording', ['vta', 'pitch_mean_st', 'pitch_cv', 'loudness_mean_db',
@@ -1131,16 +1259,20 @@ document.addEventListener('DOMContentLoaded', () => {
         vta: 'VTA', pitch_mean_st: 'Pitch (semitones)', pitch_cv: 'Pitch variability',
         loudness_mean_db: 'Loudness (dB)', loudness_cv: 'Loudness variability',
         jitter: 'Jitter', shimmer: 'Shimmer',
-        hesitancy_score: 'Hesitancy', affect_flatness: 'Affect flatness',
-        engagement_level: 'Engagement', elaboration_positive: 'Elaboration, positive',
-        elaboration_negative: 'Elaboration, negative', psychomotor_indicators: 'Psychomotor',
+        anhedonia_content: 'Interest and pleasure (what they say)',
+        depressed_mood_content: 'Low mood (what they say)',
+        affect_flatness: 'Flat emotional language', engagement_level: 'Engagement',
+        subject_words_per_answer_positive: 'Words per answer, positive questions',
+        subject_words_per_answer_neutral: 'Words per answer, neutral questions',
+        subject_words_per_answer_negative: 'Words per answer, negative questions',
+        subject_positive_to_neutral_elaboration: 'Positive vs neutral answers (ratio)',
     };
     const LANGUAGES = { en: 'English', es: 'Spanish', fr: 'French', de: 'German', it: 'Italian',
         pt: 'Portuguese', nl: 'Dutch', tr: 'Turkish', vi: 'Vietnamese', zh: 'Chinese',
         ja: 'Japanese', ko: 'Korean', ar: 'Arabic', hi: 'Hindi', bn: 'Bengali', te: 'Telugu',
         und: 'Unknown' };
-    const CLINICAL = ['hesitancy_score', 'affect_flatness', 'engagement_level',
-        'elaboration_positive', 'elaboration_negative', 'psychomotor_indicators'];
+    const CLINICAL = ['anhedonia_content', 'depressed_mood_content', 'affect_flatness',
+        'engagement_level'];
     const present = v => v !== undefined && v !== null && v !== '';
     const num = v => {
         if (typeof v !== 'number') return String(v);
@@ -1149,6 +1281,7 @@ document.addEventListener('DOMContentLoaded', () => {
         return v.toFixed(a >= 100 ? 0 : a >= 10 ? 1 : 2);
     };
 
+    let evidenceFor = {};
     function renderMeasures(result, reliability, group) {
         GROUPS.forEach(([title, keys]) => {
             // A group has no single participant; its measures are per speaker.
@@ -1173,13 +1306,18 @@ document.addEventListener('DOMContentLoaded', () => {
             resultContent.appendChild(g);
         });
 
-        const scored = CLINICAL.filter(k => present(result[k]));
+        renderClinical(result, reliability);
+    }
+
+    function renderClinical(result, reliability) {
+        const scored = CLINICAL.filter(k => present(result[k]) || result.scorer_version);
         if (!scored.length) return;
         const g = document.createElement('div');
         g.className = 'measure-group';
         const h = document.createElement('h4');
         const runs = (reliability[scored[0]] || {}).runs;
-        h.textContent = runs > 1 ? `Clinical scores, mean of ${runs} runs` : 'Clinical scores';
+        h.textContent = (runs > 1 ? `Clinical scores, 0-3, mean of ${runs} runs` : 'Clinical scores, 0-3')
+            + ' · each needs a quote from the participant';
         const table = document.createElement('table');
         table.className = 'scores';
         table.innerHTML = '<thead><tr><th scope="col">Score</th><th scope="col">Value</th>'
@@ -1190,7 +1328,19 @@ document.addEventListener('DOMContentLoaded', () => {
             const tr = document.createElement('tr');
             const name = document.createElement('td');
             name.textContent = SHORT[k] || prettify(k);
-            if (rel && !rel.adequate) {
+            const quote = ((evidenceFor || {})[k] || [])[0];
+            if (quote) {
+                const q = document.createElement('span');
+                q.className = 'quote';
+                q.textContent = `“${quote}”`;
+                name.appendChild(q);
+            }
+            if (rel && rel.measured === false) {
+                tr.className = 'weak';
+                const why = document.createElement('span');
+                why.textContent = 'Reliability of this scorer version not measured yet.';
+                name.appendChild(why);
+            } else if (rel && !rel.adequate) {
                 tr.className = 'weak';
                 const why = document.createElement('span');
                 why.textContent = rel.use_instead
@@ -1200,10 +1350,11 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             const val = document.createElement('td');
             val.className = 'data';
-            val.textContent = num(result[k]);
+            val.textContent = present(result[k]) ? num(result[k]) : 'no evidence';
             const icc = document.createElement('td');
             icc.className = 'data';
-            icc.textContent = rel ? rel.icc.toFixed(2).replace(/^0/, '') : '';
+            icc.textContent = rel && typeof rel.icc === 'number' ? rel.icc.toFixed(2).replace(/^0/, '')
+                : 'not yet measured';
             tr.append(name, val, icc);
             body.appendChild(tr);
         });

@@ -28,7 +28,7 @@ NAMES = {
 
 # Frequent function words; few are shared, and none are shared by every list.
 _STOPWORDS = {
-    "en": "the and to of a i that it you in is was for on but so like have not with my what just they be this do know yeah",
+    "en": "the and to of a i that it you in is was for on but so like have not with my what just they be this do know yeah me we had said yes he she are think don't i'm it's",
     "es": "de que y el la en no los se lo un por con para una es me pero mi como más muy eso yo está",
     "fr": "le de et les des que je la est pas un une en pour qui dans ce il ne vous mais ça oui",
     "de": "der die und ich das ist nicht zu ein es den mit sie auf auch eine wir dass aber ja so",
@@ -103,6 +103,11 @@ def detect(text: str) -> dict:
                 "other_share": round(1 - top_n / letters, 3)}
     (code, n), *rest = hits.most_common()
     runner_up = rest[0][1] if rest else 0
+    # A non-English verdict needs real evidence: a short excerpt full of names
+    # ("So we had Maria, we had Carlos") otherwise reads as Spanish by chance.
+    if code != "en" and (n < 4 or len(words) < 20):
+        return {"code": "und", "name": "Unknown", "confidence": 0.0,
+                "other_share": round(1 - top_n / letters, 3)}
     confidence = round(n / (n + runner_up), 2)
     non_latin = 1 - top_n / letters
     # Words of a second language well above chance (shared words like "a",

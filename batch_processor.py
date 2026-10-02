@@ -89,12 +89,17 @@ def _extract_row(analysis_path: str, audio_filename: str) -> dict:
         "speakers_found": len({s.get("speaker") for s in data.get("segments", [])}),
         "masked_mentions": deid.get("masked_mentions"),
         "distinct_identifiers": deid.get("distinct_identifiers"),
-        "hesitancy_score": llm_scores.get("hesitancy_score", None),
-        "affect_flatness": llm_scores.get("affect_flatness", None),
-        "engagement_level": llm_scores.get("engagement_level", None),
-        "elaboration_positive": llm_scores.get("elaboration_positive", None),
-        "elaboration_negative": llm_scores.get("elaboration_negative", None),
-        "psychomotor_indicators": llm_scores.get("psychomotor_indicators", None),
+        # Clinical scores, version 2: 0-3 with quoted evidence (empty when
+        # not made, or when no run could support the score with a quote).
+        **{k: llm_scores.get(k) for k in ("anhedonia_content", "depressed_mood_content",
+                                          "affect_flatness", "engagement_level")},
+        "scorer_version": ((llm_scores.get("_meta") or {}).get("scorer_version")
+                           if llm_scores else None),
+        # Measured elaboration: median words per answer by question valence.
+        **{f"subject_words_per_answer_{v}": (((timing.get("elaboration") or {}).get(v) or {})
+                                             .get("words_median"))
+           for v in ("positive", "neutral", "negative")},
+        "subject_positive_to_neutral_elaboration": (timing.get("elaboration") or {}).get("positive_to_neutral"),
         # Measured test-retest ICC of each score above, at this file's run count.
         **{f"{k}_icc": v.get("icc") for k, v in reliability.items()},
         # Whole recording, both speakers.

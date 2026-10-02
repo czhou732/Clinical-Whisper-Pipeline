@@ -107,7 +107,7 @@ def test_missing_addon_blanks_scores_instead_of_faking_them(monkeypatch, tmp_pat
         raise AssertionError("scoring ran without the model")
 
     monkeypatch.setattr(llm_clinical_scorer, "score_transcript", _must_not_run)
-    cfg = {"llm_scoring": {"enabled": True},
+    cfg = {"llm_scoring": {"enabled": True, "min_participant_speech_s": 0},
            "pipeline": {"analysis_output_folder": str(tmp_path)},
            "audio_retention": "keep"}
     state = {

@@ -151,6 +151,26 @@ def _guide_text(cfg: dict):
         return None
 
 
+def _scoring_gate(quality: dict, cfg: dict) -> str:
+    """Why clinical scores shouldn't be made for this recording, or "".
+
+    Version 1 rated a 30-second roll call as "consistent with anhedonic
+    presentation". Scores need enough of the participant, clearly recorded.
+    """
+    sc = cfg.get("llm_scoring", {})
+    min_speech = float(sc.get("min_participant_speech_s", 180))
+    min_snr = float(sc.get("min_snr_db", 15))
+    speech = quality.get("participant_speech_s") or 0.0
+    snr = quality.get("snr_db")
+    if speech < min_speech:
+        return (f"Clinical scores were not made: {speech / 60:.1f} min of participant speech, "
+                f"and scores need at least {min_speech / 60:.0f} min.")
+    if isinstance(snr, (int, float)) and snr < min_snr:
+        return (f"Clinical scores were not made: background noise is close to the voice "
+                f"(SNR {snr:.0f} dB, below {min_snr:.0f} dB).")
+    return ""
+
+
 def _english(lang: dict) -> bool:
     """English, or too little text to tell (treated as before)."""
     import language
@@ -889,7 +909,13 @@ class InferencePipeline:
         timing = speaker_timing(timing_segments)
         # No single participant in a group, and none to report while the roles
         # are uncertain: per-speaker measures stay in per_speaker.
+        import elaboration
+        lang = stats.get("language") or {}
+        english = _english(lang)
         timing_payload = {
+            # Words per answer after positive / neutral / negative questions.
+            "elaboration": (elaboration.measure(segments, speaker_roles or {})
+                            if english and not group and not roles_uncertain else None),
             "subject_speaker": (None if group or roles_uncertain
                                 else subject_speaker(timing, speaker_roles or {})),
             "per_speaker": timing,
@@ -989,6 +1015,11 @@ class InferencePipeline:
             llm_enabled = False
             notes.append(f"Clinical scores were built and checked on English interviews, so "
                          f"they weren't run on this {lang.get('name')} recording.")
+        # Only asked when scores are wanted and nothing above already ruled them out.
+        gate = _scoring_gate(quality, self.cfg) if (llm_enabled and structured_transcript) else ""
+        if gate:
+            llm_enabled = False
+            notes.append(gate)
         scoring_missing = bool(structured_transcript and llm_enabled
                                and not _scoring_installed(self.cfg))
         if scoring_missing:
@@ -1019,7 +1050,7 @@ class InferencePipeline:
             except Exception as exc:
                 log.warning("Job %s: LLM clinical scoring failed: %s", job_id, exc)
                 warnings.append(f"LLM clinical scoring failed: {exc}")
-        elif not llm_enabled and not scoring_missing and english:
+        elif not llm_enabled and not scoring_missing and english and not gate:
             # Asked for deliberately (the app's "transcribe only", the batch
             # command's --transcribe-only), this is a choice, not a fault: it
             # must not mark an otherwise clean run as "completed with warnings".
@@ -1034,6 +1065,16 @@ class InferencePipeline:
 
         # Reliability at the number of runs actually averaged per chunk.
         meta = llm_scoring.get("_meta") or {}
+        if meta.get("error"):
+            # Every run failed: the scores are missing, and the result says so.
+            warnings.append(f"Clinical scoring failed: {meta['error']}")
+        if llm_scoring and not meta.get("error"):
+            import consistency
+            subject_t = (timing_payload.get("per_speaker") or {}).get(
+                timing_payload.get("subject_speaker")) or {}
+            quality["flags"].extend(consistency.check(
+                " ".join([llm_scoring.get("summary") or ""] + list(llm_scoring.get("key_observations") or [])),
+                subject_t))
         runs = meta.get("samples_per_window") or self.cfg.get("llm_scoring", {}).get("samples", 1)
         if meta.get("runs_used") and meta.get("windows"):
             runs = max(1, min(runs, meta["runs_used"] // meta["windows"]))
