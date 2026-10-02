@@ -6,4 +6,4 @@ report always says which build produced it. pyproject.toml must match
 (tests/test_version.py checks).
 """
 
-__version__ = "5.2.0"
+__version__ = "5.3.0"
