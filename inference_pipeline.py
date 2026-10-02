@@ -803,6 +803,13 @@ class InferencePipeline:
         except Exception as exc:  # noqa: BLE001 - an add-on must not lose the run
             log.warning("Kintsugi voice model failed: %s", exc)
             warnings.append(f"Kintsugi voice model failed: {exc}")
+        # Praat voice measures (optional add-on, senselab / Bridge2AI definitions).
+        praat = None
+        try:
+            import praat_measures
+            praat = praat_measures.per_speaker(str(acoustic_wav), segments)
+        except Exception as exc:  # noqa: BLE001 - an add-on must not lose the run
+            log.warning("Praat measures failed: %s", exc)
         self._cleanup(prep)
         # Measured on the edited audio above; reported in the recording's own
         # time from here on, so timestamps match the file the user has.
@@ -822,6 +829,7 @@ class InferencePipeline:
             "audio_stats": audio_stats,
             "voices": voices,
             "voice_model": voice_model,
+            "praat": praat,
             "warnings": warnings,
         }
 
@@ -993,6 +1001,11 @@ class InferencePipeline:
                 "structured_transcript": structured_transcript,
                 # Keyword screen for passages a clinician should read; not scored.
                 "clinical_review": clinical_review,
+                # Praat measures (senselab definitions), if the add-on is installed.
+                "praat_measures": ({"per_speaker": state.get("praat"),
+                                    "subject": (state.get("praat") or {}).get(timing_payload["subject_speaker"]),
+                                    "definitions": "senselab / Bridge2AI-Voice (Praat via parselmouth)"}
+                                   if state.get("praat") is not None else None),
                 # Kintsugi's open voice model, if installed: per speaker, and the
                 # participant's estimate (research only).
                 "kintsugi": ({"per_speaker": state.get("voice_model"),

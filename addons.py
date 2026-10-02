@@ -102,6 +102,36 @@ def install_kintsugi(source: Path, root: Optional[Path] = None) -> Path:
     return root / kintsugi_dam.CHECKPOINT
 
 
+PRAAT_ROOT = bundled_models.APP_SUPPORT / "addons" / "praat"
+
+
+def add_praat_path(root: Optional[Path] = None) -> None:
+    """Make the Praat add-on importable (it lives outside the app; GPL-3.0)."""
+    site = (root or PRAAT_ROOT) / "site"
+    if (site / "parselmouth").exists() or any(site.glob("parselmouth*.so")):
+        if str(site) not in sys.path:
+            sys.path.append(str(site))
+
+
+def install_praat(source: Path, root: Optional[Path] = None) -> Path:
+    """Copy the Praat add-on's ``site`` folder into Application Support."""
+    root = root or PRAAT_ROOT
+    candidates = [source / "site", *[p / "site" for p in Path(source).iterdir() if p.is_dir()]]
+    site = next((c for c in candidates if any(c.glob("parselmouth*"))), None)
+    if site is None:
+        raise ValueError("That folder doesn't contain the Praat add-on.")
+    tmp = root.parent / f".installing-praat-{uuid.uuid4().hex[:8]}"
+    shutil.copytree(site, tmp / "site")
+    for extra in ("LICENSE-GPL3.txt", "SOURCE.txt"):
+        if (site.parent / extra).is_file():
+            shutil.copy2(site.parent / extra, tmp / extra)
+    if root.exists():
+        shutil.rmtree(root)
+    tmp.rename(root)
+    log.info("Praat add-on installed.")
+    return root
+
+
 def install_any(source: Path) -> str:
     """Install whichever add-on ``source`` holds: "scoring", "kintsugi" or "languages"."""
     import kintsugi_dam
@@ -110,6 +140,9 @@ def install_any(source: Path) -> str:
     if find_in(source) is not None:
         install(source)
         return "scoring"
+    if any(source.glob("site/parselmouth*")) or any(source.glob("*/site/parselmouth*")):
+        install_praat(source)
+        return "praat"
     if (source / kintsugi_dam.CHECKPOINT).is_file() or any(source.glob(f"*/{kintsugi_dam.CHECKPOINT}")):
         install_kintsugi(source)
         return "kintsugi"

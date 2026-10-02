@@ -90,6 +90,7 @@ uv run pyinstaller --noconfirm \
     --name "ClinicalWhisper" \
     --icon "clinicalwhisper.icns" \
     --add-data "www:www" \
+    --exclude-module parselmouth \
     --add-data "config.example.yaml:." \
     --add-data ".model_stage:models" \
     --collect-all opensmile \

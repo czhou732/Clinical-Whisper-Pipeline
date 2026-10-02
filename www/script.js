@@ -1192,6 +1192,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 jsonContent.textContent = JSON.stringify(a, null, 2);
                 if ((a.speaker_assignment || {}).mode === 'group') renderPerSpeaker(a);
                 if (a.kintsugi) renderKintsugi(a.kintsugi);
+                if (a.praat_measures && a.praat_measures.subject) renderPraat(a.praat_measures.subject);
                 const ev = (a.llm_clinical_scoring || {}).evidence;
                 if (ev && Object.keys(ev).length) {
                     evidenceFor = ev;
@@ -1367,6 +1368,34 @@ document.addEventListener('DOMContentLoaded', () => {
             n.textContent = `ICC measured on ${on}.`;
             g.appendChild(n);
         }
+        resultContent.appendChild(g);
+    }
+
+    // Praat measures (add-on), as senselab / Bridge2AI-Voice define them.
+    const PRAAT = [['f0_mean_hz', 'Pitch, mean (Hz)'], ['f0_sd_hz', 'Pitch, SD (Hz)'],
+        ['hnr_db_mean', 'Harmonics-to-noise ratio (dB)'], ['cpps_mean', 'CPPS (dB)'],
+        ['jitter_local', 'Jitter, local'], ['shimmer_local', 'Shimmer, local'],
+        ['spectral_slope_db', 'Spectral slope (dB)']];
+    function renderPraat(m) {
+        const g = document.createElement('div');
+        g.className = 'measure-group';
+        const h = document.createElement('h4');
+        h.textContent = 'Participant voice (Praat, Bridge2AI definitions)';
+        const dl = document.createElement('dl');
+        dl.className = 'kv';
+        PRAAT.forEach(([k, label]) => {
+            if (!present(m[k])) return;
+            const dt = document.createElement('dt');
+            dt.textContent = label;
+            const dd = document.createElement('dd');
+            dd.textContent = num(m[k]);
+            dl.append(dt, dd);
+        });
+        const note = document.createElement('p');
+        note.className = 'text-sm';
+        note.textContent = `From ${Math.round(m.speech_s_analysed || 0)} s of the participant's speech `
+            + `(pitch range ${m.pitch_floor_hz}-${m.pitch_ceiling_hz} Hz, set from their voice).`;
+        g.append(h, dl, note);
         resultContent.appendChild(g);
     }
 
@@ -1573,6 +1602,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 : res.status === 'error' ? res.message
                 : res.addon === 'languages' ? 'Languages add-on installed.'
                 : res.addon === 'kintsugi' ? 'Kintsugi voice model installed.'
+                : res.addon === 'praat' ? 'Praat voice measures installed.'
                 : 'Clinical scoring installed. Reopen the app to use it.';
         });
     })();

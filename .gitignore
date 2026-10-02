@@ -41,3 +41,4 @@ plan/
 .addon_stage_languages/
 speed.json
 .addon_stage_kintsugi/
+.addon_stage_praat/

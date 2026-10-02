@@ -77,6 +77,10 @@ def _extract_row(analysis_path: str, audio_filename: str) -> dict:
         "language": (data.get("language") or {}).get("code", ""),
         # Keyword matches for clinician review, by category ("" when none).
         "review_flags": review_flags.summary(data.get("clinical_review") or {}),
+        # Praat measures (add-on; senselab / Bridge2AI definitions), participant only.
+        **{f"subject_praat_{k}": (((data.get("praat_measures") or {}).get("subject")) or {}).get(k)
+           for k in ("f0_mean_hz", "f0_sd_hz", "hnr_db_mean", "jitter_local", "shimmer_local",
+                     "cpps_mean", "spectral_slope_db")},
         # Kintsugi's voice model (add-on): PHQ-9 / GAD-7 band levels, research only.
         "kintsugi_depression_level": ((data.get("kintsugi") or {}).get("depression") or {}).get("level"),
         "kintsugi_anxiety_level": ((data.get("kintsugi") or {}).get("anxiety") or {}).get("level"),
