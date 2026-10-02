@@ -386,8 +386,17 @@ def limit_speakers(
     segments: list[dict],
     embeddings: dict[str, tuple[np.ndarray, float]],
     n_speakers: int,
+    keep_new_below: Optional[float] = None,
+    late_after_s: float = 120.0,
 ) -> list[dict]:
     """Fold a transcript down to a known number of speakers.
+
+    With ``keep_new_below`` set, a label is left as its own person when it
+    first speaks more than ``late_after_s`` into the recording and its voice
+    matches no kept speaker at that similarity or above: someone who joined
+    late, not a fragment of a speaker already there. (A focus group's late
+    arrival was otherwise merged into a participant, along with the question
+    about their gift card.)
 
     For recordings where the count is known in advance (a two-person clinical
     interview), extra labels are MOSS or the linker splitting one person, not
@@ -404,6 +413,9 @@ def limit_speakers(
     if n_speakers < 1 or len(talk) <= n_speakers:
         return segments
 
+    first: dict[str, float] = {}
+    for seg in segments:
+        first[seg["speaker"]] = min(first.get(seg["speaker"], float("inf")), seg["start"])
     kept = sorted(talk, key=lambda s: -talk[s])[:n_speakers]
     target: dict[str, str] = {s: s for s in kept}
     for spk in talk:
@@ -417,5 +429,7 @@ def limit_speakers(
                     sim = float(v @ _unit(embeddings[k][0]))
                     if sim > best_sim:
                         best, best_sim = k, sim
-        target[spk] = best
+        late_and_new = (keep_new_below is not None and spk in embeddings
+                        and first[spk] > late_after_s and best_sim < keep_new_below)
+        target[spk] = spk if late_and_new else best
     return [{**seg, "speaker": target[seg["speaker"]]} for seg in segments]

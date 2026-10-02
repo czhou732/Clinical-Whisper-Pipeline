@@ -152,7 +152,12 @@ def der(ref: list[dict], hyp: list[dict], collar: float = 0.25, step: float = 0.
     }
 
 
-def score(ref: list[dict], hyp: list[dict]) -> dict:
+def score(ref: list[dict], hyp: list[dict], collar: float = 0.25) -> dict:
+    """All measures. ``collar=0`` matches the published AMI tables (no collar).
+
+    For a table directly comparable to papers, cpWER and tcpWER should come
+    from MeetEval itself; this cpWER is the same definition, kept dependency-free.
+    """
     precision, recall = filler_precision_recall(ref, hyp)
     return {
         "cpwer": cpwer(ref, hyp),
@@ -160,7 +165,7 @@ def score(ref: list[dict], hyp: list[dict]) -> dict:
         "wer_clean": wer(ref, hyp, drop_fillers=True),
         "filler_precision": precision,
         "filler_recall": recall,
-        **der(ref, hyp),
+        **der(ref, hyp, collar=collar),
         "speakers_ref": len({s["speaker"] for s in ref}),
         "speakers_hyp": len({s["speaker"] for s in hyp}),
         "ref_words": len(_words(ref)),
@@ -171,6 +176,9 @@ if __name__ == "__main__":
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("reference")
     ap.add_argument("hypothesis")
+    ap.add_argument("--collar", type=float, default=0.25,
+                    help="DER collar in seconds (0 for the published AMI tables)")
     args = ap.parse_args()
-    result = score(json.load(open(args.reference)), json.load(open(args.hypothesis)))
+    result = score(json.load(open(args.reference)), json.load(open(args.hypothesis)),
+                   collar=args.collar)
     print(json.dumps({k: round(v, 4) if isinstance(v, float) else v for k, v in result.items()}, indent=1))

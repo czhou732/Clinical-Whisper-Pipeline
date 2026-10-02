@@ -476,8 +476,12 @@ def _apply_speaker_count(d, path, audio, segments: list[dict]) -> list[dict]:
         return segments
     voice = _voice_embedder()
     embeddings = voice.speakers(segments, audio) if voice is not None else {}
-    log.info("%d speaker labels folded into the %d requested.", found, n)
-    return limit_speakers(segments, embeddings, n)
+    folded = limit_speakers(segments, embeddings, n,
+                            keep_new_below=_VOICE_LINK if voice is not None else None)
+    left = len({seg["speaker"] for seg in folded})
+    log.info("%d speaker labels folded into the %d requested%s.", found, n,
+             f"; {left - n} late arrival(s) kept as separate people" if left > n else "")
+    return folded
 
 
 def _link_and_merge(d, audio_path, audio, windows, window_segments, window_features, rounds):

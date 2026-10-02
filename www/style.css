@@ -370,3 +370,10 @@ select option { background: var(--panel); }
 
 .intended-use { font-size: 12px; color: var(--muted); border-top: 1px solid var(--line); padding-top: var(--space-3); line-height: 1.6; }
 .intended-use .link-button { font-size: 12px; margin-left: var(--space-2); }
+
+.speakers-why { color: var(--ink); max-width: 70ch; margin-top: var(--space-3); }
+.speakers-why:empty { display: none; }
+.speakers-mode select { width: auto; border-bottom: 1px solid var(--line-strong); margin-left: var(--space-1); }
+.spk-why { display: block; font: 11.5px var(--sans); color: var(--muted); max-width: 26ch; margin-top: 2px; white-space: normal; }
+.spk-remember { display: flex; gap: 6px; align-items: center; margin-top: 6px; white-space: nowrap; }
+.spk-remember input { width: auto; }

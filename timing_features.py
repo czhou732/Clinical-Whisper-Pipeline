@@ -100,6 +100,8 @@ def subject_speaker(timing: dict[str, dict], roles: dict[str, str]) -> Optional[
     Uses the role mapping when its keys are segment labels; otherwise the
     non-interviewer with the most talk time.
     """
+    if any(str(v).startswith(("Moderator", "Participant")) for v in roles.values()):
+        return None  # a group has no single subject
     interviewers = {k for k, v in roles.items() if str(v).lower() in
                     ("interviewer", "clinician", "therapist", "ellie")}
     labelled = [k for k, v in roles.items() if str(v).lower() == "subject" and k in timing]

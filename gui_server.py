@@ -289,6 +289,9 @@ def process_batch_task(batch_id: str, paths: list[Path]) -> None:
                     f["segments"] = analysis.get("segments", [])
                     f["speaker_roles"] = analysis.get("speaker_roles", {})
                     f["speaker_names"] = analysis.get("speaker_names", {})
+                    f["speaker_assignment"] = analysis.get("speaker_assignment") or {}
+                    # Memory only: lets a confirmed moderator's voice be remembered.
+                    f["voices"] = state.get("voices") or {}
                     f["speaker_samples"] = speaker_samples(f["segments"])
                     _batches[batch_id]["done"] += 1
             except Exception as exc:
@@ -682,6 +685,8 @@ async def get_status(batch_id: str):
                     "speaker_names": f.get("speaker_names", {}),
                     "speaker_samples": f.get("speaker_samples", {}),
                     "preview": f.get("preview"),
+                    "speaker_assignment": f.get("speaker_assignment", {}),
+                    "can_remember": sorted((f.get("voices") or {}).keys()),
                     "clinical_review": (f.get("analysis") or {}).get("clinical_review") or {},
                     "quality": f.get("quality", {}),
                     "score_reliability": f.get("score_reliability", {}),
@@ -760,30 +765,36 @@ async def cancel_batch(batch_id: str):
 
 
 def _normalise_roles(chosen: dict, segments: list[dict]) -> dict:
-    """Roles picked in the window, checked and with "Other" numbered.
+    """Roles picked in the window, checked and numbered.
 
-    Participant measures are taken from the single Subject, so two Subjects
-    are refused rather than one silently winning.
+    Interview roles (Interviewer, Subject, Other) and group roles (Moderator,
+    Participant, Other) can't be mixed. Participant measures in an interview
+    come from the single Subject, so two Subjects are refused rather than one
+    silently winning.
     """
     talk: dict[str, float] = {}
     for seg in segments:
         spk = seg.get("speaker")
         talk[spk] = talk.get(spk, 0.0) + max(seg.get("end", 0.0) - seg.get("start", 0.0), 0.0)
-    roles: dict[str, str] = {}
+    base: dict[str, str] = {}
     for spk in sorted(talk, key=lambda s: -talk[s]):
-        role = str(chosen.get(spk) or "Other")
-        if role.startswith("Other"):
-            role = "Other"
-        if role not in {"Interviewer", "Subject", "Other"}:
+        role = str(chosen.get(spk) or "Other").split(" ")[0].split("_")[0]
+        if role not in {"Interviewer", "Subject", "Moderator", "Participant", "Other"}:
             raise ValueError(f"Unknown role {role!r}.")
-        roles[spk] = role
-    if sum(r == "Subject" for r in roles.values()) > 1:
+        base[spk] = role
+    used = set(base.values())
+    if used & {"Interviewer", "Subject"} and used & {"Moderator", "Participant"}:
+        raise ValueError("Use either interview roles or group roles, not both.")
+    if sum(r == "Subject" for r in base.values()) > 1:
         raise ValueError("Only one speaker can be the participant.")
-    n = 0
-    for spk, role in roles.items():
-        if role == "Other":
-            n += 1
-            roles[spk] = f"Other_{n}"
+    counts: dict[str, int] = {}
+    roles: dict[str, str] = {}
+    for spk, role in base.items():
+        if role in ("Interviewer", "Subject"):
+            roles[spk] = role
+            continue
+        counts[role] = counts.get(role, 0) + 1
+        roles[spk] = f"Other_{counts[role]}" if role == "Other" else f"{role} {counts[role]}"
     return roles
 
 
@@ -853,9 +864,19 @@ async def rescore(batch_id: str, index: int, payload: dict = Body(default={})):
         # A transcribe-only batch, or a change of names only, just gets
         # relabelled; a role change re-scores, off the event loop so the window
         # keeps updating during a long re-score.
-        rescored = not transcribe_only and roles != old_roles
+        assignment = dict(analysis.get("speaker_assignment") or {})
+        group = any(r.startswith(("Moderator", "Participant")) for r in roles.values())
+        was_uncertain = bool(assignment.get("uncertain"))
+        if payload.get("roles"):
+            # The user has looked at the speakers: the roles are now confirmed.
+            assignment.update(uncertain=False, confirmed=True, why="",
+                              mode="group" if group else "interview")
+        rescored = (not transcribe_only and not group
+                    and (roles != old_roles or (was_uncertain and payload.get("roles"))))
         if rescored:
             scoring = await run_in_threadpool(score_transcript, structured, context, cfg)
+        elif group:
+            scoring = {}  # clinical scores are for one-to-one interviews
         else:
             scoring = analysis.get("llm_clinical_scoring") or {}
 
@@ -863,6 +884,7 @@ async def rescore(batch_id: str, index: int, payload: dict = Body(default={})):
         analysis["llm_clinical_scoring"] = scoring
         analysis["speaker_roles"] = roles
         analysis["speaker_names"] = names
+        analysis["speaker_assignment"] = assignment
         analysis["structured_transcript"] = structured
         analysis["speaker_stats"] = compute_speaker_stats(segments, roles)
         # Who counts as the interviewer decides whose lines are screened.
@@ -888,6 +910,17 @@ async def rescore(batch_id: str, index: int, payload: dict = Body(default={})):
             cfg.get("llm_scoring", {}).get("samples", 1)
         analysis["score_reliability"] = score_reliability(runs)
 
+        # Staff voices the user asked to remember (memory -> Application Support).
+        remembered = []
+        if payload.get("remember"):
+            import voice_library
+            for spk in payload["remember"]:
+                emb = (f.get("voices") or {}).get(spk)
+                if emb is None:
+                    raise ValueError(f"No voice sample is available for {spk}.")
+                voice_library.remember(names.get(spk, ""), roles.get(spk, ""), emb)
+                remembered.append(names.get(spk))
+
         path = f.get("analysis_path")
         if path:
             Path(path).write_text(json.dumps(analysis, indent=2, default=str),
@@ -903,6 +936,7 @@ async def rescore(batch_id: str, index: int, payload: dict = Body(default={})):
             tgt["structured_transcript"] = structured
             tgt["speaker_roles"] = roles
             tgt["speaker_names"] = names
+            tgt["speaker_assignment"] = assignment
             tgt["quality"] = analysis.get("quality") or {}
             tgt["score_reliability"] = analysis.get("score_reliability") or {}
             _batches[batch_id]["log"].append(
@@ -913,6 +947,8 @@ async def rescore(batch_id: str, index: int, payload: dict = Body(default={})):
                 "score_reliability": analysis.get("score_reliability"),
                 "structured_transcript": structured, "speaker_roles": roles,
                 "speaker_names": names,
+                "speaker_assignment": assignment,
+                "remembered": remembered,
                 "clinical_review": analysis.get("clinical_review") or {}}
     except ValueError as e:
         return JSONResponse(status_code=400, content={"status": "error", "message": str(e)})

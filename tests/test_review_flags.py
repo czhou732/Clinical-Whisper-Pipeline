@@ -62,3 +62,10 @@ def test_csv_summary():
     out = review_flags.find([seg("S02", 0, "I relapsed and felt worthless.")], ROLES)
     assert review_flags.summary(out) == "hopelessness:1; substance:1"
     assert review_flags.summary({}) == ""
+
+
+def test_accidents_are_not_harm_to_others():
+    out = review_flags.find([seg("S02", 0, "She face planted and hurt her nose.")], ROLES)
+    assert out["items"] == []
+    out = review_flags.find([seg("S02", 0, "Sometimes I want to hurt him.")], ROLES)
+    assert out["counts"] == {"harm_to_others": 1}

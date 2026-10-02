@@ -368,7 +368,7 @@ document.addEventListener('DOMContentLoaded', () => {
         transcript: 'Masked transcript, speaker roles, and voice and timing measures. '
             + 'The fastest choice for long interviews.',
         scored: 'Adds six clinical ratings from a language model, each shown with its measured '
-            + 'reliability. Several times slower, and the least certain part of the output.',
+            + 'test-retest ICC. Several times slower, and the least certain part of the output.',
     };
     function syncMode() {
         const mode = transcribeOnly.checked ? 'transcript' : 'scored';
@@ -487,16 +487,30 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- Speakers: correct roles, add labels (no re-transcription) ---
 
-    const ROLE_CHOICES = [['Interviewer', 'Interviewer'], ['Subject', 'Participant'],
-                          ['Other', 'Other']];
+    const ROLE_CHOICES = {
+        interview: [['Interviewer', 'Interviewer'], ['Subject', 'Participant'], ['Other', 'Other']],
+        group: [['Moderator', 'Moderator'], ['Participant', 'Participant'], ['Other', 'Other']],
+    };
     const roleText = r => r === 'Subject' ? 'Participant'
         : (r || '').startsWith('Other') ? 'Other' : r;
+    const baseRole = r => (r || 'Other').split(' ')[0].split('_')[0];
+    let speakerMode = 'interview';
     const minutes = s => s >= 60 ? `${Math.round(s / 60)} min` : `${Math.round(s)} s`;
 
-    function renderSpeakers(f) {
+    function renderSpeakers(f, mode) {
         const roles = f.speaker_roles || {};
         const names = f.speaker_names || {};
         const samples = f.speaker_samples || {};
+        const assignment = f.speaker_assignment || {};
+        const evidence = assignment.evidence || {};
+        const canRemember = new Set(f.can_remember || []);
+        speakerMode = mode || assignment.mode || 'interview';
+        document.getElementById('speakers-mode').value = speakerMode;
+        const why = document.getElementById('speakers-why');
+        why.textContent = assignment.uncertain
+            ? `Please check these roles. ${assignment.why || ''} Participant measures and scores wait until you apply them.`
+            : '';
+        if (assignment.uncertain) rolesBar.open = true;
         const ids = Object.keys(roles).sort(
             (a, b) => ((samples[b] || {}).talk_s || 0) - ((samples[a] || {}).talk_s || 0));
         rolesSummary.textContent = ids.map(k =>
@@ -516,6 +530,13 @@ document.addEventListener('DOMContentLoaded', () => {
             talk.className = 'spk-talk';
             talk.textContent = `${minutes((samples[k] || {}).talk_s || 0)} of speech`;
             idCell.appendChild(talk);
+            const reasons = (evidence[k] || {}).reasons || [];
+            if (reasons.length) {
+                const r = document.createElement('span');
+                r.className = 'spk-why';
+                r.textContent = reasons.join('; ');
+                idCell.appendChild(r);
+            }
             const at = (samples[k] || {}).sample_s;
             if (f.preview && typeof at === 'number') {
                 const play = document.createElement('button');
@@ -536,8 +557,12 @@ document.addEventListener('DOMContentLoaded', () => {
             const sel = document.createElement('select');
             sel.className = 'spk-role';
             sel.setAttribute('aria-label', `Role for ${k}`);
-            const current = (roles[k] || '').startsWith('Other') ? 'Other' : roles[k];
-            ROLE_CHOICES.forEach(([value, label]) => {
+            let current = baseRole(roles[k]);
+            if (speakerMode === 'group' && current === 'Interviewer') current = 'Moderator';
+            if (speakerMode === 'group' && current === 'Subject') current = 'Participant';
+            if (speakerMode === 'interview' && current === 'Moderator') current = 'Interviewer';
+            if (speakerMode === 'interview' && current === 'Participant') current = 'Subject';
+            ROLE_CHOICES[speakerMode].forEach(([value, label]) => {
                 const o = document.createElement('option');
                 o.value = value;
                 o.textContent = label;
@@ -554,6 +579,20 @@ document.addEventListener('DOMContentLoaded', () => {
             input.value = names[k] || '';
             input.setAttribute('aria-label', `Label for ${k}`);
             nameCell.appendChild(input);
+            if (canRemember.has(k)) {
+                const lab = document.createElement('label');
+                lab.className = 'spk-remember text-sm';
+                const box = document.createElement('input');
+                box.type = 'checkbox';
+                box.className = 'spk-keep';
+                lab.append(box, ' Remember this voice (staff only)');
+                lab.title = 'Stores a voice signature on this Mac so this person is recognised as '
+                    + 'staff in later sessions. Never stored for participants.';
+                nameCell.appendChild(lab);
+                const sync = () => { lab.classList.toggle('hidden', !['Interviewer', 'Moderator'].includes(sel.value)); };
+                sel.addEventListener('change', sync);
+                sync();
+            }
             tr.append(idCell, lines, roleCell, nameCell);
             body.appendChild(tr);
         });
@@ -580,17 +619,28 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    document.getElementById('speakers-mode').addEventListener('change', e => {
+        renderSpeakers(batchFiles[activeIndex], e.target.value);
+    });
+
     btnSwapRoles.addEventListener('click', async () => {
         const f = batchFiles[activeIndex];
         if (!f || !currentBatchId) return;
         const status = document.getElementById('speakers-status');
         const roles = {};
         const names = {};
+        const remember = [];
         document.querySelectorAll('#speakers-rows tr').forEach(tr => {
             const k = tr.dataset.speaker;
             roles[k] = tr.querySelector('.spk-role').value;
             names[k] = tr.querySelector('.spk-name').value.trim();
+            const keep = tr.querySelector('.spk-keep');
+            if (keep && keep.checked && !keep.closest('.hidden')) {
+                if (!names[k]) { status.textContent = `Give ${k} a label before remembering their voice.`; remember.length = 0; return; }
+                remember.push(k);
+            }
         });
+        if (status.textContent.startsWith('Give')) return;
         if (Object.values(roles).filter(r => r === 'Subject').length > 1) {
             status.textContent = 'Only one speaker can be the participant.';
             return;
@@ -602,7 +652,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const res = await fetch(`/api/rescore/${currentBatchId}/${activeIndex}`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ roles, names })
+                body: JSON.stringify({ roles, names, remember })
             });
             const data = await res.json();
             if (data.status === 'success') {
@@ -611,13 +661,18 @@ document.addEventListener('DOMContentLoaded', () => {
                     structured_transcript: data.structured_transcript,
                     speaker_roles: data.speaker_roles,
                     speaker_names: data.speaker_names,
+                    speaker_assignment: data.speaker_assignment || f.speaker_assignment,
                     clinical_review: data.clinical_review || f.clinical_review,
                     quality: data.quality || f.quality,
                     score_reliability: data.score_reliability || f.score_reliability,
                 });
                 renderActive();
-                appendLog(data.rescored ? 'Re-scored with the corrected roles.'
+                appendLog(data.rescored ? 'Re-scored with the confirmed roles.'
                                         : 'Speakers updated.');
+                if ((data.remembered || []).length) {
+                    document.getElementById('speakers-status').textContent =
+                        `Remembered: ${data.remembered.join(', ')}.`;
+                }
             } else {
                 status.textContent = data.message || 'Could not update speakers.';
             }
@@ -1018,6 +1073,7 @@ document.addEventListener('DOMContentLoaded', () => {
             .then(r => r.json())
             .then(a => {
                 jsonContent.textContent = JSON.stringify(a, null, 2);
+                if ((a.speaker_assignment || {}).mode === 'group') renderPerSpeaker(a);
                 const scoring = a.llm_clinical_scoring || {};
                 // Say plainly when there are no clinical scores, so the
                 // measurements are not mistaken for them.
@@ -1145,6 +1201,42 @@ document.addEventListener('DOMContentLoaded', () => {
             icc.className = 'data';
             icc.textContent = rel ? rel.icc.toFixed(2).replace(/^0/, '') : '';
             tr.append(name, val, icc);
+            body.appendChild(tr);
+        });
+        table.appendChild(body);
+        g.append(h, table);
+        resultContent.appendChild(g);
+    }
+
+    // A group has no single participant: one row per speaker instead.
+    function renderPerSpeaker(a) {
+        const per = (a.timing_features || {}).per_speaker || {};
+        const roles = a.speaker_roles || {};
+        const names = a.speaker_names || {};
+        const ids = Object.keys(per).filter(k => roles[k] && !roles[k].startsWith('Other'))
+            .sort((x, y) => (roles[x] || '').localeCompare(roles[y] || ''));
+        if (!ids.length) return;
+        const g = document.createElement('div');
+        g.className = 'measure-group';
+        const h = document.createElement('h4');
+        h.textContent = 'Each speaker';
+        const table = document.createElement('table');
+        table.className = 'scores';
+        table.innerHTML = '<thead><tr><th scope="col">Speaker</th><th scope="col">Talk (min)</th>'
+            + '<th scope="col">Words/s</th><th scope="col">Mean pause (s)</th>'
+            + '<th scope="col">Fillers /100 words</th></tr></thead>';
+        const body = document.createElement('tbody');
+        ids.forEach(k => {
+            const t = per[k] || {};
+            const tr = document.createElement('tr');
+            const cells = [names[k] ? `${names[k]} (${roles[k]})` : roles[k],
+                (t.talk_time_s || 0) / 60, t.speech_rate_wps, t.pause_mean_s, t.filler_rate];
+            cells.forEach((v, i) => {
+                const td = document.createElement('td');
+                if (i) td.className = 'data';
+                td.textContent = i === 0 ? v : (present(v) ? num(v) : '–');
+                tr.appendChild(td);
+            });
             body.appendChild(tr);
         });
         table.appendChild(body);

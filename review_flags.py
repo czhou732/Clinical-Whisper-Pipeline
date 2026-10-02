@@ -39,8 +39,10 @@ CATEGORIES: list[tuple[str, str, list[str]]] = [
         r"hang(?:ing)? myself", r"not be here anymore",
     ]),
     ("harm_to_others", "Harm to others", [
+        # Intent, not accidents: "hurt her nose" in a story is not a concern.
         r"homicid\w*", r"kill (?:him|her|them|someone|somebody|people|you)",
-        r"hurt (?:him|her|them|someone|somebody|people)",
+        r"(?:want(?:ed)?|going|gonna|thought about|thinking about|think about|feel like|urge)"
+        r"(?: to)? (?:hurt|harm|kill|attack) (?:him|her|them|someone|somebody|people|you)",
         r"(?:shoot|stab|strangle) (?:him|her|them|someone|somebody)",
     ]),
     ("abuse_violence", "Abuse or violence", [

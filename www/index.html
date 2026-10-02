@@ -137,9 +137,15 @@
                     <summary><span class="k">Speakers</span>
                         <span id="roles-summary" class="roles-summary"></span>
                         <span class="text-sm speakers-edit">Check the speakers</span></summary>
+                    <p class="speakers-why" id="speakers-why"></p>
                     <p class="text-sm speakers-help">Set each speaker's role, and give them a
                         label if you like. Use codes such as P01 or Moderator A, not real
                         names: labels appear in the transcript and in exports.</p>
+                    <label class="text-sm speakers-mode">This recording is
+                        <select id="speakers-mode">
+                            <option value="interview">a one-to-one interview</option>
+                            <option value="group">a group (moderators and participants)</option>
+                        </select></label>
                     <div class="speakers-scroll">
                         <table class="speakers-table">
                             <thead><tr><th>Speaker</th><th>For example, says</th>
@@ -161,9 +167,10 @@
                 </div>
 
                 <div id="view-scores" class="result-view">
-                    <p class="text-sm scores-note hidden" id="scores-note">Clinical scores were not run for this
-                        recording. The numbers below are voice and timing measurements taken directly
-                        from the audio.</p>
+                    <p class="text-sm scores-note hidden" id="scores-note">Clinical scores, each shown with
+                        its test-retest ICC, were not run for this recording. The numbers below are voice
+                        and timing measurements taken directly from the audio, so they come out the same
+                        on every run.</p>
                     <div id="result-content" class="result-grid"></div>
                     <div id="impression-block"></div>
                 </div>

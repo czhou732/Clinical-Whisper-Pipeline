@@ -139,6 +139,18 @@ def clear_stale_scratch() -> int:
     return removed
 
 
+def _guide_text(cfg: dict):
+    """The study's interview guide, if one is configured (roles.guide_path)."""
+    path = (cfg.get("roles") or {}).get("guide_path")
+    if not path:
+        return None
+    try:
+        return Path(resolve_path(path)).read_text(encoding="utf-8", errors="replace")
+    except OSError as exc:
+        log.warning("Interview guide not readable (%s); roles use the other evidence.", exc)
+        return None
+
+
 def _english(lang: dict) -> bool:
     """English, or too little text to tell (treated as before)."""
     import language
@@ -751,6 +763,14 @@ class InferencePipeline:
         audio_stats = dict(prep.get("audio_stats") or {})
         from snr import estimate_snr
         audio_stats["snr_db"] = estimate_snr(str(acoustic_wav), segments)
+        # Voice embeddings per speaker, in memory only: they recognise
+        # remembered staff voices and let a confirmed moderator be remembered.
+        voices = None
+        try:
+            import voice_library
+            voices = voice_library.embeddings_for(segments, str(acoustic_wav))
+        except Exception as exc:  # noqa: BLE001 - roles fall back to text evidence
+            log.info("No voice embeddings for role matching: %s", exc)
         self._cleanup(prep)
         # Measured on the edited audio above; reported in the recording's own
         # time from here on, so timestamps match the file the user has.
@@ -768,6 +788,7 @@ class InferencePipeline:
             "overall_acoustics": overall_acoustics,
             "speaker_acoustics": speaker_acoustics,
             "audio_stats": audio_stats,
+            "voices": voices,
             "warnings": warnings,
         }
 
@@ -790,19 +811,25 @@ class InferencePipeline:
 
         # ── Stage 4: Structured Transcript (role detection + formatting) ──
         notes: list[str] = []
-        structured_result = {}
+        structured_transcript, speaker_roles, speaker_stats = "", {}, {}
+        assignment: dict = {"mode": "interview", "uncertain": False}
         try:
-            from transcript_formatter import process_segments
-            structured_result = process_segments(segments)
-            log.info("Job %s: structured transcript — roles: %s",
-                     job_id, structured_result.get("roles", {}))
+            import speaker_roles as roles_mod
+            import voice_library
+            from transcript_formatter import compute_speaker_stats, format_structured_transcript
+
+            assignment = roles_mod.assign(segments, _guide_text(self.cfg),
+                                          state.get("voices"), voice_library.load())
+            speaker_roles = assignment["roles"]
+            structured_transcript = format_structured_transcript(segments, speaker_roles)
+            speaker_stats = compute_speaker_stats(segments, speaker_roles)
+            log.info("Job %s: %s, roles %s%s", job_id, assignment["mode"], speaker_roles,
+                     " (uncertain)" if assignment["uncertain"] else "")
         except Exception as exc:
             log.warning("Job %s: structured transcript failed: %s", job_id, exc)
             warnings.append(f"Structured transcript failed: {exc}")
-
-        structured_transcript = structured_result.get("structured_transcript", "")
-        speaker_roles = structured_result.get("roles", {})
-        speaker_stats = structured_result.get("speaker_stats", {})
+        group = assignment.get("mode") == "group"
+        roles_uncertain = bool(assignment.get("uncertain"))
 
         # ── Stage 5a: Acoustic Context Serialization ──
         acoustic_context = ""
@@ -847,14 +874,29 @@ class InferencePipeline:
         if edits is not None:
             notes.append(edits.describe())
         timing = speaker_timing(timing_segments)
+        # No single participant in a group, and none to report while the roles
+        # are uncertain: per-speaker measures stay in per_speaker.
         timing_payload = {
-            "subject_speaker": subject_speaker(timing, speaker_roles or {}),
+            "subject_speaker": (None if group or roles_uncertain
+                                else subject_speaker(timing, speaker_roles or {})),
             "per_speaker": timing,
         }
         quality = assess_quality(
             segments, timing_payload["subject_speaker"], state.get("audio_stats"),
             expected_speakers=self.cfg.get("moss", {}).get("num_speakers"),
         )
+        if roles_uncertain:
+            quality["flags"].append({"code": "roles_uncertain", "message": (
+                "It isn't clear who is interviewing. " + assignment.get("why", "") +
+                " Participant measures and clinical scores wait until the roles are "
+                "confirmed in the Speakers panel.")})
+        if group:
+            # Measures are per speaker in a group; "no participant" doesn't apply.
+            quality["flags"] = [f for f in quality["flags"] if f["code"] not in
+                                ("no_participant", "little_participant_speech")]
+            notes.append("Group recording: moderators and participants are listed separately, "
+                         "with measures for each speaker in timing_features.per_speaker. "
+                         "Clinical scores are for one-to-one interviews and were not run.")
         lang = stats.get("language") or {}
         english = _english(lang)
         clinical_review = _clinical_review(segments, speaker_roles, self.cfg)
@@ -905,6 +947,9 @@ class InferencePipeline:
                 # Deterministic pause / rate / latency measures from segment timing.
                 "timing_features": timing_payload,
                 "speaker_roles": speaker_roles,
+                # How the roles were decided: mode, certainty, and the evidence.
+                "speaker_assignment": {k: assignment.get(k) for k in
+                                       ("mode", "uncertain", "why", "evidence")},
                 "speaker_stats": speaker_stats,
                 "structured_transcript": structured_transcript,
                 # Keyword screen for passages a clinician should read; not scored.
@@ -919,6 +964,8 @@ class InferencePipeline:
         # scoring starts, so a crash, Stop or sleep during a long scoring stage
         # does not throw them away. The batch command resumes scoring from here.
         llm_enabled = self.cfg.get("llm_scoring", {}).get("enabled", True)
+        if llm_enabled and structured_transcript and (group or roles_uncertain):
+            llm_enabled = False
         if llm_enabled and structured_transcript and not english:
             llm_enabled = False
             notes.append(f"Clinical scores were built and checked on English interviews, so "
@@ -957,12 +1004,13 @@ class InferencePipeline:
             # Asked for deliberately (the app's "transcribe only", the batch
             # command's --transcribe-only), this is a choice, not a fault: it
             # must not mark an otherwise clean run as "completed with warnings".
+            # A group or unconfirmed roles already explain themselves above.
             msg = "Clinical scoring was skipped; the scores are blank."
             log.info("Job %s: %s", job_id, msg)
-            if not self.cfg.get("llm_scoring", {}).get("skipped_by_request"):
-                warnings.append(msg)
-            else:
+            if self.cfg.get("llm_scoring", {}).get("skipped_by_request"):
                 notes.append(msg)
+            elif not (group or roles_uncertain):
+                warnings.append(msg)
 
 
         # Reliability at the number of runs actually averaged per chunk.

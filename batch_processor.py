@@ -213,6 +213,7 @@ def batch_process(
     num_speakers: Optional[int] = None,
     resume: bool = False,
     audio_retention: str = "keep",
+    guide: Optional[str] = None,
 ) -> pd.DataFrame:
     """Process every audio file in *input_dir* and write a summary CSV.
 
@@ -239,6 +240,8 @@ def batch_process(
         bundle = Path(getattr(sys, "_MEIPASS", Path(__file__).resolve().parent))
         config_path = str(bundle / "config.example.yaml")
     cfg = load_config(config_path)
+    if guide:
+        cfg.setdefault("roles", {})["guide_path"] = str(Path(guide).expanduser())
     if transcribe_only:
         # Transcript, de-identification, acoustics and timing only — no 5 GB
         # scoring model. The usual need on a compute cluster.
@@ -441,6 +444,13 @@ def main(argv: Optional[list[str]] = None, prog: str = "clinicalwhisper-batch") 
         help="Compute device (default: auto — MLX on Apple Silicon, else CUDA, else CPU).",
     )
     parser.add_argument(
+        "--guide",
+        metavar="FILE",
+        default=None,
+        help="The study's interview or discussion guide (one question per line). "
+             "Whoever reads its questions is taken as the interviewer or moderator.",
+    )
+    parser.add_argument(
         "--install-addon", "--install-scoring",
         dest="install_addon",
         metavar="FOLDER",
@@ -481,7 +491,7 @@ def main(argv: Optional[list[str]] = None, prog: str = "clinicalwhisper-batch") 
         args.input, args.output, config_path=args.config,
         transcribe_only=args.transcribe_only, device=args.device,
         ids_csv=args.ids, num_speakers=args.speakers, resume=args.resume,
-        audio_retention=args.audio_retention,
+        audio_retention=args.audio_retention, guide=args.guide,
     )
     if df.empty:
         out = Path(args.output).expanduser()
