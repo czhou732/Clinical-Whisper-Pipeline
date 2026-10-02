@@ -1425,6 +1425,13 @@ document.addEventListener('DOMContentLoaded', () => {
         } else {
             const dl = document.createElement('dl');
             dl.className = 'kv';
+            if (k.depression && k.depression.screen) {
+                const dt = document.createElement('dt');
+                dt.textContent = 'Depression screen (with "can\u2019t tell")';
+                const dd = document.createElement('dd');
+                dd.textContent = k.depression.screen;
+                dl.append(dt, dd);
+            }
             [['Depression band', k.depression], ['Anxiety band', k.anxiety]].forEach(([label, r]) => {
                 if (!r) return;
                 const dt = document.createElement('dt');

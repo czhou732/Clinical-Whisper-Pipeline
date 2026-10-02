@@ -65,6 +65,17 @@ _LOGMEL_ENERGIES = [
 ]
 _LORA_SCALE = 64.0 / 32.0  # lora_alpha / r in their config
 
+# "Can't tell" band for PHQ-9 >= 10, chosen on their released validation scores
+# with a 20% budget (evals/kintsugi_analysis.py). On their test set: sensitivity
+# 0.71 and specificity 0.74 on the decided cases, 19% undecided; their single
+# threshold gave 0.58 / 0.78.
+SCREEN_BAND = (-1.033, -0.654)
+PERFORMANCE_NOTE = (
+    "On Kintsugi's own test data (n = 7,034, PHQ-9 >= 10): AUC 0.76. It misses more "
+    "depression in some groups: sensitivity 0.16 in adults over 60, 0.45 in men, 0.41 in one "
+    "Black respondent group, against 0.58 overall; and is less accurate on noisy recordings. "
+    "It follows low mood more than loss of interest. See evals/reports/kintsugi_validation.md.")
+
 
 def checkpoint_path(root: Optional[Path] = None) -> Optional[Path]:
     """The installed checkpoint (add-on), else a Hugging Face cache copy."""
@@ -176,6 +187,16 @@ def _level(task: str, score: float) -> int:
     return int(np.searchsorted(THRESHOLDS[task], score, side="left"))
 
 
+def screen(depression_score: float) -> str:
+    """"likely PHQ-9 >= 10", "likely below 10" or "can't tell" (the abstain band)."""
+    low, high = SCREEN_BAND
+    if depression_score > high:
+        return "likely PHQ-9 10 or more"
+    if depression_score <= low:
+        return "likely PHQ-9 below 10"
+    return "can't tell"
+
+
 def score_audio(audio: np.ndarray) -> dict:
     """Raw scores and levels for one person's speech at 16 kHz."""
     if not _MODEL:
@@ -188,6 +209,7 @@ def score_audio(audio: np.ndarray) -> dict:
     for task, score in raw.items():
         level = _level(task, score)
         out[task] = {"score": round(score, 4), "level": level, "label": LEVELS[task][level]}
+    out["depression"]["screen"] = screen(raw["depression"])
     return out
 
 
@@ -253,7 +275,8 @@ def for_subject(per: Optional[dict], subject: Optional[str]) -> Optional[dict]:
         return None
     base = {"model": "KintsugiHealth/dam 3.1 (Apache-2.0)", "note": (
         "Voice-only research estimate from Kintsugi's open model. Trained on their data; "
-        "not validated on this population or on clinical interviews; not a diagnosis.")}
+        "not validated on this population or on clinical interviews; not a diagnosis. "
+        + PERFORMANCE_NOTE)}
     if not subject:
         return {**base, "skipped": "No single participant (a group, or roles not confirmed)."}
     if subject not in per:

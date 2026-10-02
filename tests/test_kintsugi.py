@@ -44,3 +44,9 @@ def test_real_checkpoint_loads_strictly_and_scores():
     out = k.score_audio((0.05 * rng.standard_normal(16000 * 35)).astype(np.float32))
     assert set(out) == {"depression", "anxiety"}
     assert out["depression"]["label"].startswith(("none", "mild", "severe"))
+
+
+def test_screen_abstains_in_the_band():
+    assert k.screen(-0.5) == "likely PHQ-9 10 or more"
+    assert k.screen(-1.2) == "likely PHQ-9 below 10"
+    assert k.screen(-0.8) == "can't tell"

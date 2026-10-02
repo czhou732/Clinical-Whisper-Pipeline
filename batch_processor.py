@@ -83,6 +83,7 @@ def _extract_row(analysis_path: str, audio_filename: str) -> dict:
                      "cpps_mean", "spectral_slope_db")},
         # Kintsugi's voice model (add-on): PHQ-9 / GAD-7 band levels, research only.
         "kintsugi_depression_level": ((data.get("kintsugi") or {}).get("depression") or {}).get("level"),
+        "kintsugi_depression_screen": ((data.get("kintsugi") or {}).get("depression") or {}).get("screen"),
         "kintsugi_anxiety_level": ((data.get("kintsugi") or {}).get("anxiety") or {}).get("level"),
         "kintsugi_depression_score": ((data.get("kintsugi") or {}).get("depression") or {}).get("score"),
         "kintsugi_anxiety_score": ((data.get("kintsugi") or {}).get("anxiety") or {}).get("score"),
