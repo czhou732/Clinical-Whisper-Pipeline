@@ -227,6 +227,60 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
+    // --- Passages for clinician review (keyword screen, not a risk score) ---
+
+    const mmss = sec => {
+        sec = Math.floor(sec || 0);
+        const h = Math.floor(sec / 3600), m = Math.floor((sec % 3600) / 60), x = sec % 60;
+        const two = n => String(n).padStart(2, '0');
+        return h ? `${h}:${two(m)}:${two(x)}` : `${two(m)}:${two(x)}`;
+    };
+
+    function renderReview(review) {
+        if (!review || !review.note) return;
+        const items = review.items || [];
+        const block = document.createElement('div');
+        block.className = 'review-block' + (items.length ? ' has-items' : '');
+        const h = document.createElement('h4');
+        h.textContent = items.length
+            ? `For clinician review (${items.length})` : 'For clinician review';
+        const note = document.createElement('p');
+        note.className = 'text-sm review-note';
+        note.textContent = review.note;
+        block.append(h, note);
+        if (items.length) {
+            const list = document.createElement('ol');
+            list.className = 'review-list';
+            items.forEach(it => {
+                const li = document.createElement('li');
+                const head = document.createElement('div');
+                head.className = 'review-head';
+                head.textContent = `${mmss(it.start)} · ${it.label} · ${it.role}`;
+                li.appendChild(head);
+                if (it.context) {
+                    const q = document.createElement('p');
+                    q.className = 'review-context';
+                    q.textContent = `Asked: “${it.context}”`;
+                    li.appendChild(q);
+                }
+                const t = document.createElement('p');
+                t.className = 'review-text';
+                const i = it.text.toLowerCase().indexOf(it.term.toLowerCase());
+                if (i >= 0) {
+                    const mark = document.createElement('mark');
+                    mark.textContent = it.text.slice(i, i + it.term.length);
+                    t.append(it.text.slice(0, i), mark, it.text.slice(i + it.term.length));
+                } else {
+                    t.textContent = it.text;
+                }
+                li.appendChild(t);
+                list.appendChild(li);
+            });
+            block.appendChild(list);
+        }
+        resultContent.appendChild(block);
+    }
+
     // --- Speakers: correct roles, add labels (no re-transcription) ---
 
     const ROLE_CHOICES = [['Interviewer', 'Interviewer'], ['Subject', 'Participant'],
@@ -322,6 +376,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     structured_transcript: data.structured_transcript,
                     speaker_roles: data.speaker_roles,
                     speaker_names: data.speaker_names,
+                    clinical_review: data.clinical_review || f.clinical_review,
                     quality: data.quality || f.quality,
                     score_reliability: data.score_reliability || f.score_reliability,
                 });
@@ -659,6 +714,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 '<br><em>Fields not shown below were not measured.</em>';
             resultContent.appendChild(banner);
         }
+
+        renderReview(f.clinical_review);
 
         const flags = (f.quality || {}).flags || [];
         if (flags.length) {

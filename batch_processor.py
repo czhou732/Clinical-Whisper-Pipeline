@@ -13,6 +13,7 @@ from pathlib import Path
 from typing import Optional
 
 import offline
+import review_flags
 
 # Before anything imports huggingface_hub or transformers (see offline.py).
 offline.lock()
@@ -73,6 +74,8 @@ def _extract_row(analysis_path: str, audio_filename: str) -> dict:
         "quality_flags": ";".join(f["code"] for f in quality.get("flags", [])),
         "participant_speech_min": round((quality.get("participant_speech_s") or 0) / 60, 2),
         "snr_db": quality.get("snr_db"),
+        # Keyword matches for clinician review, by category ("" when none).
+        "review_flags": review_flags.summary(data.get("clinical_review") or {}),
         "word_count": stats.get("word_count", 0),
         # Same count with masked identifiers left out, for analyses that want it.
         "word_count_excluding_masked": stats.get("word_count_excluding_masked"),

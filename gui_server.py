@@ -573,6 +573,7 @@ async def get_status(batch_id: str):
                     "speaker_roles": f.get("speaker_roles", {}),
                     "speaker_names": f.get("speaker_names", {}),
                     "speaker_samples": f.get("speaker_samples", {}),
+                    "clinical_review": (f.get("analysis") or {}).get("clinical_review") or {},
                     "quality": f.get("quality", {}),
                     "score_reliability": f.get("score_reliability", {}),
                 }
@@ -589,6 +590,12 @@ async def get_analysis(batch_id: str, index: int):
         if b is None or index >= len(b["files"]):
             return JSONResponse(status_code=404, content={"error": "not found"})
         return b["files"][index]["analysis"] or {}
+
+
+def _mmss(seconds: float) -> str:
+    seconds = int(seconds or 0)
+    h, rest = divmod(seconds, 3600)
+    return f"{h}:{rest // 60:02d}:{rest % 60:02d}" if h else f"{rest // 60:02d}:{rest % 60:02d}"
 
 
 def _batch_markdown(b: dict) -> str:
@@ -614,6 +621,12 @@ def _batch_markdown(b: dict) -> str:
         if observations:
             lines += ["", "### Key Observations", ""]
             lines += [f"- {o}" for o in observations]
+        review = analysis.get("clinical_review") or {}
+        if review:
+            lines += ["", "### For clinician review", "", f"_{review.get('note', '')}_", ""]
+            for it in review.get("items", []):
+                lines.append(f"- **{_mmss(it['start'])} · {it['label']}** ({it['role']}): "
+                             f"{it['text']}")
         if f["structured_transcript"]:
             key = mask_legend(f["structured_transcript"])
             lines += ["", "### Transcript (de-identified)", ""]
@@ -743,6 +756,10 @@ async def rescore(batch_id: str, index: int, payload: dict = Body(default={})):
         analysis["speaker_names"] = names
         analysis["structured_transcript"] = structured
         analysis["speaker_stats"] = compute_speaker_stats(segments, roles)
+        # Who counts as the interviewer decides whose lines are screened.
+        import review_flags
+        analysis["clinical_review"] = review_flags.find(
+            segments, roles, (cfg.get("review_flags") or {}).get("extra_terms"))
 
         # A role swap changes who the participant is: participant timing and
         # the quality flags follow, and reliability follows the run count.
@@ -786,7 +803,8 @@ async def rescore(batch_id: str, index: int, payload: dict = Body(default={})):
                 "quality": analysis.get("quality"),
                 "score_reliability": analysis.get("score_reliability"),
                 "structured_transcript": structured, "speaker_roles": roles,
-                "speaker_names": names}
+                "speaker_names": names,
+                "clinical_review": analysis.get("clinical_review") or {}}
     except ValueError as e:
         return JSONResponse(status_code=400, content={"status": "error", "message": str(e)})
     except Exception as e:

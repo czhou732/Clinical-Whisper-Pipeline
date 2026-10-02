@@ -139,6 +139,19 @@ def clear_stale_scratch() -> int:
     return removed
 
 
+def _clinical_review(segments: list[dict], roles: dict, cfg: dict) -> dict:
+    """Keyword screen for passages to review (see review_flags.py)."""
+    review_cfg = cfg.get("review_flags", {}) or {}
+    if review_cfg.get("enabled", True) is False:
+        return {}
+    import review_flags
+    try:
+        return review_flags.find(segments, roles, review_cfg.get("extra_terms"))
+    except Exception as exc:  # noqa: BLE001 - a screen failure must not lose the run
+        log.warning("Clinical review screen failed: %s", exc)
+        return {"items": [], "counts": {}, "note": f"Screen failed: {exc}"}
+
+
 def _scoring_installed(cfg: dict) -> bool:
     """Whether the clinical scoring model is on this Mac (see addons.py)."""
     import addons
@@ -777,6 +790,8 @@ class InferencePipeline:
             segments, timing_payload["subject_speaker"], state.get("audio_stats"),
             expected_speakers=self.cfg.get("moss", {}).get("num_speakers"),
         )
+        clinical_review = _clinical_review(segments, speaker_roles, self.cfg)
+
         def _payload(llm_scoring: dict, reliability: dict, status: str = "") -> dict:
             return {
                 "job_id": job_id,
@@ -813,6 +828,8 @@ class InferencePipeline:
                 "speaker_roles": speaker_roles,
                 "speaker_stats": speaker_stats,
                 "structured_transcript": structured_transcript,
+                # Keyword screen for passages a clinician should read; not scored.
+                "clinical_review": clinical_review,
                 "llm_clinical_scoring": llm_scoring,
                 "segments": segments,
                 "transcript": transcript,

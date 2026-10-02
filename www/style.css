@@ -704,3 +704,17 @@ input:focus {
 .addon-note { margin: 0 0 var(--space-3); color: var(--color-text-muted); max-width: 70ch; }
 .addon-note.hidden { display: none; }
 .link-button.hidden { display: none; }
+
+/* --- Passages for clinician review --- */
+.review-block { margin: 0 0 var(--space-4); padding: var(--space-3);
+    border: 1px solid var(--color-border, rgba(128,128,128,.3)); border-radius: 6px; }
+.review-block.has-items { border-color: var(--color-warning, #b7791f); }
+.review-block h4 { margin: 0 0 var(--space-1); }
+.review-note { color: var(--color-text-muted); margin: 0 0 var(--space-2); max-width: 75ch; }
+.review-list { margin: 0; padding-left: 1.4em; max-height: 22rem; overflow-y: auto; }
+.review-list li { margin-bottom: var(--space-3); }
+.review-head { font-size: var(--text-sm); font-weight: 600; }
+.review-context { margin: var(--space-1) 0 0; color: var(--color-text-muted);
+    font-size: var(--text-sm); }
+.review-text { margin: var(--space-1) 0 0; max-width: 75ch; }
+.review-text mark { background: rgba(255, 196, 0, .35); color: inherit; padding: 0 .1em; }
