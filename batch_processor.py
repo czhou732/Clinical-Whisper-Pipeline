@@ -77,6 +77,11 @@ def _extract_row(analysis_path: str, audio_filename: str) -> dict:
         "language": (data.get("language") or {}).get("code", ""),
         # Keyword matches for clinician review, by category ("" when none).
         "review_flags": review_flags.summary(data.get("clinical_review") or {}),
+        # Kintsugi's voice model (add-on): PHQ-9 / GAD-7 band levels, research only.
+        "kintsugi_depression_level": ((data.get("kintsugi") or {}).get("depression") or {}).get("level"),
+        "kintsugi_anxiety_level": ((data.get("kintsugi") or {}).get("anxiety") or {}).get("level"),
+        "kintsugi_depression_score": ((data.get("kintsugi") or {}).get("depression") or {}).get("score"),
+        "kintsugi_anxiety_score": ((data.get("kintsugi") or {}).get("anxiety") or {}).get("score"),
         "word_count": stats.get("word_count", 0),
         # Same count with masked identifiers left out, for analyses that want it.
         "word_count_excluding_masked": stats.get("word_count_excluding_masked"),

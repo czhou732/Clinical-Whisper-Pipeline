@@ -85,12 +85,34 @@ def install_languages(source: Path, root: Optional[Path] = None) -> Path:
     return root / "openmed"
 
 
+def install_kintsugi(source: Path, root: Optional[Path] = None) -> Path:
+    """Copy Kintsugi's checkpoint from the add-on folder the user picked."""
+    import kintsugi_dam
+
+    root = root or kintsugi_dam.ROOT
+    hits = [p for p in [source / kintsugi_dam.CHECKPOINT, *Path(source).glob(f"*/{kintsugi_dam.CHECKPOINT}")]
+            if p.is_file()]
+    if not hits:
+        raise ValueError("That folder doesn't contain the Kintsugi voice model add-on.")
+    root.mkdir(parents=True, exist_ok=True)
+    tmp = root / f".installing-{uuid.uuid4().hex[:8]}"
+    shutil.copy2(hits[0], tmp)
+    tmp.replace(root / kintsugi_dam.CHECKPOINT)
+    log.info("Kintsugi voice model add-on installed.")
+    return root / kintsugi_dam.CHECKPOINT
+
+
 def install_any(source: Path) -> str:
-    """Install whichever add-on ``source`` holds; returns "scoring" or "languages"."""
+    """Install whichever add-on ``source`` holds: "scoring", "kintsugi" or "languages"."""
+    import kintsugi_dam
+
     source = Path(source)
     if find_in(source) is not None:
         install(source)
         return "scoring"
+    if (source / kintsugi_dam.CHECKPOINT).is_file() or any(source.glob(f"*/{kintsugi_dam.CHECKPOINT}")):
+        install_kintsugi(source)
+        return "kintsugi"
     install_languages(source)
     return "languages"
 # Files a usable MLX model folder must contain.

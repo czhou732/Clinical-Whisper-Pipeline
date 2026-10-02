@@ -1075,6 +1075,7 @@ document.addEventListener('DOMContentLoaded', () => {
             .then(a => {
                 jsonContent.textContent = JSON.stringify(a, null, 2);
                 if ((a.speaker_assignment || {}).mode === 'group') renderPerSpeaker(a);
+                if (a.kintsugi) renderKintsugi(a.kintsugi);
                 const scoring = a.llm_clinical_scoring || {};
                 // Say plainly when there are no clinical scores, so the
                 // measurements are not mistaken for them.
@@ -1208,6 +1209,38 @@ document.addEventListener('DOMContentLoaded', () => {
         });
         table.appendChild(body);
         g.append(h, table);
+        resultContent.appendChild(g);
+    }
+
+    // Kintsugi's open voice model (add-on): PHQ-9 / GAD-7 bands, research only.
+    function renderKintsugi(k) {
+        const g = document.createElement('div');
+        g.className = 'measure-group';
+        const h = document.createElement('h4');
+        h.textContent = 'Voice model (Kintsugi, research estimate)';
+        g.appendChild(h);
+        if (k.skipped) {
+            const p = document.createElement('p');
+            p.className = 'text-sm';
+            p.textContent = `Not run: ${k.skipped}`;
+            g.appendChild(p);
+        } else {
+            const dl = document.createElement('dl');
+            dl.className = 'kv';
+            [['Depression band', k.depression], ['Anxiety band', k.anxiety]].forEach(([label, r]) => {
+                if (!r) return;
+                const dt = document.createElement('dt');
+                dt.textContent = label;
+                const dd = document.createElement('dd');
+                dd.textContent = `${r.label} · score ${r.score.toFixed(2)}`;
+                dl.append(dt, dd);
+            });
+            g.appendChild(dl);
+        }
+        const note = document.createElement('p');
+        note.className = 'text-sm';
+        note.textContent = k.note || '';
+        g.appendChild(note);
         resultContent.appendChild(g);
     }
 
@@ -1381,6 +1414,7 @@ document.addEventListener('DOMContentLoaded', () => {
             status.textContent = !res || res.status === 'cancelled' ? ''
                 : res.status === 'error' ? res.message
                 : res.addon === 'languages' ? 'Languages add-on installed.'
+                : res.addon === 'kintsugi' ? 'Kintsugi voice model installed.'
                 : 'Clinical scoring installed. Reopen the app to use it.';
         });
     })();

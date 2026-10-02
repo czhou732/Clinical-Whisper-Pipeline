@@ -188,6 +188,9 @@ def _masker_for(lang: dict) -> dict:
         if pii_scrubber.deidentify is not None else {}
 
 
+import kintsugi_dam  # noqa: E402  (after the module's own helpers it imports)
+
+
 def _clinical_review(segments: list[dict], roles: dict, cfg: dict) -> dict:
     """Keyword screen for passages to review (see review_flags.py)."""
     review_cfg = cfg.get("review_flags", {}) or {}
@@ -771,6 +774,15 @@ class InferencePipeline:
             voices = voice_library.embeddings_for(segments, str(acoustic_wav))
         except Exception as exc:  # noqa: BLE001 - roles fall back to text evidence
             log.info("No voice embeddings for role matching: %s", exc)
+        # Kintsugi's voice model (optional add-on), per speaker while the audio
+        # is still here; the participant's result is picked once roles are known.
+        voice_model = None
+        try:
+            import kintsugi_dam
+            voice_model = kintsugi_dam.per_speaker(str(acoustic_wav), segments)
+        except Exception as exc:  # noqa: BLE001 - an add-on must not lose the run
+            log.warning("Kintsugi voice model failed: %s", exc)
+            warnings.append(f"Kintsugi voice model failed: {exc}")
         self._cleanup(prep)
         # Measured on the edited audio above; reported in the recording's own
         # time from here on, so timestamps match the file the user has.
@@ -789,6 +801,7 @@ class InferencePipeline:
             "speaker_acoustics": speaker_acoustics,
             "audio_stats": audio_stats,
             "voices": voices,
+            "voice_model": voice_model,
             "warnings": warnings,
         }
 
@@ -954,6 +967,12 @@ class InferencePipeline:
                 "structured_transcript": structured_transcript,
                 # Keyword screen for passages a clinician should read; not scored.
                 "clinical_review": clinical_review,
+                # Kintsugi's open voice model, if installed: per speaker, and the
+                # participant's estimate (research only).
+                "kintsugi": ({"per_speaker": state.get("voice_model"),
+                              **(kintsugi_dam.for_subject(state.get("voice_model"),
+                                                          timing_payload["subject_speaker"]) or {})}
+                             if state.get("voice_model") is not None else None),
                 "llm_clinical_scoring": llm_scoring,
                 "segments": segments,
                 "transcript": transcript,
