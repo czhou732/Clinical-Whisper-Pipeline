@@ -73,10 +73,21 @@ for m in $MODELS; do
 done
 
 # OpenMED keeps an MLX-converted copy; its HF-form duplicate is already in hub/.
-if [ -d "$HOME/.cache/openmed" ]; then
-    echo "  staging openmed MLX cache"
-    rsync -aL --exclude 'models--*' "$HOME/.cache/openmed/" "$STAGE/openmed/"
+# Only the English masker: other languages are add-ons (addons.py), and the
+# cache also holds models tried during development (5.3's first build shipped
+# Hindi, Spanish and Chinese ones, +2.1 GB).
+OPENMED_MLX="OpenMed_OpenMed-PII-SuperClinical-Small-44M-v1"
+if [ ! -f "$HOME/.cache/openmed/$OPENMED_MLX/weights.safetensors" ]; then
+    echo "ERROR: $HOME/.cache/openmed/$OPENMED_MLX is missing. Process one recording first."
+    exit 1
 fi
+mkdir -p "$STAGE/openmed"
+for staged in "$STAGE"/openmed/*; do
+    [ -e "$staged" ] || continue
+    [ "$(basename "$staged")" = "$OPENMED_MLX" ] || { echo "  removing unlisted staged $(basename "$staged")"; rm -rf "$staged"; }
+done
+echo "  staging openmed MLX $OPENMED_MLX"
+rsync -aL "$HOME/.cache/openmed/$OPENMED_MLX" "$STAGE/openmed/"
 
 echo "  staged total: $(du -sh "$STAGE" | cut -f1)"
 
