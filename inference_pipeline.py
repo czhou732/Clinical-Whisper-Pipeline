@@ -277,7 +277,8 @@ class InferencePipeline:
             (10.0 ** (TARGET_PEAK_DBFS / 20.0)) / peak_ref,
         )
 
-    def _preprocess_audio(self, source_path: Path, tag: str = "") -> tuple[Path, Path, dict]:
+    def _preprocess_audio(self, source_path: Path, tag: str = "",
+                          edits=None) -> tuple[Path, Path, dict]:
         """Produce the two 16 kHz mono WAVs the pipeline needs.
 
         Returns ``(asr_wav, acoustic_wav, level_stats)``, the last being the
@@ -317,7 +318,12 @@ class InferencePipeline:
 
         with sf.SoundFile(str(acoustic_wav), mode="w", samplerate=TARGET_SR,
                           channels=1, subtype="PCM_16") as out:
-            for block in self._decode_stream(source_path):
+            blocks = self._decode_stream(source_path)
+            if edits is not None:
+                # Only the stretches the user kept (see audio_edits.py).
+                import audio_edits
+                blocks = audio_edits.apply(blocks, edits, TARGET_SR)
+            for block in blocks:
                 out.write(block)
                 sum_squares += float(np.dot(block, block))
                 count += block.size
@@ -601,7 +607,10 @@ class InferencePipeline:
         # Decoding is a hard requirement: MOSS needs level-normalised audio and
         # OpenSMILE needs 16 kHz mono PCM. Falling back to the raw file here
         # used to produce silently-empty analyses.
-        asr_wav, acoustic_wav, audio_stats = self._preprocess_audio(file_path, tag=job["job_id"])
+        import audio_edits
+        edits = audio_edits.Edits.from_dict(job.get("audio_edits"))
+        asr_wav, acoustic_wav, audio_stats = self._preprocess_audio(
+            file_path, tag=job["job_id"], edits=edits)
 
         # Whole-file acoustics need only the audio, not the transcript, and use
         # the CPU while transcription uses the GPU — so start them now instead
@@ -618,6 +627,7 @@ class InferencePipeline:
             "asr_wav": asr_wav,
             "acoustic_wav": acoustic_wav,
             "audio_stats": audio_stats,
+            "time_map": audio_edits.TimeMap.for_edits(edits),
             "overall_future": self._acoustic_pool.submit(_overall_acoustics, acoustic_wav),
             "audio_seconds": _audio_duration(str(asr_wav)),
         }
@@ -699,6 +709,10 @@ class InferencePipeline:
         from snr import estimate_snr
         audio_stats["snr_db"] = estimate_snr(str(acoustic_wav), segments)
         self._cleanup(prep)
+        # Measured on the edited audio above; reported in the recording's own
+        # time from here on, so timestamps match the file the user has.
+        if prep.get("time_map") is not None:
+            segments = prep["time_map"].segments(segments)
 
         return {
             "job": job,
@@ -781,7 +795,15 @@ class InferencePipeline:
 
         from timing_features import speaker_timing, subject_speaker
 
-        timing = speaker_timing(segments)
+        # Pauses and latency on the edited timeline: on the original one a
+        # skipped stretch would count as one enormous pause.
+        import audio_edits
+        edits = audio_edits.Edits.from_dict(job.get("audio_edits"))
+        time_map = audio_edits.TimeMap.for_edits(edits)
+        timing_segments = time_map.edited_segments(segments) if time_map else segments
+        if edits is not None:
+            notes.append(edits.describe())
+        timing = speaker_timing(timing_segments)
         timing_payload = {
             "subject_speaker": subject_speaker(timing, speaker_roles or {}),
             "per_speaker": timing,
@@ -820,6 +842,8 @@ class InferencePipeline:
                     "original_filename": original_filename,
                     "stored_path": str(file_path),
                 },
+                # Stretches left out before processing; null when none.
+                "audio_edits": edits.as_dict() if edits else None,
                 "statistics": stats,
                 "overall_acoustics": overall_acoustics,
                 "speaker_acoustics": speaker_acoustics,

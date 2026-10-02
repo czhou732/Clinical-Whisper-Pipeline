@@ -180,6 +180,7 @@ def process_batch_task(batch_id: str, paths: list[Path]) -> None:
         pipeline = InferencePipeline(cfg, progress_cb=_progress, should_cancel=_cancelled)
 
         with _lock:
+            edits_per_file = list(_batches[batch_id].get("edits") or [])
             meta = (
                 _batches[batch_id].get("participant_id", ""),
                 _batches[batch_id].get("session_label", ""),
@@ -206,6 +207,7 @@ def process_batch_task(batch_id: str, paths: list[Path]) -> None:
                 "participant_id": meta[0] or (audio_path.stem if len(paths) > 1 else ""),
                 "session_label": meta[1],
                 "criterion_score": meta[2],
+                "audio_edits": edits_per_file[idx] if idx < len(edits_per_file) else None,
             })
         with _lock:
             b = _batches[batch_id]
@@ -357,12 +359,52 @@ def _speaker_count(value) -> int | None:
     return n if 1 <= n <= 10 else None
 
 
+def _checked_edits(edits, count: int) -> list:
+    """Per-file edits from the window, validated; one entry (or None) per file."""
+    import audio_edits
+
+    edits = list(edits or [])
+    if edits and len(edits) != count:
+        raise ValueError("Edits don't match the list of files.")
+    out = []
+    for e in edits or [None] * count:
+        parsed = audio_edits.Edits.from_dict(e) if e else None
+        out.append(parsed.as_dict() if parsed else None)
+    return out
+
+
+# Recordings the window may play while the user marks what to leave out:
+# only files the user picked through the app, each behind a random token.
+_previews: dict[str, Path] = {}
+
+
+def register_preview(path: Path) -> str:
+    token = uuid.uuid4().hex
+    with _lock:
+        _previews[token] = Path(path)
+    return token
+
+
+@app.get("/api/preview/{token}")
+async def preview_audio(token: str):
+    from fastapi.responses import FileResponse
+
+    with _lock:
+        path = _previews.get(token)
+    if path is None or not path.is_file():
+        return JSONResponse(status_code=404, content={"status": "error",
+                                                      "message": "Unknown recording."})
+    return FileResponse(path)
+
+
 def _launch_batch(paths: list[Path], participant_id: str, session_label: str,
                   criterion_score: str, transcribe_only: bool, in_place: bool,
-                  num_speakers=None) -> str:
+                  num_speakers=None, edits=None) -> str:
+    edits = _checked_edits(edits, len(paths))
     batch_id = _new_batch(paths)
     with _lock:
         b = _batches[batch_id]
+        b["edits"] = edits
         b["num_speakers"] = _speaker_count(num_speakers)
         b["participant_id"] = participant_id.strip()
         b["session_label"] = session_label.strip()
@@ -382,7 +424,8 @@ def _launch_batch(paths: list[Path], participant_id: str, session_label: str,
 
 def start_batch_from_paths(paths: list[str], participant_id: str = "",
                            session_label: str = "", criterion_score: str = "",
-                           transcribe_only: bool = False, num_speakers=None) -> dict:
+                           transcribe_only: bool = False, num_speakers=None,
+                           edits=None) -> dict:
     """Process recordings where they are, without copying them.
 
     Called by the app window through pywebview's private bridge, never over
@@ -401,7 +444,8 @@ def start_batch_from_paths(paths: list[str], participant_id: str = "",
     if not files:
         raise ValueError("No files selected.")
     batch_id = _launch_batch(files, participant_id, session_label, criterion_score,
-                             transcribe_only, in_place=True, num_speakers=num_speakers)
+                             transcribe_only, in_place=True, num_speakers=num_speakers,
+                             edits=edits)
     return {"status": "success", "batch_id": batch_id, "count": len(files),
             "filenames": [p.name for p in files]}
 
@@ -416,6 +460,7 @@ async def upload_files(
     criterion_score: str = Form(""),
     transcribe_only: str = Form(""),
     num_speakers: str = Form(""),
+    edits: str = Form(""),
 ):
     """Accept one or many audio files and start a single batch job.
 
@@ -453,6 +498,7 @@ async def upload_files(
             transcribe_only.strip().lower() in ("1", "true", "on", "yes"),
             in_place=False,
             num_speakers=num_speakers,
+            edits=json.loads(edits) if edits.strip() else None,
         )
         return {
             "status": "success",
@@ -460,6 +506,8 @@ async def upload_files(
             "count": len(saved),
             "filenames": [p.name for p in saved],
         }
+    except ValueError as e:
+        return JSONResponse(status_code=400, content={"status": "error", "message": str(e)})
     except Exception as e:
         return JSONResponse(status_code=500, content={"status": "error", "message": str(e)})
 

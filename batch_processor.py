@@ -120,7 +120,9 @@ def _read_ids(path: str) -> dict[str, dict]:
     """Map filename (with or without extension) -> study identifiers.
 
     The CSV needs a ``filename`` column plus any of ``participant_id``,
-    ``session_label`` and ``criterion_score``.
+    ``session_label`` and ``criterion_score``, and optionally ``start``,
+    ``end`` and ``skip`` to leave parts of a recording out (times as mm:ss or
+    h:mm:ss; ``skip`` like "02:30-05:00; 1:10:00-1:12:00").
     """
     table = pd.read_csv(path, dtype=str).fillna("")
     if "filename" not in table.columns:
@@ -129,6 +131,13 @@ def _read_ids(path: str) -> dict[str, dict]:
     for row in table.to_dict("records"):
         name = Path(row["filename"].strip()).name
         entry = {k: row.get(k, "").strip() for k in _ID_COLUMNS}
+        import audio_edits
+        try:
+            edits = audio_edits.Edits.from_dict(
+                {k: row.get(k, "") for k in ("start", "end", "skip")})
+        except ValueError as exc:
+            raise ValueError(f"{path}, {name}: {exc}") from exc
+        entry["audio_edits"] = edits.as_dict() if edits else None
         ids[name] = ids[Path(name).stem] = entry
     return ids
 
@@ -156,7 +165,8 @@ def _pending_scoring(analysis_dir: Path) -> dict[Path, Path]:
 def _state_from_checkpoint(path: Path) -> dict:
     """Rebuild what score_job needs from a saved transcript, skipping transcription."""
     d = json.loads(path.read_text(encoding="utf-8"))
-    job = {"job_id": d["job_id"], **{k: d.get(k, "") for k in _ID_COLUMNS}}
+    job = {"job_id": d["job_id"], **{k: d.get(k, "") for k in _ID_COLUMNS},
+           "audio_edits": d.get("audio_edits")}
     quality = d.get("quality") or {}
     return {
         "job": job,
@@ -296,6 +306,7 @@ def batch_process(
             "participant_id": meta.get("participant_id") or audio_path.stem,
             "session_label": meta.get("session_label", ""),
             "criterion_score": meta.get("criterion_score", ""),
+            "audio_edits": meta.get("audio_edits"),
         })
 
     # Files are transcribed in groups of ~2 hours of audio; each group is then

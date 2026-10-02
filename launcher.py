@@ -131,7 +131,9 @@ def _file_entry(path: str) -> dict:
 
     p = Path(path)
     return {"path": str(p), "name": p.name, "size": p.stat().st_size,
-            "duration": audio_seconds(p)}
+            "duration": audio_seconds(p),
+            # Lets the window play the file while marking parts to leave out.
+            "preview": gui_server.register_preview(p)}
 
 
 class Bridge:
@@ -176,6 +178,7 @@ class Bridge:
                 criterion_score=request.get("criterion_score", ""),
                 transcribe_only=bool(request.get("transcribe_only")),
                 num_speakers=request.get("num_speakers"),
+                edits=request.get("edits"),
             )
         except (OSError, ValueError) as exc:
             return {"status": "error", "message": str(exc)}

@@ -132,6 +132,18 @@ document.addEventListener('DOMContentLoaded', () => {
         renderFileList();
     }
 
+    let editingIndex = -1;
+
+    function editSummary(e) {
+        if (!e) return '';
+        const parts = [];
+        if (e.start) parts.push(`from ${e.start}`);
+        if (e.end) parts.push(`to ${e.end}`);
+        const n = (e.skip || '').split(/[,;\n]+/).filter(x => x.trim()).length;
+        if (n) parts.push(`${n} skipped`);
+        return parts.join(' · ');
+    }
+
     function renderFileList() {
         fileList.innerHTML = '';
         selectedFiles.forEach((file, i) => {
@@ -139,10 +151,14 @@ document.addEventListener('DOMContentLoaded', () => {
             li.className = 'file-row';
             const mb = (file.size / 1048576).toFixed(1);
             li.innerHTML = `<span class="file-row-name"></span>
+                            <span class="file-row-edits"></span>
                             <span class="file-row-size">${mb} MB</span>
-                            <button class="btn-remove" data-i="${i}">&times;</button>`;
+                            <button class="btn-edit link-button" data-i="${i}">Edit</button>
+                            <button class="btn-remove" data-i="${i}" aria-label="Remove">&times;</button>`;
             li.querySelector('.file-row-name').textContent = file.name;
+            li.querySelector('.file-row-edits').textContent = editSummary(file.cwEdits);
             fileList.appendChild(li);
+            if (i === editingIndex) fileList.appendChild(buildEditor(file));
         });
 
         fileCount.textContent = selectedFiles.length === 1
@@ -156,6 +172,77 @@ document.addEventListener('DOMContentLoaded', () => {
         btnProcess.textContent = selectedFiles.length > 1
             ? `Process ${selectedFiles.length} Files`
             : 'Process Audio';
+    }
+
+    // Mark where to start and end, and stretches to leave out. Times stay
+    // those of the original recording in every result.
+    function buildEditor(file) {
+        const li = document.createElement('li');
+        li.className = 'file-editor';
+        const e = Object.assign({ start: '', end: '', skip: '' }, file.cwEdits || {});
+        li.innerHTML = `
+            <audio controls preload="metadata" class="editor-player"></audio>
+            <p class="text-sm editor-noplay hidden">This format can't be played here;
+                type the times instead.</p>
+            <div class="editor-grid">
+                <label>Start at <input id="edit-start" placeholder="mm:ss"></label>
+                <button class="link-button" data-set="start">Use player time</button>
+                <label>End at <input id="edit-end" placeholder="mm:ss"></label>
+                <button class="link-button" data-set="end">Use player time</button>
+            </div>
+            <label class="editor-skip">Leave out
+                <input id="edit-skip" placeholder="e.g. 02:30-05:00, 1:10:00-1:12:00"></label>
+            <div class="editor-actions">
+                <button class="link-button" data-mark="from">Leave out from player time…</button>
+                <button class="link-button" data-mark="to" disabled>…to player time</button>
+                <span class="text-sm editor-hint"></span>
+            </div>
+            <div class="editor-actions">
+                <button class="btn-secondary" data-act="done">Done</button>
+                <button class="link-button" data-act="reset">Use the whole recording</button>
+            </div>`;
+        const player = li.querySelector('audio');
+        const src = file.preview ? `/api/preview/${file.preview}`
+            : (file instanceof File ? URL.createObjectURL(file) : '');
+        if (src) player.src = src;
+        else player.classList.add('hidden');
+        player.addEventListener('error', () => {
+            player.classList.add('hidden');
+            li.querySelector('.editor-noplay').classList.remove('hidden');
+        });
+        const field = id => li.querySelector('#edit-' + id);
+        field('start').value = e.start;
+        field('end').value = e.end;
+        field('skip').value = e.skip;
+        let markFrom = null;
+        li.addEventListener('click', ev => {
+            const t = ev.target;
+            if (t.dataset.set) field(t.dataset.set).value = mmss(player.currentTime);
+            if (t.dataset.mark === 'from') {
+                markFrom = mmss(player.currentTime);
+                li.querySelector('[data-mark="to"]').disabled = false;
+                li.querySelector('.editor-hint').textContent = `Leaving out from ${markFrom}…`;
+            }
+            if (t.dataset.mark === 'to' && markFrom) {
+                const range = `${markFrom}-${mmss(player.currentTime)}`;
+                field('skip').value = [field('skip').value.trim(), range].filter(Boolean).join(', ');
+                markFrom = null;
+                t.disabled = true;
+                li.querySelector('.editor-hint').textContent = '';
+            }
+            if (t.dataset.act === 'done' || t.dataset.act === 'reset') {
+                const edits = t.dataset.act === 'reset' ? null : {
+                    start: field('start').value.trim(),
+                    end: field('end').value.trim(),
+                    skip: field('skip').value.trim(),
+                };
+                file.cwEdits = edits && (edits.start || edits.end || edits.skip) ? edits : null;
+                if (src.startsWith('blob:')) URL.revokeObjectURL(src);
+                editingIndex = -1;
+                renderFileList();
+            }
+        });
+        return li;
     }
 
     // Audio length of a picked file: known for files read in place; for an
@@ -201,14 +288,23 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('transcribe-only').addEventListener('change', updateEstimate);
 
     fileList.addEventListener('click', (e) => {
+        const edit = e.target.closest('.btn-edit');
+        if (edit) {
+            const i = parseInt(edit.dataset.i, 10);
+            editingIndex = editingIndex === i ? -1 : i;
+            renderFileList();
+            return;
+        }
         const btn = e.target.closest('.btn-remove');
         if (!btn) return;
         selectedFiles.splice(parseInt(btn.dataset.i, 10), 1);
+        editingIndex = -1;
         renderFileList();
     });
 
     btnClear.addEventListener('click', () => {
         selectedFiles = [];
+        editingIndex = -1;
         fileInput.value = '';
         renderFileList();
     });
@@ -482,7 +578,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 // Read in place: nothing is uploaded or copied.
                 consoleOutput.textContent = 'Starting...';
                 const data = await window.pywebview.api.start_batch(
-                    { ...meta, paths: withPaths.map(f => f.path) });
+                    { ...meta, paths: withPaths.map(f => f.path),
+                      edits: withPaths.map(f => f.cwEdits || null) });
                 if (data && data.batch_id) {
                     consoleOutput.textContent = `Processing ${data.count} file(s) in place...\n`;
                     currentBatchId = data.batch_id;
@@ -504,6 +601,7 @@ document.addEventListener('DOMContentLoaded', () => {
             formData.append('transcribe_only', meta.transcribe_only ? '1' : '');
             formData.append('num_speakers', meta.num_speakers);
             formData.append('criterion_score', meta.criterion_score);
+            formData.append('edits', JSON.stringify(selectedFiles.map(f => f.cwEdits || null)));
             const { ok, data } = await uploadWithProgress(formData);
             if (ok && data.batch_id) {
                 consoleOutput.textContent = `Uploaded ${data.count} file(s). Starting...\n`;
