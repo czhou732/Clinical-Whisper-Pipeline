@@ -228,6 +228,7 @@ def batch_process(
     resume: bool = False,
     audio_retention: str = "keep",
     guide: Optional[str] = None,
+    silence_names: bool = False,
 ) -> pd.DataFrame:
     """Process every audio file in *input_dir* and write a summary CSV.
 
@@ -256,6 +257,8 @@ def batch_process(
     cfg = load_config(config_path)
     if guide:
         cfg.setdefault("roles", {})["guide_path"] = str(Path(guide).expanduser())
+    if silence_names:
+        cfg.setdefault("audio_deid", {})["enabled"] = True
     if transcribe_only:
         # Transcript, de-identification, acoustics and timing only — no 5 GB
         # scoring model. The usual need on a compute cluster.
@@ -458,6 +461,12 @@ def main(argv: Optional[list[str]] = None, prog: str = "clinicalwhisper-batch") 
         help="Compute device (default: auto — MLX on Apple Silicon, else CUDA, else CPU).",
     )
     parser.add_argument(
+        "--silence-names",
+        action="store_true",
+        help="Also save a copy of each recording with the masked names silenced "
+             "(for sharing audio; listen to it first).",
+    )
+    parser.add_argument(
         "--guide",
         metavar="FILE",
         default=None,
@@ -506,6 +515,7 @@ def main(argv: Optional[list[str]] = None, prog: str = "clinicalwhisper-batch") 
         transcribe_only=args.transcribe_only, device=args.device,
         ids_csv=args.ids, num_speakers=args.speakers, resume=args.resume,
         audio_retention=args.audio_retention, guide=args.guide,
+        silence_names=args.silence_names,
     )
     if df.empty:
         out = Path(args.output).expanduser()

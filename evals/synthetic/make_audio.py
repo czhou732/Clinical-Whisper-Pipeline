@@ -88,6 +88,14 @@ SPANISH = [
     ("Flo (Spanish (Mexico))", "Muy mal. Me despierto a las tres de la mañana y no puedo volver a dormir."),
 ]
 
+NAMES = [
+    ("Samantha", "Hi, thanks for coming in. Could you tell me a little about yourself?"),
+    ("Daniel", "Sure. My name is Marcus Delgado. I live in Sacramento with my sister Elena, and I work at the Riverside warehouse."),
+    ("Samantha", "Who do you talk to when things get hard?"),
+    ("Daniel", "Mostly my friend Priya, and sometimes my doctor, Doctor Feldman, at the clinic on Hollis Street."),
+    ("Samantha", "Thank you. That's helpful."),
+]
+
 README = """Synthetic test recordings (macOS voices; no real people)
 Regenerate with evals/synthetic/make_audio.py in the ClinicalWhisper repo.
 
@@ -104,6 +112,10 @@ focus_group.wav          4 speakers, ~1.3 min. Two moderators (Samantha reads
     the consent lines, Daniel hands the floor), two participants. Tests group
     mode, moderator detection with brief moderators, per-speaker measures, and
     "Remember this voice".
+names_interview.wav      2 speakers, ~40 s, full of invented names and places
+    (Marcus Delgado, Elena, Priya, Doctor Feldman, Sacramento, Hollis Street).
+    Tests masking and "silence names in the audio": transcribe the silenced copy
+    with masking off and none of those names should be heard.
 spanish_interview.wav    2 speakers in Spanish. Tests language detection and
     that a non-English recording is refused (or masked by the Languages add-on).
 """
@@ -137,6 +149,7 @@ def main() -> None:
     _write(out / "interview_engaged.wav", interview(ENGAGED))
     _write(out / "focus_group.wav", FOCUS_GROUP)
     _write(out / "spanish_interview.wav", SPANISH)
+    _write(out / "names_interview.wav", NAMES)
     (out / "README.txt").write_text(README)
 
 

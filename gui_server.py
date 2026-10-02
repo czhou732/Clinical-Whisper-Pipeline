@@ -155,6 +155,8 @@ def process_batch_task(batch_id: str, paths: list[Path]) -> None:
             if _batches.get(batch_id, {}).get("num_speakers"):
                 # Extra speaker labels are folded into this many by voice.
                 cfg.setdefault("moss", {})["num_speakers"] = _batches[batch_id]["num_speakers"]
+            if _batches.get(batch_id, {}).get("silence_names"):
+                cfg.setdefault("audio_deid", {})["enabled"] = True
             if _batches.get(batch_id, {}).get("in_place"):
                 # The user's own recording, read where it is: never move or delete it.
                 cfg["audio_retention"] = "keep"
@@ -456,12 +458,13 @@ async def preview_peaks(token: str, n: int = 160):
 
 def _launch_batch(paths: list[Path], participant_id: str, session_label: str,
                   criterion_score: str, transcribe_only: bool, in_place: bool,
-                  num_speakers=None, edits=None) -> str:
+                  num_speakers=None, edits=None, silence_names: bool = False) -> str:
     edits = _checked_edits(edits, len(paths))
     batch_id = _new_batch(paths)
     with _lock:
         b = _batches[batch_id]
         b["edits"] = edits
+        b["silence_names"] = bool(silence_names)
         b["num_speakers"] = _speaker_count(num_speakers)
         b["participant_id"] = participant_id.strip()
         b["session_label"] = session_label.strip()
@@ -482,7 +485,7 @@ def _launch_batch(paths: list[Path], participant_id: str, session_label: str,
 def start_batch_from_paths(paths: list[str], participant_id: str = "",
                            session_label: str = "", criterion_score: str = "",
                            transcribe_only: bool = False, num_speakers=None,
-                           edits=None) -> dict:
+                           edits=None, silence_names: bool = False) -> dict:
     """Process recordings where they are, without copying them.
 
     Called by the app window through pywebview's private bridge, never over
@@ -502,7 +505,7 @@ def start_batch_from_paths(paths: list[str], participant_id: str = "",
         raise ValueError("No files selected.")
     batch_id = _launch_batch(files, participant_id, session_label, criterion_score,
                              transcribe_only, in_place=True, num_speakers=num_speakers,
-                             edits=edits)
+                             edits=edits, silence_names=silence_names)
     # Tokens first: register_preview takes the same (non-reentrant) lock.
     tokens = [register_preview(path) for path in files]
     with _lock:
@@ -523,6 +526,7 @@ async def upload_files(
     transcribe_only: str = Form(""),
     num_speakers: str = Form(""),
     edits: str = Form(""),
+    silence_names: str = Form(""),
 ):
     """Accept one or many audio files and start a single batch job.
 
@@ -561,6 +565,7 @@ async def upload_files(
             in_place=False,
             num_speakers=num_speakers,
             edits=json.loads(edits) if edits.strip() else None,
+            silence_names=silence_names.strip().lower() in ("1", "true", "on", "yes"),
         )
         return {
             "status": "success",

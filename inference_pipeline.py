@@ -745,6 +745,9 @@ class InferencePipeline:
                     "installed. Install it, or set pii_scrubbing.enabled: false."
                 )
             self._emit("De-identifying", None, f"{len(segments)} segments")
+            # The original words are kept in memory, only long enough to find
+            # where the masked names are spoken (audio_deid.py).
+            raw_segments = [dict(seg) for seg in segments]
             segments = scrubber.scrub_segments(segments)
             deid_summary = scrubber.summary()
             del scrubber
@@ -810,6 +813,10 @@ class InferencePipeline:
             praat = praat_measures.per_speaker(str(acoustic_wav), segments)
         except Exception as exc:  # noqa: BLE001 - an add-on must not lose the run
             log.warning("Praat measures failed: %s", exc)
+        audio_deid_result = None
+        if (self.cfg.get("audio_deid") or {}).get("enabled") and pii_cfg.get("enabled", True):
+            audio_deid_result = self._silence_names(raw_segments, segments, acoustic_wav, job)
+        raw_segments = None
         self._cleanup(prep)
         # Measured on the edited audio above; reported in the recording's own
         # time from here on, so timestamps match the file the user has.
@@ -830,8 +837,32 @@ class InferencePipeline:
             "voices": voices,
             "voice_model": voice_model,
             "praat": praat,
+            "audio_deid": audio_deid_result,
             "warnings": warnings,
         }
+
+    def _silence_names(self, raw_segments, segments, wav_path, job) -> dict:
+        """Write a copy of the processed audio with every masked word silenced."""
+        import audio_deid
+
+        self._emit("Silencing names in the audio", None, "")
+        try:
+            found = audio_deid.silence_spans(raw_segments, segments, str(wav_path))
+            out_dir = Path(resolve_path(self.cfg.get("pipeline", {}).get(
+                "analysis_output_folder", self.cfg.get("output_folder", "./Output"))))
+            stem = Path(job.get("original_filename") or wav_path).stem
+            out = audio_deid.write(str(wav_path), found["spans"],
+                                   out_dir / f"{job['job_id']}_{stem}_names_silenced.wav")
+            return {"path": str(out), "silenced_spans": len(found["spans"]),
+                    "segments_aligned": found["segments_aligned"],
+                    "segments_silenced_whole": found["segments_silenced_whole"],
+                    "aligner": "word-level" if audio_deid.available() else "whole segments",
+                    "note": ("Names the transcript masker caught are silent in this copy; names it "
+                             "missed are not. Listen before sharing. 16 kHz mono, and if parts were "
+                             "left out before processing, those parts are not in it.")}
+        except Exception as exc:  # noqa: BLE001 - the transcript must not be lost over this
+            log.warning("Silencing names in the audio failed: %s", exc)
+            return {"error": str(exc)}
 
     def score_job(self, state: dict) -> str:
         """Second half: role detection, clinical scoring, write the analysis.
@@ -986,6 +1017,8 @@ class InferencePipeline:
                     "stored_path": str(file_path),
                 },
                 "language": stats.get("language"),
+                # Copy of the audio with masked names silenced, when asked for.
+                "audio_deid": state.get("audio_deid"),
                 # Stretches left out before processing; null when none.
                 "audio_edits": edits.as_dict() if edits else None,
                 "statistics": stats,

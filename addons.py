@@ -132,6 +132,25 @@ def install_praat(source: Path, root: Optional[Path] = None) -> Path:
     return root
 
 
+def install_deid(source: Path, root: Optional[Path] = None) -> Path:
+    """Copy the word aligner (audio de-identification add-on) into place."""
+    import audio_deid
+
+    root = root or audio_deid.ROOT
+    name = "models--" + audio_deid.MODEL.replace("/", "--")
+    candidates = [source / "hub", *[p / "hub" for p in Path(source).iterdir() if p.is_dir()]]
+    hub = next((c for c in candidates if (c / name).is_dir()), None)
+    if hub is None:
+        raise ValueError("That folder doesn't contain the audio de-identification add-on.")
+    tmp = root.parent / f".installing-deid-{uuid.uuid4().hex[:8]}"
+    shutil.copytree(hub / name, tmp / "hub" / name)
+    if root.exists():
+        shutil.rmtree(root)
+    tmp.rename(root)
+    log.info("Audio de-identification add-on installed.")
+    return root
+
+
 def install_any(source: Path) -> str:
     """Install whichever add-on ``source`` holds: "scoring", "kintsugi" or "languages"."""
     import kintsugi_dam
@@ -140,6 +159,11 @@ def install_any(source: Path) -> str:
     if find_in(source) is not None:
         install(source)
         return "scoring"
+    import audio_deid
+    deid_name = "models--" + audio_deid.MODEL.replace("/", "--")
+    if (source / "hub" / deid_name).is_dir() or any(source.glob(f"*/hub/{deid_name}")):
+        install_deid(source)
+        return "deid"
     if any(source.glob("site/parselmouth*")) or any(source.glob("*/site/parselmouth*")):
         install_praat(source)
         return "praat"

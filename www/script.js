@@ -874,6 +874,7 @@ document.addEventListener('DOMContentLoaded', () => {
             // Criterion measure, recorded alongside the audio so the scores can
             // later be correlated against it. Cannot be added retrospectively.
             criterion_score: document.getElementById('criterion-score').value || '',
+            silence_names: document.getElementById('silence-names').checked,
         };
 
         const withPaths = selectedFiles.filter(f => f.path);
@@ -912,6 +913,7 @@ document.addEventListener('DOMContentLoaded', () => {
             formData.append('num_speakers', meta.num_speakers);
             formData.append('criterion_score', meta.criterion_score);
             formData.append('edits', JSON.stringify(selectedFiles.map(f => f.cwEdits || null)));
+            formData.append('silence_names', meta.silence_names ? '1' : '');
             const { ok, data } = await uploadWithProgress(formData);
             if (ok && data.batch_id) {
                 consoleOutput.textContent = `Uploaded ${data.count} file(s). Starting...\n`;
@@ -1192,6 +1194,15 @@ document.addEventListener('DOMContentLoaded', () => {
                 jsonContent.textContent = JSON.stringify(a, null, 2);
                 if ((a.speaker_assignment || {}).mode === 'group') renderPerSpeaker(a);
                 if (a.kintsugi) renderKintsugi(a.kintsugi);
+                if (a.audio_deid) {
+                    const p = document.createElement('p');
+                    p.className = 'text-sm';
+                    const d = a.audio_deid;
+                    p.textContent = d.error ? `Audio with names silenced: failed (${d.error}).`
+                        : `Audio with names silenced saved in the results folder `
+                          + `(${d.silenced_spans} stretches; ${d.aligner}). ${d.note}`;
+                    resultContent.prepend(p);
+                }
                 if (a.praat_measures && a.praat_measures.subject) renderPraat(a.praat_measures.subject);
                 const ev = (a.llm_clinical_scoring || {}).evidence;
                 if (ev && Object.keys(ev).length) {
@@ -1603,6 +1614,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 : res.addon === 'languages' ? 'Languages add-on installed.'
                 : res.addon === 'kintsugi' ? 'Kintsugi voice model installed.'
                 : res.addon === 'praat' ? 'Praat voice measures installed.'
+                : res.addon === 'deid' ? 'Word-level name silencing installed.'
                 : 'Clinical scoring installed. Reopen the app to use it.';
         });
     })();

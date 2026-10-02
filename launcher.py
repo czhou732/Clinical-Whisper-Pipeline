@@ -179,6 +179,7 @@ class Bridge:
                 transcribe_only=bool(request.get("transcribe_only")),
                 num_speakers=request.get("num_speakers"),
                 edits=request.get("edits"),
+                silence_names=bool(request.get("silence_names")),
             )
         except (OSError, ValueError) as exc:
             return {"status": "error", "message": str(exc)}
