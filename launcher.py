@@ -152,6 +152,20 @@ class Bridge:
             webview.FileDialog.OPEN, allow_multiple=True, file_types=_AUDIO_TYPES)
         return [_file_entry(p) for p in (chosen or [])]
 
+    def install_scoring(self) -> dict:
+        """Ask for the add-on folder, then copy the scoring model in (~5 GB)."""
+        import addons
+
+        chosen = self._window.create_file_dialog(webview.FileDialog.FOLDER)
+        if not chosen:
+            return {"status": "cancelled"}
+        folder = chosen[0] if isinstance(chosen, (list, tuple)) else chosen
+        try:
+            addons.install(Path(folder))
+        except (OSError, ValueError) as exc:
+            return {"status": "error", "message": str(exc)}
+        return {"status": "ok"}
+
     def start_batch(self, request: dict) -> dict:
         """Process the chosen recordings where they are."""
         try:

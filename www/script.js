@@ -736,6 +736,41 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // After a crash the process leaves no visible trace; surface it here so
     // the log reaches whoever is debugging it.
+    // The base app has no scoring model: scoring is a separate add-on. Until
+    // it is installed, every run is a transcription run, and the page says so.
+    async function setupScoringAddon() {
+        const box = document.getElementById('transcribe-only');
+        const note = document.getElementById('addon-note');
+        const text = document.getElementById('addon-note-text');
+        const btn = document.getElementById('btn-install-scoring');
+        const idle = text.textContent;
+        box.checked = true;
+        box.disabled = true;
+        updateEstimate();
+        note.classList.remove('hidden');
+        if (inApp) await whenBridge();
+        if (!(window.pywebview && window.pywebview.api && window.pywebview.api.install_scoring)) {
+            btn.classList.add('hidden');
+            text.textContent += ' Open ClinicalWhisper from Applications to add it.';
+            return;
+        }
+        btn.addEventListener('click', async () => {
+            btn.disabled = true;
+            text.textContent = 'Choose the "ClinicalWhisper Scoring" folder from the add-on '
+                + 'download. Copying takes about a minute.';
+            const res = await window.pywebview.api.install_scoring();
+            btn.disabled = false;
+            if (res && res.status === 'ok') {
+                box.disabled = false;
+                box.checked = false;
+                note.classList.add('hidden');
+                updateEstimate();
+            } else {
+                text.textContent = (res && res.status === 'error') ? res.message : idle;
+            }
+        });
+    }
+
     (async function checkPreviousCrash() {
         try {
             const res = await fetch('/api/diagnostics');
@@ -754,9 +789,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 document.getElementById('sync-notice-text').textContent = syncText;
                 document.getElementById('sync-notice').classList.remove('hidden');
             }
+            if (data.scoring_available === false) setupScoringAddon();
             // Smaller Macs: scoring's 4.9 GB model would push memory into swap,
             // so start with it off. It can still be ticked back on.
-            if (data.ram_gb && data.ram_gb < 16) {
+            else if (data.ram_gb && data.ram_gb < 16) {
                 document.getElementById('transcribe-only').checked = true;
                 document.getElementById('transcribe-only-hint').textContent =
                     `Recommended on this Mac (${Math.round(data.ram_gb)} GB memory).`;

@@ -37,3 +37,4 @@ test_results.csv
 evals/.cache/
 .model_stage/
 plan/
+.addon_stage/

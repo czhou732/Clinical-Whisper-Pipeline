@@ -690,3 +690,7 @@ input:focus {
 
 .scores-note { margin: 0 0 var(--space-3); color: var(--color-text-muted); max-width: 70ch; }
 .scores-note.hidden { display: none; }
+
+.addon-note { margin: 0 0 var(--space-3); color: var(--color-text-muted); max-width: 70ch; }
+.addon-note.hidden { display: none; }
+.link-button.hidden { display: none; }

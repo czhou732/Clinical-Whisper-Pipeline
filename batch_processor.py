@@ -371,12 +371,10 @@ def main(argv: Optional[list[str]] = None, prog: str = "clinicalwhisper-batch") 
     parser.add_argument("--version", action="version", version=f"ClinicalWhisper {__version__}")
     parser.add_argument(
         "--input", "-i",
-        required=True,
         help="Directory containing audio files to process.",
     )
     parser.add_argument(
         "--output", "-o",
-        required=True,
         help="Path for the output summary CSV.",
     )
     parser.add_argument(
@@ -427,12 +425,34 @@ def main(argv: Optional[list[str]] = None, prog: str = "clinicalwhisper-batch") 
         default=None,
         help="Compute device (default: auto — MLX on Apple Silicon, else CUDA, else CPU).",
     )
+    parser.add_argument(
+        "--install-scoring",
+        metavar="FOLDER",
+        default=None,
+        help="Install the ClinicalWhisper Scoring add-on from FOLDER (the mounted "
+             "add-on disk or the folder inside it), then exit.",
+    )
     args = parser.parse_args(argv)
 
     logging.basicConfig(
         level=logging.INFO,
         format="%(asctime)s  %(name)s  %(levelname)s  %(message)s",
     )
+    import addons
+
+    if args.install_scoring:
+        try:
+            addons.install(Path(args.install_scoring).expanduser())
+        except (OSError, ValueError) as exc:
+            raise SystemExit(f"Could not install the scoring add-on: {exc}") from exc
+        print("Clinical scoring add-on installed.")
+        return
+    if not args.input or not args.output:
+        parser.error("--input and --output are required")
+    if not args.transcribe_only and not addons.scoring_available():
+        args.transcribe_only = True
+        log.warning("Clinical scoring isn't installed on this Mac: producing transcripts "
+                    "and voice measures only. Install it with --install-scoring FOLDER.")
     if not args.transcribe_only and not args.score and _ram_gib() < 16:
         args.transcribe_only = True
         log.info("This Mac has %.0f GB of memory: clinical scoring is off by default. "

@@ -139,6 +139,13 @@ def clear_stale_scratch() -> int:
     return removed
 
 
+def _scoring_installed(cfg: dict) -> bool:
+    """Whether the clinical scoring model is on this Mac (see addons.py)."""
+    import addons
+    model = cfg.get("llm_scoring", {}).get("mlx_model", addons.SCORING_MODEL)
+    return addons.scoring_available(model)
+
+
 def _free_ram():
     """Force garbage collection to release memory."""
     gc.collect()
@@ -816,6 +823,15 @@ class InferencePipeline:
         # scoring starts, so a crash, Stop or sleep during a long scoring stage
         # does not throw them away. The batch command resumes scoring from here.
         llm_enabled = self.cfg.get("llm_scoring", {}).get("enabled", True)
+        scoring_missing = bool(structured_transcript and llm_enabled
+                               and not _scoring_installed(self.cfg))
+        if scoring_missing:
+            # Without the add-on the scorer would fail every run and fall back
+            # to placeholder numbers that look like real scores.
+            llm_enabled = False
+            warnings.append("Clinical scoring isn't installed on this Mac, so the "
+                            "scores are blank. Install the ClinicalWhisper Scoring add-on "
+                            "to get them.")
         if structured_transcript and llm_enabled:
             output_path.write_text(json.dumps(
                 _payload({}, {}, status=SCORING_PENDING), indent=2, default=str), encoding="utf-8")
@@ -837,7 +853,7 @@ class InferencePipeline:
             except Exception as exc:
                 log.warning("Job %s: LLM clinical scoring failed: %s", job_id, exc)
                 warnings.append(f"LLM clinical scoring failed: {exc}")
-        elif not llm_enabled:
+        elif not llm_enabled and not scoring_missing:
             # Asked for deliberately (the app's "transcribe only", the batch
             # command's --transcribe-only), this is a choice, not a fault: it
             # must not mark an otherwise clean run as "completed with warnings".

@@ -27,6 +27,7 @@ from starlette.middleware.trustedhost import TrustedHostMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 
+import addons
 import bundled_models
 import crash_diagnostics
 
@@ -501,6 +502,8 @@ async def diagnostics():
                           if LEGACY_DATA_ROOT.exists() and LEGACY_DATA_ROOT != DATA_ROOT else None),
         "ram_gb": crash_diagnostics.machine_summary().get("ram_gb"),
         "speed": _speed(),
+        # False on the base app until the scoring add-on is installed.
+        "scoring_available": addons.scoring_available(),
     }
 
 

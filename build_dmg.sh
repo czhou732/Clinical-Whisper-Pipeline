@@ -31,10 +31,22 @@ HF_HUB="$HOME/.cache/huggingface/hub"
 # The voice model is small (26 MB) but not optional: without it speakers are
 # matched across 5-minute windows by a much weaker fallback, and one person
 # comes out as several. The offline lock (correctly) refuses to download it.
+# The clinical scoring model (5.3 GB) is not in the base app: it ships as a
+# separate add-on, built by build_scoring_addon.sh (see addons.py).
 MODELS="models--OpenMOSS-Team--MOSS-Transcribe-Diarize \
-        models--mlx-community--Meta-Llama-3-8B-Instruct-4bit \
         models--OpenMed--OpenMed-PII-SuperClinical-Small-44M-v1 \
         models--Wespeaker--wespeaker-voxceleb-resnet34-LM"
+
+# A stage left by an older build may hold models or revisions this build
+# does not ship (the scoring model, old MOSS revisions): keep only what is
+# listed below, at its current revision.
+for staged in "$STAGE"/hub/models--*; do
+    [ -d "$staged" ] || continue
+    case " $MODELS " in
+        *" $(basename "$staged") "*) ;;
+        *) echo "  removing unlisted staged $(basename "$staged")"; rm -rf "$staged" ;;
+    esac
+done
 
 for m in $MODELS; do
     if [ ! -d "$HF_HUB/$m" ]; then
@@ -42,14 +54,22 @@ for m in $MODELS; do
         echo "Process one audio file first so the weights download, then rebuild."
         exit 1
     fi
-    if [ -d "$STAGE/hub/$m/snapshots" ]; then
+    # Only the revision the loaders use. The cache keeps every revision ever
+    # downloaded: copying all of snapshots/ shipped MOSS three times (+3.6 GB).
+    REV=$(cat "$HF_HUB/$m/refs/main" 2>/dev/null || true)
+    if [ -z "$REV" ] || [ ! -d "$HF_HUB/$m/snapshots/$REV" ]; then
+        echo "ERROR: $m has no usable refs/main snapshot."
+        exit 1
+    fi
+    if [ "$(ls "$STAGE/hub/$m/snapshots" 2>/dev/null)" = "$REV" ]; then
         echo "  reusing staged $m"
         continue
     fi
-    echo "  staging $m ($(du -sh "$HF_HUB/$m" | cut -f1))"
-    mkdir -p "$STAGE/hub/$m"
-    cp -R "$HF_HUB/$m/refs" "$STAGE/hub/$m/" 2>/dev/null || true
-    rsync -aL "$HF_HUB/$m/snapshots" "$STAGE/hub/$m/"
+    echo "  staging $m"
+    rm -rf "$STAGE/hub/$m"
+    mkdir -p "$STAGE/hub/$m/snapshots"
+    cp -R "$HF_HUB/$m/refs" "$STAGE/hub/$m/"
+    rsync -aL "$HF_HUB/$m/snapshots/$REV" "$STAGE/hub/$m/snapshots/"
 done
 
 # OpenMED keeps an MLX-converted copy; its HF-form duplicate is already in hub/.

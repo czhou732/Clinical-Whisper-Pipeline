@@ -416,10 +416,19 @@ def _answer_complete(text: str) -> bool:
     return all(k in data for k in REQUIRED_SCORE_KEYS) and bool(data.get("clinical_impression"))
 
 
+def _resolve_model(model_name: str) -> str:
+    """A local folder for the model when the scoring add-on or bundle has one."""
+    try:
+        import addons
+    except ImportError:  # pragma: no cover
+        return model_name
+    return addons.resolve(model_name)
+
+
 def _mlx_model(model_name: str):
     if model_name not in _MODEL_CACHE:
         log.info(f"Loading MLX model {model_name}...")
-        _MODEL_CACHE[model_name] = load(model_name)
+        _MODEL_CACHE[model_name] = load(_resolve_model(model_name))
     return _MODEL_CACHE[model_name]
 
 
@@ -493,7 +502,7 @@ def call_local_lm(
         log.info(f"Loading MLX model {model_name}...")
         
         if model_name not in _MODEL_CACHE:
-            model, tokenizer = load(model_name)
+            model, tokenizer = load(_resolve_model(model_name))
             _MODEL_CACHE[model_name] = (model, tokenizer)
         else:
             model, tokenizer = _MODEL_CACHE[model_name]
