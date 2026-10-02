@@ -45,3 +45,19 @@ def test_propagation_masks_later_mentions_only_of_caught_names():
     out, n = pii_rules.propagate(texts, [("Elena", "[first_name_1]")])
     assert out[1] == "[first_name_1] called again." and n == 1
     assert out[2] == texts[2]
+
+
+def test_workplace_with_words_before_at():
+    assert run("He works nights down at Kroger.") == "He works nights down at [organization_1]."
+    assert run("I work for myself now.") == "I work for myself now."
+
+
+def test_street_names_and_written_phone_numbers():
+    assert run("We lived on Ocean Drive back then.") == "We lived on [street_address_1] back then."
+    assert run("Call (213) 555-0187 or 555-6137.") == "Call [phone_number_1] or [phone_number_2]."
+    assert run("In 2019-2020 it cost 300-400 dollars.") == "In 2019-2020 it cost 300-400 dollars."
+
+
+def test_half_tagged_street_and_number_are_finished():
+    assert run("We lived on Ocean [street_address_1] back then.") == "We lived on [street_address_1] back then."
+    assert run("Her number's 555[phone_number_1], okay.") == "Her number's [phone_number_1], okay."

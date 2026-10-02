@@ -10,7 +10,11 @@ numbers. These patterns are where speech reliably signals an identifier:
 * a capitalised word after a title: "Doctor Feldman", "Mrs. Patel";
 * a capitalised phrase ending in an institution word: "Saint Mary's Hospital";
 * seven or more spoken digits: "five five five, one two three four";
-* a spoken email: "maria dot lopez at gmail dot com".
+* a written phone number: "555-6137", "(213) 555-0187";
+* a spoken email: "maria dot lopez at gmail dot com";
+* a capitalised name ending in a street word: "Ocean Drive", "Cedar Hill Road";
+* a capitalised name after work words, with a word or two between: "works
+  nights down at Kroger", "a part-time job over at Home Depot".
 
 Each rule only adds masking; it never unmasks. Over-masking is measured
 alongside recall in evals/masking/evaluate.py.
@@ -36,6 +40,11 @@ _INSTITUTION = (r"School|Elementary|Middle|High School|Academy|University|Colleg
                 r"Center|Centre|Church|Temple|Mosque|Bank|Pharmacy|Dental|Medical|Health|"
                 r"Logistics|Warehouse|Inc\.?|LLC|Company|Corporation|Corp\.?|Group|Institute|"
                 r"Foundation|Department|Prison|Shelter")
+_STREET = (r"Street|St\.?|Avenue|Ave\.?|Drive|Dr\.|Road|Rd\.?|Lane|Ln\.?|Boulevard|Blvd\.?|"
+           r"Way|Court|Ct\.?|Place|Pl\.?|Circle|Terrace|Parkway|Pkwy\.?|Highway|Hwy\.?|Trail|Alley")
+# Words that can sit between "work" and "at": "works nights down at", "a job over at".
+_WORK_FILL = r"(?:\s+(?:nights|days|weekends|mornings|evenings|part-time|full-time|now|still|"
+_WORK_FILL += r"there|over|down|up|out|again|currently|shifts|overnight))*"
 _DIGIT = r"(?:zero|oh|one|two|three|four|five|six|seven|eight|nine)"
 # OpenMED sometimes masks part of a phrase first ("Saint [city_1]'s Hospital",
 # "[time_1], two [time_2]"); the rules treat those tags as part of the phrase.
@@ -46,8 +55,16 @@ RULES: list[tuple[str, re.Pattern]] = [
     ("first_name", re.compile(rf"\b(?i:my)\s+(?i:{_RELATIONS}),?\s+({_CAP}(?:\s+{_CAP})?)")),
     ("last_name", re.compile(rf"\b{_TITLE}\s+({_CAP})")),
     ("organization", re.compile(rf"((?:\bthe\s+)?(?:{_WORD}\s+){{1,4}}(?:{_INSTITUTION}))\b")),
-    ("organization", re.compile(rf"\b(?:work|works|worked|working|job)\s+(?:at|for)\s+(?:the\s+)?"
+    ("organization", re.compile(rf"\b(?:work|works|worked|working|job|shift|shifts|employed|hired|"
+                                rf"interned|interning|volunteer|volunteers|volunteered)"
+                                rf"{_WORK_FILL}\s+(?:at|for|by)\s+(?:the\s+)?"
                                 rf"((?:{_CAP})(?:\s+{_CAP}){{0,3}})")),
+    ("street_address", re.compile(rf"\b((?:\d{{1,6}}\s+)?(?:{_CAP}\s+){{1,3}}(?:{_STREET}))(?![\w])")),
+    ("phone_number", re.compile(r"(?<![\w-])((?:\+?1[\s.-]?)?(?:\(\d{3}\)\s?|\d{3}[\s.-])?\d{3}[\s.-]\d{4})(?![\w-])")),
+    # OpenMED sometimes tags only the end ("Ocean [street_address_1]",
+    # "555[phone_number_1]"); the exposed start joins the tag.
+    ("street_address", re.compile(rf"\b((?:{_CAP}\s+){{1,3}}\[street_address(?:_\d+)?\])")),
+    ("phone_number", re.compile(r"(?<![\w-])((?:\(\d{3}\)\s?|\d{3}[\s.-]?){1,2}\[phone_number(?:_\d+)?\])")),
     ("phone_number", re.compile(rf"((?:\b{_DIGIT}|{_TAGW})(?:[\s,\-]+(?:{_DIGIT}\b|{_TAGW})){{2,}})", re.I)),
     # A word left exposed just before OpenMED's own email or username tag
     # ("lucia [user_name] [email]") is the start of the address.
@@ -81,7 +98,7 @@ def apply(masked: str, number: Callable[[str, str], int],
     for label, rx in RULES:
         def _sub(m: re.Match) -> str:
             value = m.group(1)
-            if label == "phone_number":
+            if label == "phone_number" and not re.search(r"\d", value):
                 digits = len(re.findall(rf"\b{_DIGIT}\b", value, re.I))
                 tags = len(re.findall(_TAGW, value))
                 # Seven spoken digits, or digits run together with OpenMED's own
@@ -99,6 +116,11 @@ def apply(masked: str, number: Callable[[str, str], int],
                 if not words or words[0] in _NOT_NAMES:
                     return m.group(0)
                 value = " ".join(words)
+            # A half-tagged street or number keeps OpenMED's tag, now covering all of it.
+            tail = _TAG.search(value)
+            if tail and tail.end() == len(value) and label in ("street_address", "phone_number"):
+                start = m.start(1) - m.start(0)
+                return m.group(0)[:start] + tail.group(0) + m.group(0)[start + len(value):]
             # Keep "the" outside the tag ("at the [organization_1]").
             lead = ""
             if label == "organization" and value.lower().startswith("the "):

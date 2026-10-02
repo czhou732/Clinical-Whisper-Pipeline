@@ -1,0 +1,182 @@
+{
+ "label": "",
+ "threshold": null,
+ "sentences": 300,
+ "recall": 0.677,
+ "identifiers": 325,
+ "over_masking": 0.037,
+ "recall_by_type": {
+  "age": 1.0,
+  "city": 0.96,
+  "date": 1.0,
+  "email": 0.0,
+  "first_name": 0.76,
+  "full_name": 0.92,
+  "last_name": 1.0,
+  "organization": 0.06,
+  "phone": 0.82,
+  "street": 0.7
+ },
+ "name_recall_by_origin": {
+  "african": 0.75,
+  "anglo": 1.0,
+  "arabic": 1.0,
+  "chinese": 1.0,
+  "common_word": 0.4,
+  "hispanic": 1.0,
+  "indian": 1.0,
+  "vietnamese_korean": 0.429
+ },
+ "misses_sample": [
+  {
+   "id": "g00_00",
+   "type": "organization",
+   "text": "Chipotle",
+   "sentence": "She's been working nights down at Chipotle since spring."
+  },
+  {
+   "id": "g01_00",
+   "type": "organization",
+   "text": "Home Depot",
+   "sentence": "I got a part-time job over at Home Depot."
+  },
+  {
+   "id": "g10_00",
+   "type": "email",
+   "text": "mateo dot ramirez at gmail dot com",
+   "sentence": "Write to me at mateo dot ramirez at gmail dot com instead."
+  },
+  {
+   "id": "g00_01",
+   "type": "organization",
+   "text": "Walmart",
+   "sentence": "She's been working nights down at Walmart since spring."
+  },
+  {
+   "id": "g01_01",
+   "type": "organization",
+   "text": "Starbucks",
+   "sentence": "I got a part-time job over at Starbucks."
+  },
+  {
+   "id": "g04_01",
+   "type": "phone",
+   "text": "378.881.3703",
+   "sentence": "Call the front desk at 378.881.3703 and ask for me."
+  },
+  {
+   "id": "g05_01",
+   "type": "phone",
+   "text": "653-7324",
+   "sentence": "My cell is 653-7324."
+  },
+  {
+   "id": "g10_01",
+   "type": "email",
+   "text": "ngozi dot kowalski at gmail dot com",
+   "sentence": "Write to me at ngozi dot kowalski at gmail dot com instead."
+  },
+  {
+   "id": "g00_02",
+   "type": "organization",
+   "text": "Costco",
+   "sentence": "She's been working nights down at Costco since spring."
+  },
+  {
+   "id": "g01_02",
+   "type": "organization",
+   "text": "Amazon",
+   "sentence": "I got a part-time job over at Amazon."
+  },
+  {
+   "id": "g03_02",
+   "type": "street",
+   "text": "Grant Court",
+   "sentence": "The apartment on Grant Court had mold everywhere."
+  },
+  {
+   "id": "g06_02",
+   "type": "first_name",
+   "text": "Chidi",
+   "sentence": "Chidi keeps telling me it'll get better."
+  },
+  {
+   "id": "g10_02",
+   "type": "email",
+   "text": "ananya dot park at gmail dot com",
+   "sentence": "Write to me at ananya dot park at gmail dot com instead."
+  },
+  {
+   "id": "g00_03",
+   "type": "organization",
+   "text": "Amazon",
+   "sentence": "She's been working nights down at Amazon since spring."
+  },
+  {
+   "id": "g01_03",
+   "type": "organization",
+   "text": "Target",
+   "sentence": "I got a part-time job over at Target."
+  },
+  {
+   "id": "g02_03",
+   "type": "street",
+   "text": "Alder Place",
+   "sentence": "My dad used to live off Alder Place, near the park."
+  },
+  {
+   "id": "g03_03",
+   "type": "street",
+   "text": "Pine Lane",
+   "sentence": "The apartment on Pine Lane had mold everywhere."
+  },
+  {
+   "id": "g10_03",
+   "type": "email",
+   "text": "abena dot park at gmail dot com",
+   "sentence": "Write to me at abena dot park at gmail dot com instead."
+  },
+  {
+   "id": "g00_04",
+   "type": "organization",
+   "text": "Target",
+   "sentence": "She's been working nights down at Target since spring."
+  },
+  {
+   "id": "g01_04",
+   "type": "organization",
+   "text": "Target",
+   "sentence": "I got a part-time job over at Target."
+  },
+  {
+   "id": "g02_04",
+   "type": "street",
+   "text": "Alder Court",
+   "sentence": "My boyfriend used to live off Alder Court, near the park."
+  },
+  {
+   "id": "g06_04",
+   "type": "first_name",
+   "text": "Min-jun",
+   "sentence": "Min-jun keeps telling me it'll get better."
+  },
+  {
+   "id": "g10_04",
+   "type": "email",
+   "text": "connor dot delgado at gmail dot com",
+   "sentence": "Write to me at connor dot delgado at gmail dot com instead."
+  },
+  {
+   "id": "g00_05",
+   "type": "organization",
+   "text": "Walmart",
+   "sentence": "She's been working nights down at Walmart since spring."
+  },
+  {
+   "id": "g01_05",
+   "type": "organization",
+   "text": "Home Depot",
+   "sentence": "I got a part-time job over at Home Depot."
+  }
+ ]
+}

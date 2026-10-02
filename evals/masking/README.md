@@ -14,8 +14,26 @@ fix, before any tool was run on it. Same scorer for every tool.
 Presidio also caught fewer African (85%) and Vietnamese/Korean (78%) names than
 Anglo ones (100%); OpenMED and ClinicalWhisper caught every name origin. On the
 earlier held-out set: Presidio 81.5% (8.1% over), ClinicalWhisper 98.9% (3.3%).
-Still missed by ClinicalWhisper: a brand-name workplace with no cue word
-("at Kroger"), a street after "on" ("Ocean Drive"), one 7-digit number.
+Those three misses (a brand-name workplace after "works over at", a street
+after "on", a written 7-digit number) were then fixed with general rules:
+work words with a word or two before "at" ("works nights down at"), names
+ending in a street word, written phone numbers, and finishing a street or
+number OpenMED tagged only in part ("Ocean [street_address_1]"). To test
+them honestly, `held_out_3.jsonl` was written and committed (87dc12d) before
+the rules, with new phrasings, brand-name employers, new streets and five
+phone formats, and run once:
+
+| masker | gap-test set (300 sentences, 325 ids) |
+|---|---|
+| Presidio 2.2.364 | 67.7% caught, 3.7% over |
+| OpenMED alone | 84.6%, 3.9% (brand-name workplaces 0%) |
+| ClinicalWhisper before the rules | 84.6%, 3.9% |
+| **ClinicalWhisper after the rules** | **100%, 3.9%** |
+
+After the rules: tuning set 98.8%, held-out 99.4%, replication 100% (the last
+two had been seen, so they no longer count as independent). Known trade-off:
+two space-separated numbers shaped like a phone number ("104 5000") are masked.
+
 Presidio runs in its own environment (`presidio_baseline.py`); it is a
 comparison, not part of the app.
 

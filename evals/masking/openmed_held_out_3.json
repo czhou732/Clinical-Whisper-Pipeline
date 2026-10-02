@@ -1,0 +1,182 @@
+{
+ "label": "",
+ "threshold": 0.5,
+ "sentences": 300,
+ "recall": 0.846,
+ "identifiers": 325,
+ "over_masking": 0.039,
+ "recall_by_type": {
+  "age": 1.0,
+  "city": 1.0,
+  "date": 1.0,
+  "email": 1.0,
+  "first_name": 1.0,
+  "full_name": 1.0,
+  "last_name": 1.0,
+  "organization": 0.0,
+  "phone": 1.0,
+  "street": 1.0
+ },
+ "name_recall_by_origin": {
+  "african": 1.0,
+  "anglo": 1.0,
+  "arabic": 1.0,
+  "chinese": 1.0,
+  "common_word": 1.0,
+  "hispanic": 1.0,
+  "indian": 1.0,
+  "vietnamese_korean": 1.0
+ },
+ "misses_sample": [
+  {
+   "id": "g00_00",
+   "type": "organization",
+   "text": "Chipotle",
+   "sentence": "She's been working nights down at Chipotle since spring."
+  },
+  {
+   "id": "g01_00",
+   "type": "organization",
+   "text": "Home Depot",
+   "sentence": "I got a part-time job over at Home Depot."
+  },
+  {
+   "id": "g00_01",
+   "type": "organization",
+   "text": "Walmart",
+   "sentence": "She's been working nights down at Walmart since spring."
+  },
+  {
+   "id": "g01_01",
+   "type": "organization",
+   "text": "Starbucks",
+   "sentence": "I got a part-time job over at Starbucks."
+  },
+  {
+   "id": "g00_02",
+   "type": "organization",
+   "text": "Costco",
+   "sentence": "She's been working nights down at Costco since spring."
+  },
+  {
+   "id": "g01_02",
+   "type": "organization",
+   "text": "Amazon",
+   "sentence": "I got a part-time job over at Amazon."
+  },
+  {
+   "id": "g00_03",
+   "type": "organization",
+   "text": "Amazon",
+   "sentence": "She's been working nights down at Amazon since spring."
+  },
+  {
+   "id": "g01_03",
+   "type": "organization",
+   "text": "Target",
+   "sentence": "I got a part-time job over at Target."
+  },
+  {
+   "id": "g00_04",
+   "type": "organization",
+   "text": "Target",
+   "sentence": "She's been working nights down at Target since spring."
+  },
+  {
+   "id": "g01_04",
+   "type": "organization",
+   "text": "Target",
+   "sentence": "I got a part-time job over at Target."
+  },
+  {
+   "id": "g00_05",
+   "type": "organization",
+   "text": "Walmart",
+   "sentence": "She's been working nights down at Walmart since spring."
+  },
+  {
+   "id": "g01_05",
+   "type": "organization",
+   "text": "Home Depot",
+   "sentence": "I got a part-time job over at Home Depot."
+  },
+  {
+   "id": "g00_06",
+   "type": "organization",
+   "text": "Chipotle",
+   "sentence": "She's been working nights down at Chipotle since spring."
+  },
+  {
+   "id": "g01_06",
+   "type": "organization",
+   "text": "Amazon",
+   "sentence": "I got a part-time job over at Amazon."
+  },
+  {
+   "id": "g00_07",
+   "type": "organization",
+   "text": "Home Depot",
+   "sentence": "She's been working nights down at Home Depot since spring."
+  },
+  {
+   "id": "g01_07",
+   "type": "organization",
+   "text": "Chipotle",
+   "sentence": "I got a part-time job over at Chipotle."
+  },
+  {
+   "id": "g00_08",
+   "type": "organization",
+   "text": "Walmart",
+   "sentence": "She's been working nights down at Walmart since spring."
+  },
+  {
+   "id": "g01_08",
+   "type": "organization",
+   "text": "Costco",
+   "sentence": "I got a part-time job over at Costco."
+  },
+  {
+   "id": "g00_09",
+   "type": "organization",
+   "text": "Target",
+   "sentence": "She's been working nights down at Target since spring."
+  },
+  {
+   "id": "g01_09",
+   "type": "organization",
+   "text": "Chipotle",
+   "sentence": "I got a part-time job over at Chipotle."
+  },
+  {
+   "id": "g00_10",
+   "type": "organization",
+   "text": "Home Depot",
+   "sentence": "She's been working nights down at Home Depot since spring."
+  },
+  {
+   "id": "g01_10",
+   "type": "organization",
+   "text": "Home Depot",
+   "sentence": "I got a part-time job over at Home Depot."
+  },
+  {
+   "id": "g00_11",
+   "type": "organization",
+   "text": "Safeway",
+   "sentence": "She's been working nights down at Safeway since spring."
+  },
+  {
+   "id": "g01_11",
+   "type": "organization",
+   "text": "Chipotle",
+   "sentence": "I got a part-time job over at Chipotle."
+  },
+  {
+   "id": "g00_12",
+   "type": "organization",
+   "text": "Costco",
+   "sentence": "She's been working nights down at Costco since spring."
+  }
+ ]
+}
