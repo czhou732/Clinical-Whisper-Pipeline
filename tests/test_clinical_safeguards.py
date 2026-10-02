@@ -9,7 +9,9 @@ def test_spearman_brown_matches_the_reliability_report():
     rel = score_reliability(5)
     assert rel["elaboration_positive"]["icc"] == 0.88 and rel["elaboration_positive"]["adequate"]
     assert not rel["psychomotor_indicators"]["adequate"]
-    assert "subject_response_latency_median_s" in rel["psychomotor_indicators"]["use_instead"]
+    assert "subject_speech_rate_wps" in rel["psychomotor_indicators"]["use_instead"]
+    # Latency is not reliable in this version, so it is never suggested.
+    assert "subject_response_latency_median_s" not in rel["psychomotor_indicators"]["use_instead"]
 
 
 def _seg(spk, start, end, **kw):

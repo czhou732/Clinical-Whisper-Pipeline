@@ -251,13 +251,16 @@ def speaker_samples(segments: list[dict], per_speaker: int = 2,
     out: dict[str, dict] = {}
     for seg in segments:
         spk = seg.get("speaker", "Unknown")
-        entry = out.setdefault(spk, {"talk_s": 0.0, "lines": [], "first_s": None})
+        entry = out.setdefault(spk, {"talk_s": 0.0, "lines": [], "first_s": None,
+                                     "sample_s": None})
         start, end = float(seg.get("start", 0.0)), float(seg.get("end", 0.0))
         entry["talk_s"] += max(0.0, end - start)
         if entry["first_s"] is None:
             entry["first_s"] = start
         text = " ".join((seg.get("text") or "").split())
         if len(entry["lines"]) < per_speaker and len(text.split()) >= 6:
+            if entry["sample_s"] is None:
+                entry["sample_s"] = start  # where "Play a sample" starts
             entry["lines"].append(text if len(text) <= max_chars
                                   else text[:max_chars].rsplit(" ", 1)[0] + "…")
     for entry in out.values():

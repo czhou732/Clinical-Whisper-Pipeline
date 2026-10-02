@@ -38,6 +38,8 @@ document.addEventListener('DOMContentLoaded', () => {
                                window.pywebview.api.pick_files);
 
     let selectedFiles = [];
+    // Expected seconds for the files about to run, for "About 3 min left".
+    let lastEstimate = null;
     // Seconds of processing per second of audio on this Mac (from /api/diagnostics).
     let speed = null;
     let pollInterval = null;
@@ -62,6 +64,9 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    dropZone.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); dropZone.click(); }
+    });
     dropZone.addEventListener('click', async () => {
         // In a browser, open the picker straight away: it only opens from a click.
         if (!inApp) { fileInput.click(); return; }
@@ -134,6 +139,78 @@ document.addEventListener('DOMContentLoaded', () => {
 
     let editingIndex = -1;
 
+    // --- The picked recording, drawn as its own waveform ---
+
+    const waveCanvas = document.getElementById('file-wave');
+
+    function secondsOf(text) {
+        const parts = String(text || '').trim().split(':').map(Number);
+        if (!parts.length || parts.some(isNaN)) return null;
+        return parts.reduce((a, b) => a * 60 + b, 0);
+    }
+
+    // Kept stretches as fractions of the recording, for dimming skipped parts.
+    function keptFractions(entry, duration) {
+        const e = entry && entry.cwEdits;
+        if (!e || !duration) return null;
+        const start = secondsOf(e.start) || 0;
+        const end = secondsOf(e.end) || duration;
+        const skips = String(e.skip || '').split(/[,;\n]+/).map(r => r.split(/\s*[-–]\s*/))
+            .filter(r => r.length === 2).map(r => [secondsOf(r[0]), secondsOf(r[1])])
+            .filter(r => r[0] !== null && r[1] !== null);
+        return x => {
+            const t = x * duration;
+            return t >= start && t <= end && !skips.some(([a, b]) => t >= a && t < b);
+        };
+    }
+
+    async function peaksFor(entry) {
+        if (entry.cwPeaks) return entry.cwPeaks;
+        try {
+            if (entry.preview) {
+                const res = await fetch(`/api/peaks/${entry.preview}?n=160`);
+                if (res.ok) entry.cwPeaks = (await res.json()).peaks;
+            } else if (entry instanceof File && entry.size < 60 * 1048576) {
+                const ctx = new (window.AudioContext || window.webkitAudioContext)();
+                const audio = await ctx.decodeAudioData(await entry.arrayBuffer());
+                const data = audio.getChannelData(0);
+                const n = 160, step = Math.max(1, Math.floor(data.length / n));
+                const rms = Array.from({ length: n }, (_, i) => {
+                    let acc = 0;
+                    for (let j = i * step; j < Math.min(data.length, (i + 1) * step); j += 8) acc += data[j] * data[j];
+                    return Math.sqrt(acc / (step / 8));
+                });
+                const top = [...rms].sort((a, b) => a - b)[Math.floor(n * 0.98)] || 1;
+                entry.cwPeaks = rms.map(v => Math.min(1, v / top));
+                ctx.close();
+            }
+        } catch (e) { /* the picture is optional */ }
+        return entry.cwPeaks || null;
+    }
+
+    async function drawWave(entry) {
+        const c = waveCanvas;
+        const r = c.getBoundingClientRect(), dpr = window.devicePixelRatio || 1;
+        c.width = Math.max(1, Math.round(r.width * dpr));
+        c.height = Math.max(1, Math.round(r.height * dpr));
+        const ctx = c.getContext('2d');
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        ctx.clearRect(0, 0, r.width, r.height);
+        if (!entry) return;
+        const peaks = await peaksFor(entry);
+        if (!entry.duration) entry.duration = await durationOf(entry);
+        if (!peaks || entry !== selectedFiles[editingIndex >= 0 ? editingIndex : 0]) return;
+        const css = getComputedStyle(document.documentElement);
+        const on = css.getPropertyValue('--muted').trim(), off = css.getPropertyValue('--line').trim();
+        const kept = keptFractions(entry, entry.duration);
+        const step = r.width / peaks.length;
+        peaks.forEach((a, i) => {
+            const h = Math.max(1.5, a * (r.height - 14));
+            ctx.fillStyle = !kept || kept((i + 0.5) / peaks.length) ? on : off;
+            ctx.fillRect(i * step + step * 0.2, (r.height - h) / 2, Math.max(1, step * 0.6), h);
+        });
+    }
+
     function editSummary(e) {
         if (!e) return '';
         const parts = [];
@@ -169,9 +246,8 @@ document.addEventListener('DOMContentLoaded', () => {
         dropZone.classList.toggle('hidden', selectedFiles.length > 0);
         btnProcess.disabled = selectedFiles.length === 0;
         updateEstimate();
-        btnProcess.textContent = selectedFiles.length > 1
-            ? `Process ${selectedFiles.length} Files`
-            : 'Process Audio';
+        processLabel();
+        drawWave(selectedFiles[editingIndex >= 0 ? editingIndex : 0]);
     }
 
     // Mark where to start and end, and stretches to leave out. Times stay
@@ -278,14 +354,46 @@ document.addEventListener('DOMContentLoaded', () => {
         const scoring = !document.getElementById('transcribe-only').checked;
         const base = audio * speed.transcribe;
         const total = base + (scoring ? audio * speed.score : 0);
-        let text = `Estimated time: ${friendly(total)}`;
-        if (scoring) text += ` (${friendly(base)} if you tick "Transcribe only")`;
+        lastEstimate = total;
+        const said = friendly(total);
+        let text = `${said.charAt(0).toUpperCase()}${said.slice(1)} on this Mac`;
+        if (scoring) text += ` (${friendly(base)} without clinical scores)`;
         if (known.length < durations.length) text += '; some file lengths unknown';
         if (speed.rough) text += '. Rough until this Mac has processed a few files.';
         el.textContent = text;
     }
 
-    document.getElementById('transcribe-only').addEventListener('change', updateEstimate);
+    const transcribeOnly = document.getElementById('transcribe-only');
+    const MODE_HELP = {
+        transcript: 'Masked transcript, speaker roles, and voice and timing measures. '
+            + 'The fastest choice for long interviews.',
+        scored: 'Adds six clinical ratings from a language model, each shown with its measured '
+            + 'reliability. Several times slower, and the least certain part of the output.',
+    };
+    function syncMode() {
+        const mode = transcribeOnly.checked ? 'transcript' : 'scored';
+        document.querySelectorAll('.seg-btn').forEach(b => {
+            b.classList.toggle('on', b.dataset.mode === mode);
+            b.setAttribute('aria-pressed', String(b.dataset.mode === mode));
+            if (b.dataset.mode === 'scored') b.disabled = transcribeOnly.disabled;
+        });
+        document.getElementById('mode-help').textContent = MODE_HELP[mode];
+        processLabel();
+        updateEstimate();
+    }
+    document.querySelectorAll('.seg-btn').forEach(b => b.addEventListener('click', () => {
+        if (b.disabled) return;
+        transcribeOnly.checked = b.dataset.mode === 'transcript';
+        transcribeOnly.dispatchEvent(new Event('change'));
+    }));
+    transcribeOnly.addEventListener('change', syncMode);
+    syncMode();
+
+    function processLabel() {
+        const n = selectedFiles.length;
+        const verb = transcribeOnly.checked ? 'Transcribe' : 'Transcribe and score';
+        btnProcess.textContent = n > 1 ? `${verb} ${n} files` : verb;
+    }
 
     fileList.addEventListener('click', (e) => {
         const edit = e.target.closest('.btn-edit');
@@ -400,11 +508,22 @@ document.addEventListener('DOMContentLoaded', () => {
             tr.dataset.speaker = k;
             const idCell = document.createElement('td');
             idCell.className = 'spk-id';
-            idCell.textContent = k;
+            const whoSpan = document.createElement('span');
+            whoSpan.className = 'who ' + (roles[k] === 'Interviewer' ? 'who-a' : roles[k] === 'Subject' ? 'who-b' : '');
+            whoSpan.textContent = k;
+            idCell.appendChild(whoSpan);
             const talk = document.createElement('span');
             talk.className = 'spk-talk';
-            talk.textContent = minutes((samples[k] || {}).talk_s || 0);
+            talk.textContent = `${minutes((samples[k] || {}).talk_s || 0)} of speech`;
             idCell.appendChild(talk);
+            const at = (samples[k] || {}).sample_s;
+            if (f.preview && typeof at === 'number') {
+                const play = document.createElement('button');
+                play.className = 'link-button spk-play';
+                play.textContent = 'Play a sample';
+                play.addEventListener('click', () => playSample(f.preview, at, play));
+                idCell.appendChild(play);
+            }
             const lines = document.createElement('td');
             lines.className = 'spk-lines';
             ((samples[k] || {}).lines || []).forEach(t => {
@@ -439,6 +558,26 @@ document.addEventListener('DOMContentLoaded', () => {
             body.appendChild(tr);
         });
         document.getElementById('speakers-status').textContent = '';
+    }
+
+    // Five seconds of a speaker, from the original recording.
+    const samplePlayer = document.getElementById('sample-player');
+    let sampleTimer = null;
+    function playSample(token, at, btn) {
+        clearTimeout(sampleTimer);
+        const src = `/api/preview/${token}`;
+        const go = () => {
+            samplePlayer.currentTime = Math.max(0, at);
+            samplePlayer.play().catch(() => { btn.textContent = "Can't play this format"; });
+            sampleTimer = setTimeout(() => samplePlayer.pause(), 5000);
+        };
+        if (!samplePlayer.src.endsWith(src)) {
+            samplePlayer.src = src;
+            samplePlayer.addEventListener('loadedmetadata', go, { once: true });
+            samplePlayer.load();
+        } else {
+            go();
+        }
     }
 
     btnSwapRoles.addEventListener('click', async () => {
@@ -662,8 +801,66 @@ document.addEventListener('DOMContentLoaded', () => {
         return parts.join(' · ');
     }
 
+    // Stage timeline: each pipeline stage with the time it took.
+    const STAGE_NAMES = [
+        [/^decod/i, 'Prepare audio'], [/^transcrib/i, 'Transcribe'],
+        [/^de-?identif/i, 'Mask identifiers'], [/^acoustic/i, 'Voice measures'],
+        [/^clinical scoring/i, 'Clinical scores'],
+    ];
+    let timeline = [];
+    let runStart = 0;
+    function stageName(raw) {
+        const hit = STAGE_NAMES.find(([rx]) => rx.test(raw || ''));
+        return hit ? hit[1] : (raw || '').replace(/\s+\d+.*$/, '');
+    }
+    function updateTimeline(data) {
+        const name = stageName(data.stage);
+        const now = Date.now();
+        const last = timeline[timeline.length - 1];
+        if (name && (!last || last.name !== name)) {
+            if (last) last.end = now;
+            const again = timeline.find(t => t.name === name);
+            if (again) {
+                again.spent = (again.spent || 0) + ((again.end || now) - (again.restart || again.start)) / 1000;
+                again.end = null;
+                again.restart = now;
+                timeline = timeline.filter(t => t !== again).concat([again]);
+            }
+            else timeline.push({ name, start: now, end: null, spent: 0 });
+        }
+        const cur = timeline[timeline.length - 1];
+        const list = document.getElementById('stages');
+        list.innerHTML = '';
+        timeline.forEach(t => {
+            const li = document.createElement('li');
+            const running = t === cur && !t.end;
+            li.className = 'stage ' + (running ? 'now' : 'done');
+            const secs = ((t.end || now) - (t.restart || t.start)) / 1000 + (t.spent || 0);
+            const label = document.createElement('span');
+            label.textContent = t.name;
+            const bar = document.createElement('div');
+            bar.className = 'bar';
+            const fill = document.createElement('i');
+            if (running && typeof data.stage_fraction === 'number') fill.style.width = `${Math.round(data.stage_fraction * 100)}%`;
+            bar.appendChild(fill);
+            const time = document.createElement('span');
+            time.className = 't';
+            time.textContent = secs < 60 ? `${Math.round(secs)} s` : `${Math.floor(secs / 60)} min ${String(Math.round(secs % 60)).padStart(2, '0')}`;
+            li.append(label, bar, time);
+            list.appendChild(li);
+        });
+        if (lastEstimate) {
+            const left = lastEstimate - (now - runStart) / 1000;
+            statusText.textContent = left > 60 ? `About ${friendly(left).replace(/^about /, '')} left`
+                : left > 0 ? 'About a minute left' : (cur ? cur.name : 'Processing');
+        }
+    }
+
     function startPolling(batchId) {
         if (pollInterval) clearInterval(pollInterval);
+        timeline = [];
+        runStart = Date.now();
+        document.getElementById('stages').innerHTML = '';
 
         pollInterval = setInterval(async () => {
             try {
@@ -685,8 +882,9 @@ document.addEventListener('DOMContentLoaded', () => {
                     progressBar.style.width = `${(data.done * perFile) + inner}%`;
                 }
 
-                stageLabel.textContent = data.stage || '';
+                stageLabel.textContent = '';
                 stageDetail.textContent = stageProgress(data);
+                if (!data.status.startsWith('COMPLETED')) updateTimeline(data);
 
                 const finished = data.status.startsWith('COMPLETED');
                 const errored = data.status.startsWith('ERROR');
@@ -715,9 +913,11 @@ document.addEventListener('DOMContentLoaded', () => {
                     const failed = batchFiles.filter(f => f.state === 'error').length;
                     const warned = batchFiles.some(f => (f.warnings || []).length);
 
+                    const lastStage = timeline[timeline.length - 1];
+                    if (lastStage && !lastStage.end) { lastStage.end = Date.now(); updateTimeline({}); }
                     if (!cancelled) statusText.textContent = failed || warned
-                        ? `Completed — ${failed} failed`.replace(' — 0 failed', ' with warnings')
-                        : 'Completed';
+                        ? `Finished, ${failed} failed`.replace(', 0 failed', ' with warnings')
+                        : 'Finished';
                     statusDot.className = 'status-indicator ' + (failed || warned ? 'error' : 'success');
 
                     activeIndex = Math.max(0, batchFiles.findIndex(f => f.state === 'done'));
@@ -726,7 +926,9 @@ document.addEventListener('DOMContentLoaded', () => {
                     resultPanel.classList.remove('hidden');
                     enableInputs();
                 } else if (data.current) {
-                    statusText.textContent = `Processing ${data.current}`;
+                    progressCount.textContent = data.total > 1
+                        ? `${data.done} of ${data.total} done · ${data.current}` : data.current;
+                    if (!lastEstimate) statusText.textContent = 'Processing';
                 }
             } catch (error) {
                 console.error('Polling error:', error);
@@ -751,30 +953,6 @@ document.addEventListener('DOMContentLoaded', () => {
             });
             resultTabs.appendChild(tab);
         });
-    }
-
-    const SCORE_KEYS = [
-        'word_count', 'duration_minutes', 'participant_speech_min', 'snr_db',
-        // Measured from the timestamps: identical on every run.
-        'subject_speech_rate_wps', 'subject_response_latency_median_s',
-        'subject_pause_mean_s', 'subject_filler_rate',
-        // LLM judgments: shown with their measured test-retest reliability.
-        'hesitancy_score', 'affect_flatness',
-        'engagement_level', 'elaboration_positive', 'elaboration_negative',
-        'psychomotor_indicators',
-        'subject_pitch_mean_st', 'subject_pitch_cv', 'subject_loudness_mean_db',
-        'subject_jitter', 'subject_shimmer',
-        'vta', 'pitch_mean_st', 'pitch_cv',
-        'loudness_mean_db', 'loudness_cv', 'jitter', 'shimmer'
-    ];
-
-    function reliabilityNote(rel) {
-        const icc = rel.icc.toFixed(2).replace(/^0/, '');
-        const runs = rel.runs === 1 ? 'one run' : `mean of ${rel.runs} runs`;
-        if (rel.adequate) return `Test-retest ICC ${icc} (${runs})`;
-        let note = `Test-retest ICC ${icc} (${runs}): too unstable to analyse on its own`;
-        if (rel.use_instead) note += `. Use the measured ${rel.use_instead.map(k => prettify(k).replace('Participant ', '').toLowerCase()).join(', ')} instead`;
-        return note + '.';
     }
 
     function renderActive() {
@@ -832,35 +1010,9 @@ document.addEventListener('DOMContentLoaded', () => {
             resultContent.appendChild(block);
         }
 
-        const result = f.result || {};
-        const reliability = f.score_reliability || {};
-        SCORE_KEYS.forEach(key => {
-            if (result[key] === undefined || result[key] === null || result[key] === '') return;
-            let val = result[key];
-            if (typeof val === 'number') val = Number.isInteger(val) ? val : val.toFixed(3);
-            const item = document.createElement('div');
-            item.className = 'result-item';
-            const label = document.createElement('span');
-            label.className = 'result-label';
-            label.textContent = prettify(key);
-            const value = document.createElement('span');
-            value.className = 'result-val';
-            value.textContent = val;
-            item.appendChild(label);
-            item.appendChild(value);
-            const rel = reliability[key];
-            if (rel) {
-                const note = document.createElement('span');
-                note.className = 'result-note';
-                note.textContent = reliabilityNote(rel);
-                item.appendChild(note);
-                if (!rel.adequate) item.classList.add('unreliable');
-            }
-            resultContent.appendChild(item);
-        });
+        renderMeasures(f.result || {}, f.score_reliability || {});
 
-        const transcript = f.structured_transcript || f.transcript || '(no transcript produced)';
-        transcriptContent.textContent = f.mask_legend ? `${f.mask_legend}\n\n${transcript}` : transcript;
+        renderTranscript(f);
 
         fetch(`/api/analysis/${currentBatchId}/${activeIndex}`)
             .then(r => r.json())
@@ -895,6 +1047,163 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             })
             .catch(() => { jsonContent.textContent = '(analysis unavailable)'; });
+    }
+
+    // Measures grouped the way they are read; the clinical scores as a table
+    // with each one's measured reliability beside it.
+    const GROUPS = [
+        ['Recording', ['word_count', 'duration_minutes', 'participant_speech_min', 'snr_db']],
+        ['Participant timing', ['subject_speech_rate_wps', 'subject_pause_mean_s',
+            'subject_filler_rate', 'subject_response_latency_median_s']],
+        ['Participant voice', ['subject_pitch_mean_st', 'subject_pitch_cv',
+            'subject_loudness_mean_db', 'subject_jitter', 'subject_shimmer']],
+        ['Whole recording', ['vta', 'pitch_mean_st', 'pitch_cv', 'loudness_mean_db',
+            'loudness_cv', 'jitter', 'shimmer']],
+    ];
+    // Labels inside a titled group, where "Participant" or "whole recording"
+    // would only repeat the heading.
+    const SHORT = {
+        word_count: 'Words', duration_minutes: 'Length (min)',
+        participant_speech_min: 'Participant speech (min)',
+        subject_speech_rate_wps: 'Speech rate (words/s)', subject_pause_mean_s: 'Mean pause (s)',
+        subject_filler_rate: 'Fillers per 100 words',
+        subject_response_latency_median_s: 'Response latency, median (s)',
+        subject_pitch_mean_st: 'Pitch (semitones)', subject_pitch_cv: 'Pitch variability',
+        subject_loudness_mean_db: 'Loudness (dB)', subject_jitter: 'Jitter', subject_shimmer: 'Shimmer',
+        vta: 'VTA', pitch_mean_st: 'Pitch (semitones)', pitch_cv: 'Pitch variability',
+        loudness_mean_db: 'Loudness (dB)', loudness_cv: 'Loudness variability',
+        jitter: 'Jitter', shimmer: 'Shimmer',
+        hesitancy_score: 'Hesitancy', affect_flatness: 'Affect flatness',
+        engagement_level: 'Engagement', elaboration_positive: 'Elaboration, positive',
+        elaboration_negative: 'Elaboration, negative', psychomotor_indicators: 'Psychomotor',
+    };
+    const CLINICAL = ['hesitancy_score', 'affect_flatness', 'engagement_level',
+        'elaboration_positive', 'elaboration_negative', 'psychomotor_indicators'];
+    const present = v => v !== undefined && v !== null && v !== '';
+    const num = v => {
+        if (typeof v !== 'number') return String(v);
+        if (Number.isInteger(v)) return String(v);
+        const a = Math.abs(v);
+        return v.toFixed(a >= 100 ? 0 : a >= 10 ? 1 : 2);
+    };
+
+    function renderMeasures(result, reliability) {
+        GROUPS.forEach(([title, keys]) => {
+            const shown = keys.filter(k => present(result[k]));
+            if (!shown.length) return;
+            const g = document.createElement('div');
+            g.className = 'measure-group';
+            const h = document.createElement('h4');
+            h.textContent = title;
+            const dl = document.createElement('dl');
+            dl.className = 'kv';
+            shown.forEach(k => {
+                const dt = document.createElement('dt');
+                dt.textContent = SHORT[k] || prettify(k);
+                if (k === 'subject_response_latency_median_s') dt.textContent += ' (not reliable yet)';
+                const dd = document.createElement('dd');
+                dd.textContent = num(result[k]);
+                dl.append(dt, dd);
+            });
+            g.append(h, dl);
+            resultContent.appendChild(g);
+        });
+
+        const scored = CLINICAL.filter(k => present(result[k]));
+        if (!scored.length) return;
+        const g = document.createElement('div');
+        g.className = 'measure-group';
+        const h = document.createElement('h4');
+        const runs = (reliability[scored[0]] || {}).runs;
+        h.textContent = runs > 1 ? `Clinical scores, mean of ${runs} runs` : 'Clinical scores';
+        const table = document.createElement('table');
+        table.className = 'scores';
+        table.innerHTML = '<thead><tr><th scope="col">Score</th><th scope="col">Value</th>'
+            + '<th scope="col">Test-retest ICC</th></tr></thead>';
+        const body = document.createElement('tbody');
+        scored.forEach(k => {
+            const rel = reliability[k];
+            const tr = document.createElement('tr');
+            const name = document.createElement('td');
+            name.textContent = SHORT[k] || prettify(k);
+            if (rel && !rel.adequate) {
+                tr.className = 'weak';
+                const why = document.createElement('span');
+                why.textContent = rel.use_instead
+                    ? `Too unstable to analyse alone. Use ${rel.use_instead.map(x => (SHORT[x] || prettify(x).replace('Participant ', '')).toLowerCase()).join(' and ')} instead.`
+                    : 'Too unstable to analyse alone.';
+                name.appendChild(why);
+            }
+            const val = document.createElement('td');
+            val.className = 'data';
+            val.textContent = num(result[k]);
+            const icc = document.createElement('td');
+            icc.className = 'data';
+            icc.textContent = rel ? rel.icc.toFixed(2).replace(/^0/, '') : '';
+            tr.append(name, val, icc);
+            body.appendChild(tr);
+        });
+        table.appendChild(body);
+        g.append(h, table);
+        resultContent.appendChild(g);
+    }
+
+    // Transcript as turns: who and when on the left, what was said on the right.
+    const LINE = /^\[(\d[\d:]*) - (\d[\d:]*)\] ([^:]+): (.*)$/;
+    const FILLERS = /\b(um+|uh+|erm|hmm+|mm-?hmm|uh-?huh)\b,?/gi;
+    function renderTranscript(f) {
+        transcriptContent.innerHTML = '';
+        if (f.mask_legend) {
+            const key = document.createElement('p');
+            key.className = 'mask-key';
+            key.textContent = f.mask_legend;
+            transcriptContent.appendChild(key);
+        }
+        const text = f.structured_transcript || f.transcript || '';
+        if (!text) {
+            transcriptContent.appendChild(document.createTextNode('(no transcript produced)'));
+            return;
+        }
+        const roles = f.speaker_roles || {};
+        text.split('\n').forEach(line => {
+            const m = line.match(LINE);
+            const row = document.createElement('div');
+            row.className = 'turn';
+            const who = document.createElement('div');
+            who.className = 'who';
+            const said = document.createElement('p');
+            if (!m) { said.textContent = line; row.append(who, said); transcriptContent.appendChild(row); return; }
+            const label = m[3];
+            if (/Interviewer|Moderator/.test(label)) who.classList.add('who-a');
+            else if (/Subject|Participant/.test(label)) who.classList.add('who-b');
+            who.textContent = label.replace(/\(Subject\)/, '(Participant)').replace(/^Subject$/, 'Participant');
+            const time = document.createElement('small');
+            time.textContent = m[1];
+            who.appendChild(time);
+            // Fillers dimmed and masking tags set apart, built as text nodes.
+            m[4].split(/(\[[a-z_]+_\d+\])/).forEach(part => {
+                if (/^\[[a-z_]+_\d+\]$/.test(part)) {
+                    const tag = document.createElement('span');
+                    tag.className = 'tag';
+                    tag.textContent = part;
+                    said.appendChild(tag);
+                    return;
+                }
+                let last = 0;
+                part.replace(FILLERS, (hit, _w, at) => {
+                    said.appendChild(document.createTextNode(part.slice(last, at)));
+                    const span = document.createElement('span');
+                    span.className = 'fill';
+                    span.textContent = hit;
+                    said.appendChild(span);
+                    last = at + hit.length;
+                    return hit;
+                });
+                said.appendChild(document.createTextNode(part.slice(last)));
+            });
+            row.append(who, said);
+            transcriptContent.appendChild(row);
+        });
     }
 
     document.querySelectorAll('.view-btn').forEach(btn => {
@@ -965,7 +1274,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const idle = text.textContent;
         box.checked = true;
         box.disabled = true;
-        updateEstimate();
+        syncMode();
         note.classList.remove('hidden');
         if (inApp) await whenBridge();
         if (!(window.pywebview && window.pywebview.api && window.pywebview.api.install_scoring)) {
@@ -983,7 +1292,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 box.disabled = false;
                 box.checked = false;
                 note.classList.add('hidden');
-                updateEstimate();
+                syncMode();
             } else {
                 text.textContent = (res && res.status === 'error') ? res.message : idle;
             }
@@ -1013,6 +1322,7 @@ document.addEventListener('DOMContentLoaded', () => {
             // so start with it off. It can still be ticked back on.
             else if (data.ram_gb && data.ram_gb < 16) {
                 document.getElementById('transcribe-only').checked = true;
+                syncMode();
                 document.getElementById('transcribe-only-hint').textContent =
                     `Recommended on this Mac (${Math.round(data.ram_gb)} GB memory).`;
             }

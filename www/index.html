@@ -5,120 +5,138 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ClinicalWhisper</title>
     <!-- No remote font/CDN requests: this app must work fully offline, and a
-         clinical tool should not phone out to Google while handling PHI.
-         style.css falls back to system faces (Avenir Next, Didot, SFMono). -->
+         clinical tool should not phone out while handling PHI. The PRAXIS
+         typefaces are bundled in fonts/. -->
+    <link rel="stylesheet" href="fonts.css">
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
+    <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+        <defs>
+            <!-- Two voices taking turns: the interviewer, then the participant. -->
+            <symbol id="cw-mark" viewBox="0 0 48 48"><rect x="5" y="11.5" width="3.2" height="9" rx="1.6" fill="currentColor"/><rect x="10" y="7.5" width="3.2" height="17" rx="1.6" fill="currentColor"/><rect x="15" y="9.5" width="3.2" height="13" rx="1.6" fill="currentColor"/><rect x="20" y="13.0" width="3.2" height="6" rx="1.6" fill="currentColor"/><rect x="25.6" y="27.5" width="3.2" height="7" rx="1.6" fill="currentColor" fill-opacity=".42"/><rect x="30.6" y="23.5" width="3.2" height="15" rx="1.6" fill="currentColor" fill-opacity=".42"/><rect x="35.6" y="20.5" width="3.2" height="21" rx="1.6" fill="currentColor" fill-opacity=".42"/><rect x="40.6" y="25.5" width="3.2" height="11" rx="1.6" fill="currentColor" fill-opacity=".42"/></symbol>
+        </defs>
+    </svg>
+
     <div class="container">
-        <header>
+        <header class="lockup">
+            <svg aria-hidden="true"><use href="#cw-mark"/></svg>
             <h1>ClinicalWhisper</h1>
-            <p class="subtitle">Offline Audio Processing Pipeline</p>
+            <small>a PRAXIS instrument</small>
         </header>
 
         <main>
-            <div class="crash-notice hidden" id="crash-notice" role="alert">
+            <div class="notice hidden" id="crash-notice" role="alert">
                 <p><strong>ClinicalWhisper stopped while processing last time</strong>
                     <span id="crash-stage"></span></p>
-                <p class="crash-help">To report it, save diagnostics and email the zip. It holds logs and a description of this Mac, with file names removed; no audio or transcripts.</p>
-                <div class="crash-actions">
-                    <button class="btn-secondary save-diagnostics" id="btn-reveal-logs">Save diagnostics</button>
-                    <button class="btn-clear" id="btn-dismiss-crash">Dismiss</button>
+                <p class="notice-help">To report it, save diagnostics and email the zip. It holds logs and a description of this Mac, with file names removed; no audio or transcripts.</p>
+                <div class="notice-actions">
+                    <button class="link-button save-diagnostics" id="btn-reveal-logs">Save diagnostics</button>
+                    <button class="link-button" id="btn-dismiss-crash">Dismiss</button>
                 </div>
             </div>
-            <div class="crash-notice hidden" id="sync-notice" role="alert">
+            <div class="notice hidden" id="sync-notice" role="alert">
                 <p><strong>Some results are in a folder that syncs to the cloud</strong></p>
-                <p class="crash-help" id="sync-notice-text"></p>
+                <p class="notice-help" id="sync-notice-text"></p>
             </div>
-            <div class="crash-notice hidden" id="filevault-notice" role="alert">
+            <div class="notice hidden" id="filevault-notice" role="alert">
                 <p><strong>This Mac's disk is not encrypted</strong></p>
-                <p class="crash-help">FileVault is off, so transcripts, results and audio copies are stored unencrypted. ClinicalWhisper does not encrypt files itself. Turn on FileVault in System Settings, Privacy &amp; Security, before processing identifiable recordings.</p>
+                <p class="notice-help">FileVault is off, so transcripts, results and audio copies are stored unencrypted. ClinicalWhisper does not encrypt files itself. Turn on FileVault in System Settings, Privacy &amp; Security, before processing identifiable recordings.</p>
             </div>
-            <div class="panel">
-                <div class="upload-zone" id="drop-zone">
-                    <div class="upload-content">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-                            <polyline points="17 8 12 3 7 8"></polyline>
-                            <line x1="12" y1="3" x2="12" y2="15"></line>
-                        </svg>
-                        <p><strong>Drag &amp; Drop</strong> one or more clinical audio files</p>
-                        <p class="text-sm">or click to select files (.wav, .m4a, .mp3, .mp4, .ogg, .opus, .flac)</p>
-                    </div>
+
+            <section class="start" id="start-panel">
+                <h2>Transcribe an interview</h2>
+                <p class="lead">Runs on this Mac. Audio never leaves it.</p>
+
+                <div class="drop" id="drop-zone" tabindex="0" role="button"
+                     aria-label="Choose recordings">
+                    <p><strong>Drop recordings here</strong> or click to choose them</p>
+                    <p class="text-sm">wav, m4a, mp3, mp4, ogg, opus, flac or aac. Each file is read where it is, not copied.</p>
                     <input type="file" id="file-input" accept=".wav,.m4a,.mp3,.mp4,.ogg,.opus,.flac,.aac" multiple hidden>
                 </div>
 
-                <div class="selected-files hidden" id="file-info">
-                    <div class="file-list-header">
+                <div class="selected hidden" id="file-info">
+                    <canvas class="wave" id="file-wave" aria-hidden="true"></canvas>
+                    <div class="selected-head">
                         <span id="file-count">0 files selected</span>
-                        <button class="btn-clear" id="btn-clear">Clear all</button>
+                        <button class="link-button" id="btn-clear">Clear all</button>
                     </div>
                     <ul class="file-list" id="file-list"></ul>
                 </div>
 
-                <div class="study-meta">
-                    <input type="text" id="participant-id" placeholder="Participant ID (optional)" title="Leave blank to use each file's name as its participant ID.">
-                    <input type="text" id="session-label" placeholder="Session (optional)">
-                    <input type="text" id="criterion-score" placeholder="SHAPS / PHQ-9 (optional)">
+                <div class="fields">
+                    <label class="field"><span class="k">Participant</span>
+                        <input type="text" id="participant-id" placeholder="Optional"
+                               title="Leave blank to use each file's name as its participant ID."></label>
+                    <label class="field"><span class="k">Session</span>
+                        <input type="text" id="session-label" placeholder="Optional"></label>
+                    <label class="field"><span class="k">Criterion score</span>
+                        <input type="text" id="criterion-score" placeholder="e.g. SHAPS 31"></label>
+                    <label class="field"><span class="k">People in the recording</span>
+                        <select id="num-speakers">
+                            <option value="2" selected>2, interviewer and participant</option>
+                            <option value="3">3</option>
+                            <option value="4">4</option>
+                            <option value="">Not sure, or a group</option>
+                        </select></label>
                 </div>
 
-                <label class="option-row" for="num-speakers">
-                    <span>People in the recording</span>
-                    <select id="num-speakers">
-                        <option value="2" selected>2 (interviewer and participant)</option>
-                        <option value="3">3</option>
-                        <option value="4">4</option>
-                        <option value="">Not sure, or a group</option>
-                    </select>
-                </label>
-
-                <label class="option-row">
-                    <input type="checkbox" id="transcribe-only">
-                    <span>Transcribe only, skip clinical scoring. Much faster on long
-                        interviews, and the scores it skips are the least reliable part
-                        of the output. Names are still masked.
-                        <em id="transcribe-only-hint"></em></span>
-                </label>
+                <!-- The checkbox is the state; the two buttons are how it is set. -->
+                <input type="checkbox" id="transcribe-only" hidden>
+                <div class="mode">
+                    <div class="seg" role="group" aria-label="What to produce">
+                        <button type="button" class="seg-btn" data-mode="transcript">Transcript and measures</button>
+                        <button type="button" class="seg-btn" data-mode="scored">Add clinical scores</button>
+                    </div>
+                    <p class="text-sm mode-help" id="mode-help"></p>
+                    <em class="text-sm" id="transcribe-only-hint"></em>
+                </div>
                 <p class="text-sm addon-note hidden" id="addon-note">
                     <span id="addon-note-text">Clinical scoring isn't installed on this Mac,
                         so recordings are transcribed only.</span>
                     <button class="link-button" id="btn-install-scoring">Add clinical scoring…</button>
                 </p>
 
-                <p class="text-sm estimate" id="estimate"></p>
-                <button class="btn-primary" id="btn-process" disabled>Process Audio</button>
-            </div>
-
-            <div class="console-panel hidden" id="console-panel">
-                <div class="console-header">
-                    <span class="status-indicator processing" id="status-dot"></span>
-                    <span id="status-text">Processing Pipeline...</span>
-                    <span class="progress-count" id="progress-count"></span>
-                    <button class="btn-cancel" id="btn-cancel">Stop</button>
+                <div class="go">
+                    <button class="btn-primary" id="btn-process" disabled>Transcribe</button>
+                    <p class="text-sm estimate" id="estimate"></p>
                 </div>
-                <div class="stage-line"><span id="stage-label"></span><span id="stage-detail"></span></div>
-                <div class="progress-track"><div class="progress-bar" id="progress-bar"></div></div>
-                <div class="console-output" id="console-output"></div>
-            </div>
+            </section>
 
-            <div class="result-panel hidden" id="result-panel">
+            <section class="progress hidden" id="console-panel">
+                <div class="eta">
+                    <b id="status-text">Starting</b>
+                    <span class="status-indicator processing" id="status-dot" aria-hidden="true"></span>
+                    <span class="text-sm" id="progress-count"></span>
+                    <button class="link-button" id="btn-cancel">Stop</button>
+                </div>
+                <ol class="stages" id="stages"></ol>
+                <div class="stage-line"><span id="stage-label"></span> <span id="stage-detail"></span></div>
+                <div class="progress-track" aria-hidden="true"><div class="progress-bar" id="progress-bar"></div></div>
+                <details class="log">
+                    <summary class="text-sm">Details</summary>
+                    <div class="console-output" id="console-output"></div>
+                </details>
+            </section>
+
+            <section class="results hidden" id="result-panel">
                 <div class="result-header">
-                    <h3>Clinical Analysis Results</h3>
+                    <h2>Results</h2>
                     <div class="export-group">
                         <span class="text-sm">Save as</span>
-                        <button class="btn-secondary" data-fmt="csv">CSV</button>
-                        <button class="btn-secondary" data-fmt="json">JSON</button>
-                        <button class="btn-secondary" data-fmt="md">Report</button>
-                        <button class="btn-secondary" id="btn-open-results">Open results folder</button>
+                        <button class="link-button" data-fmt="csv">CSV</button>
+                        <button class="link-button" data-fmt="json">JSON</button>
+                        <button class="link-button" data-fmt="md">Report</button>
+                        <button class="link-button" id="btn-open-results">Open results folder</button>
                     </div>
                 </div>
 
                 <div class="result-tabs" id="result-tabs"></div>
 
                 <details class="speakers-panel hidden" id="speakers-panel">
-                    <summary><span class="text-sm">Speakers:</span>
+                    <summary><span class="k">Speakers</span>
                         <span id="roles-summary" class="roles-summary"></span>
-                        <span class="text-sm speakers-edit">Check or rename</span></summary>
+                        <span class="text-sm speakers-edit">Check the speakers</span></summary>
                     <p class="text-sm speakers-help">Set each speaker's role, and give them a
                         label if you like. Use codes such as P01 or Moderator A, not real
                         names: labels appear in the transcript and in exports.</p>
@@ -133,28 +151,29 @@
                         <button class="btn-secondary" id="btn-swap-roles">Apply</button>
                         <span class="text-sm" id="speakers-status"></span>
                     </div>
+                    <audio id="sample-player" preload="none" hidden></audio>
                 </details>
 
-                <div class="view-switch" id="view-switch">
-                    <button class="view-btn active" data-view="scores">Measurements</button>
-                    <button class="view-btn" data-view="transcript">Transcript</button>
-                    <button class="view-btn" data-view="json">JSON</button>
+                <div class="view-switch" id="view-switch" role="tablist">
+                    <button class="view-btn active" data-view="scores" role="tab">Measurements</button>
+                    <button class="view-btn" data-view="transcript" role="tab">Transcript</button>
+                    <button class="view-btn" data-view="json" role="tab">JSON</button>
                 </div>
 
                 <div id="view-scores" class="result-view">
                     <p class="text-sm scores-note hidden" id="scores-note">Clinical scores were not run for this
-                        recording (Transcribe only). The numbers below are voice and timing measurements
-                        taken directly from the audio.</p>
+                        recording. The numbers below are voice and timing measurements taken directly
+                        from the audio.</p>
                     <div id="result-content" class="result-grid"></div>
                     <div id="impression-block"></div>
                 </div>
                 <div id="view-transcript" class="result-view hidden">
-                    <pre class="text-block" id="transcript-content"></pre>
+                    <div class="transcript" id="transcript-content"></div>
                 </div>
                 <div id="view-json" class="result-view hidden">
                     <pre class="text-block" id="json-content"></pre>
                 </div>
-            </div>
+            </section>
         </main>
         <footer class="intended-use">
             Research use only. ClinicalWhisper is not a medical device: it does not diagnose,

@@ -397,6 +397,60 @@ async def preview_audio(token: str):
     return FileResponse(path)
 
 
+_peaks_cache: dict[str, list[float]] = {}
+
+
+def _peaks(path: Path, n: int) -> list[float]:
+    """Loudness of ``n`` equal slices of a recording, 0-1, for drawing it.
+
+    Decoded at 4 kHz: enough to see speech and silence, and several times
+    faster than the 16 kHz decode used for processing.
+    """
+    import av
+    import numpy as np
+
+    from progress_report import audio_seconds
+
+    duration = audio_seconds(path) or 0.0
+    rate = 4000
+    total = int(duration * rate) or 1
+    sums = np.zeros(n)
+    counts = np.zeros(n)
+    pos = 0
+    resampler = av.audio.resampler.AudioResampler(format="s16", layout="mono", rate=rate)
+    with av.open(str(path)) as container:
+        stream = container.streams.audio[0]
+        for frame in container.decode(stream):
+            for out in resampler.resample(frame):
+                x = out.to_ndarray().reshape(-1).astype(np.float32) / 32768.0
+                idx = np.minimum(((pos + np.arange(x.size)) * n) // total, n - 1)
+                np.add.at(sums, idx, x * x)
+                np.add.at(counts, idx, 1)
+                pos += x.size
+    rms = np.sqrt(sums / np.maximum(counts, 1))
+    top = float(np.percentile(rms, 98)) or 1.0
+    return [round(float(v), 3) for v in np.minimum(rms / top, 1.0)]
+
+
+@app.get("/api/peaks/{token}")
+async def preview_peaks(token: str, n: int = 160):
+    with _lock:
+        path = _previews.get(token)
+    if path is None or not path.is_file():
+        return JSONResponse(status_code=404, content={"status": "error",
+                                                      "message": "Unknown recording."})
+    n = max(20, min(int(n), 600))
+    key = f"{token}:{n}"
+    if key not in _peaks_cache:
+        try:
+            _peaks_cache[key] = await run_in_threadpool(_peaks, path, n)
+        except Exception as exc:  # noqa: BLE001 - a picture is optional
+            log.info("No waveform for a picked file: %s", exc)
+            return JSONResponse(status_code=422, content={"status": "error",
+                                                          "message": "Can't read this file."})
+    return {"peaks": _peaks_cache[key]}
+
+
 def _launch_batch(paths: list[Path], participant_id: str, session_label: str,
                   criterion_score: str, transcribe_only: bool, in_place: bool,
                   num_speakers=None, edits=None) -> str:
@@ -446,6 +500,9 @@ def start_batch_from_paths(paths: list[str], participant_id: str = "",
     batch_id = _launch_batch(files, participant_id, session_label, criterion_score,
                              transcribe_only, in_place=True, num_speakers=num_speakers,
                              edits=edits)
+    with _lock:
+        for f, path in zip(_batches[batch_id]["files"], files):
+            f["preview"] = register_preview(path)
     return {"status": "success", "batch_id": batch_id, "count": len(files),
             "filenames": [p.name for p in files]}
 
@@ -621,6 +678,7 @@ async def get_status(batch_id: str):
                     "speaker_roles": f.get("speaker_roles", {}),
                     "speaker_names": f.get("speaker_names", {}),
                     "speaker_samples": f.get("speaker_samples", {}),
+                    "preview": f.get("preview"),
                     "clinical_review": (f.get("analysis") or {}).get("clinical_review") or {},
                     "quality": f.get("quality", {}),
                     "score_reliability": f.get("score_reliability", {}),

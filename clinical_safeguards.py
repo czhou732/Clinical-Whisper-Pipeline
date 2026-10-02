@@ -44,7 +44,9 @@ ADEQUATE_ICC = 0.75
 # pipeline measures that timing directly, so these columns are the ones to use.
 _MEASURED_INSTEAD = {
     "hesitancy_score": ["subject_pause_mean_s", "subject_pause_proportion", "subject_filler_rate"],
-    "psychomotor_indicators": ["subject_response_latency_median_s", "subject_speech_rate_wps"],
+    # Response latency would be the natural measure here, but segment
+    # boundaries butt together in this version, so it is not offered.
+    "psychomotor_indicators": ["subject_speech_rate_wps", "subject_pause_mean_s"],
 }
 
 
@@ -132,7 +134,7 @@ def assess_quality(
                            f"({', '.join(brief)}); they may be one person split in two."))
     if expected_speakers and len(talk) != expected_speakers:
         flags.append(_flag("speaker_count",
-                           f"{len(talk)} speakers found; {expected_speakers} expected."))
+                           f"{len(talk)} speaker{'s' if len(talk) != 1 else ''} found; {expected_speakers} expected."))
 
     return {
         "flags": flags,
