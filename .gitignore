@@ -44,3 +44,4 @@ speed.json
 .addon_stage_praat/
 .addon_stage_deid/
 .addon_stage_lang_*/
+.venv-presidio/

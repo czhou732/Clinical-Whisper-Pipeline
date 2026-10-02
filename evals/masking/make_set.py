@@ -83,6 +83,23 @@ HELD_OUT = [
     "Okay. So. {NAME}. {NAME} is my {REL}, and honestly that's complicated.",
 ]
 
+# Written Oct 2 2026, after every rule and fix, before any run on it: the
+# replication set (held_out_2.jsonl). New phrasing, more speech disfluency.
+HELD_OUT_2 = [
+    "So um {NAME} called again last night, like three times.",
+    "I grew up outside {CITY}, it's a small place.",
+    "He works over at {ORG} doing nights.",
+    "Her number's {PHONE}, if you need it.",
+    "Yeah it's {EMAIL}.",
+    "Mm, {FULL}. That was my old case manager.",
+    "We were living on {STREET} back then.",
+    "I think it was {DATE}, maybe a little after.",
+    "{NAME}, my {REL}, she doesn't really get it.",
+    "I was {AGE} when that happened.",
+    "Then Doctor {SURNAME} said we should try something else.",
+    "I keep thinking about {NAME}, you know?",
+]
+
 
 def _spoken_phone(rng: random.Random) -> str:
     return " ".join(DIGITS[rng.randrange(10)] for _ in range(3)) + ", " + \
@@ -144,6 +161,15 @@ def main() -> None:
     out = Path(__file__).with_name("held_out.jsonl")
     out.write_text("".join(json.dumps(r) + "\n" for r in held))
     print(f"{len(held)} held-out sentences, {sum(len(r['entities']) for r in held)} identifiers -> {out}")
+    held2 = []
+    rng = random.Random(20261002)
+    for k in range(25):
+        for t_idx, template in enumerate(HELD_OUT_2):
+            text, ents = fill(template, rng)
+            held2.append({"id": f"r{t_idx:02d}_{k:02d}", "text": text, "entities": ents})
+    out = Path(__file__).with_name("held_out_2.jsonl")
+    out.write_text("".join(json.dumps(r) + "\n" for r in held2))
+    print(f"{len(held2)} replication sentences, {sum(len(r['entities']) for r in held2)} identifiers -> {out}")
 
 
 if __name__ == "__main__":

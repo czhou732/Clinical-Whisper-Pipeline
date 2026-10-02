@@ -117,3 +117,18 @@ def test_second_check_numbers_only_names_still_exposed():
     texts, n = name_sweep.mask(["Vino [first_name_1] y Raúl."], ["Vino Elena y Raúl."],
                                lambda _: "Elena\nRaúl", number)
     assert n == 1 and len(ids) == 1
+
+
+def test_gold_markup_round_trip():
+    import importlib.util
+    from pathlib import Path
+    spec = importlib.util.spec_from_file_location(
+        "gold", Path(__file__).parents[1] / "evals" / "masking" / "gold_from_markup.py")
+    gold = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(gold)
+    speaker, text, ents = gold.parse_line("S02: my sister {{first_name:Elena}} lives in {{city:Fresno}}.")
+    assert speaker == "S02" and text == "my sister Elena lives in Fresno."
+    assert [text[e["start"]:e["end"]] for e in ents] == ["Elena", "Fresno"]
+    a = [{"id": "x", "text": text, "entities": ents}]
+    b = [{"id": "x", "text": text, "entities": ents[:1]}]
+    assert gold.agreement(a, b)["exact_f1"] == round(2 * 1 / 3, 3)

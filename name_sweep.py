@@ -5,7 +5,8 @@ sentences outside English. Measured on evals/masking/multilingual.py (held-out
 sentences, one at a time), the model and the language rules caught 64% in
 Chinese, 81% Japanese, 75% Korean, 83% Hindi and 88% Spanish; adding this
 check (Llama-3-8B, already on the Mac when the Research scoring add-on is
-installed) raised that to 80% / 89% / 79% / 91% / 100%, with at most 5% of
+installed) raised that to 80% / 89% / 79% / 91% / 100%, and to 91% / 81% /
+74% / 78% / 100% on a second set written after every fix, with at most 8% of
 other characters masked. English is 98.9% without it. The model reads the
 original lines on the Mac and lists names and places; only strings found
 verbatim in those lines are masked, so a made-up answer can over-mask but

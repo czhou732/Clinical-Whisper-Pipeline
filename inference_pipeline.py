@@ -739,11 +739,11 @@ class InferencePipeline:
                 "the Research scoring add-on). In testing, masking alone missed 12-36% of "
                 "names and places outside English; read the transcript before sharing it.")
             return None
-        # Even with the check, unseen test sentences in Chinese and Korean kept
-        # about 1 name in 4 (evals/masking/README.md).
+        # Even with the check, two unseen test sets kept up to 1 name or place
+        # in 4 in Korean (evals/masking/README.md).
         warnings.append(
             "Masking outside English is less complete than in English: in testing it caught "
-            "79-100% of names and places, depending on the language. Read the transcript "
+            "74-100% of names and places, depending on the language. Read the transcript "
             "before sharing it.")
         try:
             import name_sweep

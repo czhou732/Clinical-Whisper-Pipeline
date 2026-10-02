@@ -97,6 +97,44 @@ HELD_OUT = {
     },
 }
 
+# Written Oct 2 2026, after every rule and bug fix above and before any run
+# on it: the replication set. New names, new frames (several with no cue word
+# around the name), and the last three cities of each list again outside the
+# rules' city lists.
+HELD_OUT_2 = {
+    "zh": {
+        "names": ["宋佳", "唐亮", "许静怡", "韩雪", "冯磊", "曹宇", "彭丽", "谢天明", "邓芳", "蒋涛"],
+        "cities": ["天津", "青岛", "大连", "绵阳", "柳州", "赣州"],
+        "templates": ["昨天晚上{N}给我发了很多消息。", "我们家以前在{C}开了个小店。", "后来{N}也不太联系了。",
+                      "他叫{N}，是我大学室友。", "那次去{C}看病花了很多钱。", "{N}和我都觉得很累。",
+                      "我老公{N}一直劝我来这里。"],
+    },
+    "ja": {
+        "names": ["森本大和", "石川美優", "前田颯", "藤田結菜", "岡田蒼空", "長谷川芽依", "村上樹", "近藤さくら"],
+        "cities": ["横浜", "神戸", "新潟", "釧路", "四日市", "八戸"],
+        "templates": ["昨日の夜、{N}から電話がありました。", "実家は{C}にあります。", "{N}にはまだ話していません。",
+                      "夫の{N}は仕事が忙しいです。", "{C}の大学に通っていました。", "担当の{N}さんに相談しました。"],
+    },
+    "ko": {
+        "names": ["임하늘", "한서윤", "오민호", "배수아", "백지훈", "허윤서", "남궁민", "유도현"],
+        "cities": ["인천", "청주", "제주", "여주", "거제", "삼척"],
+        "templates": ["어젯밤에 {N}~가 문자를 많이 보냈어요.", "본가는 {C}에 있어요.", "{N}한테는 아직 말 안 했어요.",
+                      "남편 {N}~는 요즘 바빠요.", "{C}에 있는 대학교를 다녔어요.", "상담 선생님 {N} 씨한테 얘기했어요."],
+    },
+    "hi": {
+        "names": ["आरती सक्सेना", "विनोद त्रिपाठी", "स्नेहा बनर्जी", "राजेश नायर", "मीना", "सुरेश", "अनुराधा देसाई", "करण"],
+        "cities": ["लखनऊ", "नागपुर", "कोच्चि", "बरेली", "झांसी", "सतना"],
+        "templates": ["कल रात {N} ने मुझे बहुत मैसेज किए।", "हमारा घर {C} में है।", "{N} को मैंने अभी तक नहीं बताया।",
+                      "मेरे पति {N} आजकल बहुत व्यस्त हैं।", "मैं {C} के कॉलेज में पढ़ता था।", "मैंने काउंसलर {N} से बात की।"],
+    },
+    "es": {
+        "names": ["Gabriela Méndez", "Joaquín Salazar", "Paula Guerrero", "Emilio Cabrera", "Rocío", "Nicolás"],
+        "cities": ["Barcelona", "Puebla", "Cali", "Ensenada", "Cajamarca", "Rancagua"],
+        "templates": ["Anoche {N} me mandó muchos mensajes.", "Mi familia vive en {C}.", "A {N} todavía no le he dicho nada.",
+                      "Mi esposo {N} anda muy ocupado.", "Estudié en una universidad de {C}.", "Hablé con la consejera {N}."],
+    },
+}
+
 _PARTICLES = {"는": "은", "를": "을", "가": "이"}
 
 
@@ -146,13 +184,14 @@ def main() -> None:
     ap.add_argument("--no-safety-net", action="store_true")
     ap.add_argument("--out", type=Path, default=None)
     ap.add_argument("--held-out", action="store_true", help="the set written after the rules")
+    ap.add_argument("--held-out-2", action="store_true", help="the replication set written after all fixes")
     ap.add_argument("--threshold", type=float, default=None, help="default: the app's")
     ap.add_argument("--model", default=None, help="compare another OpenMED model (default: the app's choice)")
     ap.add_argument("--langs", default=",".join(SETS))
     ap.add_argument("--second-check", action="store_true",
                     help="add the scoring model's name check (name_sweep.py), one sentence at a time")
     args = ap.parse_args()
-    sets = HELD_OUT if args.held_out else SETS
+    sets = HELD_OUT_2 if args.held_out_2 else HELD_OUT if args.held_out else SETS
     import inference_pipeline as ip
     import name_sweep
     from pii_scrubber import PIIScrubber

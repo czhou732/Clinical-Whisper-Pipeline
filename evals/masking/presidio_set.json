@@ -1,0 +1,182 @@
+{
+ "label": "presidio default",
+ "threshold": 0.5,
+ "sentences": 400,
+ "recall": 0.783,
+ "identifiers": 600,
+ "over_masking": 0.088,
+ "recall_by_type": {
+  "age": 1.0,
+  "city": 1.0,
+  "date": 1.0,
+  "email": 0.0,
+  "first_name": 0.831,
+  "full_name": 0.96,
+  "last_name": 1.0,
+  "organization": 0.24,
+  "phone": 0.24,
+  "street": 0.84
+ },
+ "name_recall_by_origin": {
+  "african": 0.737,
+  "anglo": 1.0,
+  "arabic": 0.941,
+  "chinese": 0.917,
+  "common_word": 0.606,
+  "hispanic": 0.963,
+  "indian": 0.921,
+  "vietnamese_korean": 0.742
+ },
+ "misses_sample": [
+  {
+   "id": "01_00",
+   "type": "first_name",
+   "text": "Ji-woo",
+   "sentence": "My boyfriend Ji-woo drove me here today."
+  },
+  {
+   "id": "05_00",
+   "type": "organization",
+   "text": "Bayview High School",
+   "sentence": "I work at Bayview High School over on Elm Court."
+  },
+  {
+   "id": "05_00",
+   "type": "street",
+   "text": "Elm Court",
+   "sentence": "I work at Bayview High School over on Elm Court."
+  },
+  {
+   "id": "08_00",
+   "type": "email",
+   "text": "zuri dot tran at gmail dot com",
+   "sentence": "My email is zuri dot tran at gmail dot com."
+  },
+  {
+   "id": "09_00",
+   "type": "organization",
+   "text": "Bayview High School",
+   "sentence": "Doctor Chen at Bayview High School changed my medication."
+  },
+  {
+   "id": "11_00",
+   "type": "street",
+   "text": "Elm Court",
+   "sentence": "We grew up on Elm Court in Sacramento."
+  },
+  {
+   "id": "15_00",
+   "type": "first_name",
+   "text": "Xiaoming",
+   "sentence": "Honestly Xiaoming is the reason I'm still going."
+  },
+  {
+   "id": "07_01",
+   "type": "phone",
+   "text": "two four four, two five six four",
+   "sentence": "You can reach me at two four four, two five six four."
+  },
+  {
+   "id": "08_01",
+   "type": "email",
+   "text": "tariq dot haddad at gmail dot com",
+   "sentence": "My email is tariq dot haddad at gmail dot com."
+  },
+  {
+   "id": "09_01",
+   "type": "organization",
+   "text": "Saint Mary's Hospital",
+   "sentence": "Doctor Okafor at Saint Mary's Hospital changed my medication."
+  },
+  {
+   "id": "14_01",
+   "type": "first_name",
+   "text": "Chidi",
+   "sentence": "I haven't seen Chidi since the funeral."
+  },
+  {
+   "id": "00_02",
+   "type": "first_name",
+   "text": "Ji-woo",
+   "sentence": "Mostly I talk to my wife Ji-woo, she checks on me every day."
+  },
+  {
+   "id": "08_02",
+   "type": "email",
+   "text": "bao dot delgado at gmail dot com",
+   "sentence": "My email is bao dot delgado at gmail dot com."
+  },
+  {
+   "id": "09_02",
+   "type": "organization",
+   "text": "Riverside Logistics",
+   "sentence": "Doctor Delgado at Riverside Logistics changed my medication."
+  },
+  {
+   "id": "10_02",
+   "type": "first_name",
+   "text": "Hope",
+   "sentence": "I told Hope I couldn't come, and Hope got upset."
+  },
+  {
+   "id": "10_02",
+   "type": "first_name",
+   "text": "Hope",
+   "sentence": "I told Hope I couldn't come, and Hope got upset."
+  },
+  {
+   "id": "13_02",
+   "type": "first_name",
+   "text": "Chidi",
+   "sentence": "Last August 26 I stayed with Chidi for a week."
+  },
+  {
+   "id": "05_03",
+   "type": "organization",
+   "text": "Pinecrest Dental",
+   "sentence": "I work at Pinecrest Dental over on Elm Court."
+  },
+  {
+   "id": "05_03",
+   "type": "street",
+   "text": "Elm Court",
+   "sentence": "I work at Pinecrest Dental over on Elm Court."
+  },
+  {
+   "id": "07_03",
+   "type": "phone",
+   "text": "555-3592",
+   "sentence": "You can reach me at 555-3592."
+  },
+  {
+   "id": "08_03",
+   "type": "email",
+   "text": "jacob dot kowalski at gmail dot com",
+   "sentence": "My email is jacob dot kowalski at gmail dot com."
+  },
+  {
+   "id": "09_03",
+   "type": "organization",
+   "text": "Pinecrest Dental",
+   "sentence": "Doctor Haddad at Pinecrest Dental changed my medication."
+  },
+  {
+   "id": "03_04",
+   "type": "first_name",
+   "text": "Rose",
+   "sentence": "Rose and I used to go running on Sundays."
+  },
+  {
+   "id": "05_04",
+   "type": "organization",
+   "text": "Bayview High School",
+   "sentence": "I work at Bayview High School over on Hollis Street."
+  },
+  {
+   "id": "07_04",
+   "type": "phone",
+   "text": "seven zero zero, four six two two",
+   "sentence": "You can reach me at seven zero zero, four six two two."
+  }
+ ]
+}
