@@ -500,9 +500,11 @@ def start_batch_from_paths(paths: list[str], participant_id: str = "",
     batch_id = _launch_batch(files, participant_id, session_label, criterion_score,
                              transcribe_only, in_place=True, num_speakers=num_speakers,
                              edits=edits)
+    # Tokens first: register_preview takes the same (non-reentrant) lock.
+    tokens = [register_preview(path) for path in files]
     with _lock:
-        for f, path in zip(_batches[batch_id]["files"], files):
-            f["preview"] = register_preview(path)
+        for f, token in zip(_batches[batch_id]["files"], tokens):
+            f["preview"] = token
     return {"status": "success", "batch_id": batch_id, "count": len(files),
             "filenames": [p.name for p in files]}
 
