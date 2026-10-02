@@ -39,3 +39,4 @@ evals/.cache/
 plan/
 .addon_stage/
 .addon_stage_languages/
+speed.json

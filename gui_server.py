@@ -265,7 +265,7 @@ def process_batch_task(batch_id: str, paths: list[Path]) -> None:
             try:
                 t_score = time.monotonic()
                 analysis_path = pipeline.score_job(state)
-                if cfg.get("llm_scoring", {}).get("enabled", True):
+                if speed_model.scored(analysis_path):
                     speed_model.record("score", durations[idx], time.monotonic() - t_score)
                 row = _extract_row(analysis_path, audio_path.name)
 

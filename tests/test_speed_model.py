@@ -46,3 +46,16 @@ def test_first_scoring_measurement_replaces_default_even_after_transcription(sto
     speed_model.record("transcribe", 3600, 360)
     speed_model.record("score", 3600, 1800)  # 0.5, far slower than the default
     assert speed_model.load()["score"] == pytest.approx(0.5)
+
+
+def test_only_real_scoring_counts(tmp_path):
+    import json
+
+    import speed_model
+
+    skipped = tmp_path / "group_analysis.json"
+    skipped.write_text(json.dumps({"llm_clinical_scoring": {}}))
+    scored = tmp_path / "interview_analysis.json"
+    scored.write_text(json.dumps({"llm_clinical_scoring": {"hesitancy_score": 3}}))
+    assert speed_model.scored(scored) and not speed_model.scored(skipped)
+    assert not speed_model.scored(tmp_path / "missing.json")

@@ -71,3 +71,19 @@ def estimate(audio_s: float, scoring: bool) -> tuple[float, bool]:
     data = load()
     seconds = audio_s * data["transcribe"] + (audio_s * data["score"] if scoring else 0.0)
     return seconds, data.get("runs", 0) < 3
+
+
+def scored(analysis_path) -> bool:
+    """Whether a finished analysis actually ran clinical scoring.
+
+    Scoring is skipped for group recordings, other languages and unconfirmed
+    roles; timing those runs as "scoring" would record a near-zero rate and
+    make every later estimate far too short.
+    """
+    import json
+
+    try:
+        data = json.loads(Path(analysis_path).read_text(encoding="utf-8"))
+    except (OSError, ValueError, TypeError):
+        return False
+    return bool(data.get("llm_clinical_scoring"))

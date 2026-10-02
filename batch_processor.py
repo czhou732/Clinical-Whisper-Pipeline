@@ -355,7 +355,7 @@ def batch_process(
                 try:
                     t_score = time.monotonic()
                     analysis_json_path: str = pipeline.score_job(state)
-                    if scoring:
+                    if scoring and speed_model.scored(analysis_json_path):
                         speed_model.record("score", durations.get(audio_path),
                                            time.monotonic() - t_score)
                     row = _extract_row(analysis_json_path, names[audio_path])
