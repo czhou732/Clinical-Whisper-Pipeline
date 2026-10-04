@@ -180,6 +180,8 @@ class Bridge:
                 num_speakers=request.get("num_speakers"),
                 edits=request.get("edits"),
                 silence_names=bool(request.get("silence_names")),
+                recording_type=str(request.get("recording_type") or "interview"),
+                group_risk_flags=bool(request.get("group_risk_flags")),
             )
         except (OSError, ValueError) as exc:
             return {"status": "error", "message": str(exc)}

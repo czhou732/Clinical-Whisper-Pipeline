@@ -479,6 +479,53 @@ document.addEventListener('DOMContentLoaded', () => {
         el.textContent = text;
     }
 
+    // --- Recording type: clinical interview or group discussion ---
+    const recordingType = document.getElementById('recording-type');
+    const numSpeakers = document.getElementById('num-speakers');
+    const INTERVIEW_COUNTS = numSpeakers.innerHTML;
+    const RTYPE_HELP = {
+        interview: 'One-to-one clinical interviews: interviewer and participant, voice and timing '
+            + 'measures, and optional clinical scores.',
+        group: 'Focus groups and other group discussions: speakers as Moderator, P01, P02 and so on, '
+            + 'crosstalk marked, every speaker label checked by voice, and coding-ready Word, text '
+            + 'and subtitle files. No clinical scores.',
+    };
+    function groupCounts() {
+        let html = '<option value="" selected>Not sure</option>';
+        for (let n = 3; n <= 12; n++) html += `<option value="${n}">${n}, moderators included</option>`;
+        return html;
+    }
+    let scoringChoice = null;  // the interview-mode choice, restored on switching back
+    function syncRecordingType() {
+        const group = recordingType.value === 'group';
+        document.querySelectorAll('.rtype-btn').forEach(b => {
+            b.classList.toggle('on', b.dataset.rtype === recordingType.value);
+            b.setAttribute('aria-pressed', String(b.dataset.rtype === recordingType.value));
+        });
+        document.getElementById('rtype-help').textContent = RTYPE_HELP[recordingType.value];
+        document.getElementById('criterion-field').classList.toggle('hidden', group);
+        document.getElementById('produce-mode').classList.toggle('hidden', group);
+        document.getElementById('group-flags-row').classList.toggle('hidden', !group);
+        document.getElementById('participant-label').textContent = group ? 'Group' : 'Participant';
+        document.getElementById('start-title').textContent =
+            group ? 'Transcribe a group discussion' : 'Transcribe an interview';
+        const wasGroup = numSpeakers.dataset.group === '1';
+        if (group && !wasGroup) {
+            numSpeakers.innerHTML = groupCounts();
+            scoringChoice = transcribeOnly.checked;
+            transcribeOnly.checked = true;
+        } else if (!group && wasGroup) {
+            numSpeakers.innerHTML = INTERVIEW_COUNTS;
+            if (scoringChoice !== null && !transcribeOnly.disabled) transcribeOnly.checked = scoringChoice;
+        }
+        numSpeakers.dataset.group = group ? '1' : '';
+        transcribeOnly.dispatchEvent(new Event('change'));
+    }
+    document.querySelectorAll('.rtype-btn').forEach(b => b.addEventListener('click', () => {
+        recordingType.value = b.dataset.rtype;
+        syncRecordingType();
+    }));
+
     const transcribeOnly = document.getElementById('transcribe-only');
     const MODE_HELP = {
         transcript: 'Masked transcript, speaker roles, and voice and timing measures. '
@@ -488,7 +535,7 @@ document.addEventListener('DOMContentLoaded', () => {
     };
     function syncMode() {
         const mode = transcribeOnly.checked ? 'transcript' : 'scored';
-        document.querySelectorAll('.seg-btn').forEach(b => {
+        document.querySelectorAll('.seg-btn[data-mode]').forEach(b => {
             b.classList.toggle('on', b.dataset.mode === mode);
             b.setAttribute('aria-pressed', String(b.dataset.mode === mode));
             if (b.dataset.mode === 'scored') b.disabled = transcribeOnly.disabled;
@@ -497,13 +544,14 @@ document.addEventListener('DOMContentLoaded', () => {
         processLabel();
         updateEstimate();
     }
-    document.querySelectorAll('.seg-btn').forEach(b => b.addEventListener('click', () => {
+    document.querySelectorAll('.seg-btn[data-mode]').forEach(b => b.addEventListener('click', () => {
         if (b.disabled) return;
         transcribeOnly.checked = b.dataset.mode === 'transcript';
         transcribeOnly.dispatchEvent(new Event('change'));
     }));
     transcribeOnly.addEventListener('change', syncMode);
     syncMode();
+    syncRecordingType();
 
     function processLabel() {
         const n = selectedFiles.length;
@@ -875,6 +923,9 @@ document.addEventListener('DOMContentLoaded', () => {
             // later be correlated against it. Cannot be added retrospectively.
             criterion_score: document.getElementById('criterion-score').value || '',
             silence_names: document.getElementById('silence-names').checked,
+            recording_type: recordingType.value,
+            group_risk_flags: recordingType.value === 'group'
+                && document.getElementById('group-risk-flags').checked,
         };
 
         const withPaths = selectedFiles.filter(f => f.path);
@@ -914,6 +965,8 @@ document.addEventListener('DOMContentLoaded', () => {
             formData.append('criterion_score', meta.criterion_score);
             formData.append('edits', JSON.stringify(selectedFiles.map(f => f.cwEdits || null)));
             formData.append('silence_names', meta.silence_names ? '1' : '');
+            formData.append('recording_type', meta.recording_type);
+            formData.append('group_risk_flags', meta.group_risk_flags ? '1' : '');
             const { ok, data } = await uploadWithProgress(formData);
             if (ok && data.batch_id) {
                 consoleOutput.textContent = `Uploaded ${data.count} file(s). Starting...\n`;

@@ -157,6 +157,13 @@ def process_batch_task(batch_id: str, paths: list[Path]) -> None:
                 cfg.setdefault("moss", {})["num_speakers"] = _batches[batch_id]["num_speakers"]
             if _batches.get(batch_id, {}).get("silence_names"):
                 cfg.setdefault("audio_deid", {})["enabled"] = True
+            if _batches.get(batch_id, {}).get("recording_type") == "group":
+                cfg["recording_type"] = "group"
+                cfg.setdefault("review_flags", {})["group_enabled"] = bool(
+                    _batches[batch_id].get("group_risk_flags"))
+                _batches[batch_id]["log"].append(
+                    "Group discussion: speaker codes, crosstalk marks and coding files; "
+                    "no clinical scores.")
             if _batches.get(batch_id, {}).get("in_place"):
                 # The user's own recording, read where it is: never move or delete it.
                 cfg["audio_retention"] = "keep"
@@ -361,7 +368,7 @@ def _speaker_count(value) -> int | None:
         n = int(str(value).strip())
     except (TypeError, ValueError):
         return None  # "Not sure, or a group": leave the count to the model
-    return n if 1 <= n <= 10 else None
+    return n if 1 <= n <= 20 else None
 
 
 def _checked_edits(edits, count: int) -> list:
@@ -458,7 +465,8 @@ async def preview_peaks(token: str, n: int = 160):
 
 def _launch_batch(paths: list[Path], participant_id: str, session_label: str,
                   criterion_score: str, transcribe_only: bool, in_place: bool,
-                  num_speakers=None, edits=None, silence_names: bool = False) -> str:
+                  num_speakers=None, edits=None, silence_names: bool = False,
+                  recording_type: str = "interview", group_risk_flags: bool = False) -> str:
     edits = _checked_edits(edits, len(paths))
     batch_id = _new_batch(paths)
     with _lock:
@@ -469,7 +477,10 @@ def _launch_batch(paths: list[Path], participant_id: str, session_label: str,
         b["participant_id"] = participant_id.strip()
         b["session_label"] = session_label.strip()
         b["criterion_score"] = criterion_score.strip()
-        b["transcribe_only"] = bool(transcribe_only)
+        b["recording_type"] = "group" if recording_type == "group" else "interview"
+        b["group_risk_flags"] = bool(group_risk_flags)
+        # Clinical scores are for one-to-one interviews.
+        b["transcribe_only"] = bool(transcribe_only) or b["recording_type"] == "group"
         b["in_place"] = in_place
     # An explicit daemon thread rather than FastAPI BackgroundTasks: a batch
     # runs for minutes, which would pin an anyio threadpool slot for its
@@ -485,7 +496,8 @@ def _launch_batch(paths: list[Path], participant_id: str, session_label: str,
 def start_batch_from_paths(paths: list[str], participant_id: str = "",
                            session_label: str = "", criterion_score: str = "",
                            transcribe_only: bool = False, num_speakers=None,
-                           edits=None, silence_names: bool = False) -> dict:
+                           edits=None, silence_names: bool = False,
+                           recording_type: str = "interview", group_risk_flags: bool = False) -> dict:
     """Process recordings where they are, without copying them.
 
     Called by the app window through pywebview's private bridge, never over
@@ -505,7 +517,8 @@ def start_batch_from_paths(paths: list[str], participant_id: str = "",
         raise ValueError("No files selected.")
     batch_id = _launch_batch(files, participant_id, session_label, criterion_score,
                              transcribe_only, in_place=True, num_speakers=num_speakers,
-                             edits=edits, silence_names=silence_names)
+                             edits=edits, silence_names=silence_names,
+                             recording_type=recording_type, group_risk_flags=group_risk_flags)
     # Tokens first: register_preview takes the same (non-reentrant) lock.
     tokens = [register_preview(path) for path in files]
     with _lock:
@@ -527,6 +540,8 @@ async def upload_files(
     num_speakers: str = Form(""),
     edits: str = Form(""),
     silence_names: str = Form(""),
+    recording_type: str = Form("interview"),
+    group_risk_flags: str = Form(""),
 ):
     """Accept one or many audio files and start a single batch job.
 
@@ -566,6 +581,8 @@ async def upload_files(
             num_speakers=num_speakers,
             edits=json.loads(edits) if edits.strip() else None,
             silence_names=silence_names.strip().lower() in ("1", "true", "on", "yes"),
+            recording_type=recording_type.strip().lower(),
+            group_risk_flags=group_risk_flags.strip().lower() in ("1", "true", "on", "yes"),
         )
         return {
             "status": "success",
@@ -893,9 +910,14 @@ async def rescore(batch_id: str, index: int, payload: dict = Body(default={})):
         analysis["structured_transcript"] = structured
         analysis["speaker_stats"] = compute_speaker_stats(segments, roles)
         # Who counts as the interviewer decides whose lines are screened.
-        import review_flags
-        analysis["clinical_review"] = review_flags.find(
-            segments, roles, (cfg.get("review_flags") or {}).get("extra_terms"))
+        from inference_pipeline import _clinical_review
+        group_rec = analysis.get("recording_type") == "group"
+        if group_rec:
+            cfg = {**cfg, "recording_type": "group",
+                   "review_flags": {**(cfg.get("review_flags") or {}),
+                                    "group_enabled": bool((analysis.get("group_discussion") or {})
+                                                          .get("risk_flags_on"))}}
+        analysis["clinical_review"] = _clinical_review(segments, roles, cfg)
 
         # A role swap changes who the participant is: participant timing and
         # the quality flags follow, and reliability follows the run count.
@@ -927,6 +949,17 @@ async def rescore(batch_id: str, index: int, payload: dict = Body(default={})):
                 remembered.append(names.get(spk))
 
         path = f.get("analysis_path")
+        if group_rec and (analysis.get("group_discussion") or {}).get("exports"):
+            # The coding files follow the corrected roles and the codes typed in.
+            import group_exports
+            gd = dict(analysis["group_discussion"])
+            docx = Path(gd["exports"]["docx"])
+            info = dict(gd.get("export_info") or {})
+            gd["exports"] = group_exports.write_all(
+                docx.parent, docx.name.removesuffix("_transcript.docx"), segments, roles, info,
+                (analysis.get("statistics") or {}).get("deidentification") or {},
+                gd.get("changes") or [], gd.get("crosstalk_share"), names)
+            analysis["group_discussion"] = gd
         if path:
             Path(path).write_text(json.dumps(analysis, indent=2, default=str),
                                   encoding="utf-8")

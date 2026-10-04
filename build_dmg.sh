@@ -33,9 +33,12 @@ HF_HUB="$HOME/.cache/huggingface/hub"
 # comes out as several. The offline lock (correctly) refuses to download it.
 # The clinical scoring model (5.3 GB) is not in the base app: it ships as a
 # separate add-on, built by build_scoring_addon.sh (see addons.py).
+# pyannote's segmentation model (6 MB, MIT) marks crosstalk in group
+# discussions (overlap_detector.py); without it crosstalk is simply not marked.
 MODELS="models--OpenMOSS-Team--MOSS-Transcribe-Diarize \
         models--OpenMed--OpenMed-PII-SuperClinical-Small-44M-v1 \
-        models--Wespeaker--wespeaker-voxceleb-resnet34-LM"
+        models--Wespeaker--wespeaker-voxceleb-resnet34-LM \
+        models--pyannote--segmentation-3.0"
 
 # A stage left by an older build may hold models or revisions this build
 # does not ship (the scoring model, old MOSS revisions): keep only what is

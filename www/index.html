@@ -45,7 +45,7 @@
             </div>
 
             <section class="start" id="start-panel">
-                <h2>Transcribe an interview</h2>
+                <h2 id="start-title">Transcribe an interview</h2>
                 <p class="lead">Runs on this Mac. Audio never leaves it.</p>
 
                 <div class="drop" id="drop-zone" tabindex="0" role="button"
@@ -64,13 +64,23 @@
                     <ul class="file-list" id="file-list"></ul>
                 </div>
 
+                <!-- Recording type: the hidden input is the state; the buttons set it. -->
+                <input type="hidden" id="recording-type" value="interview">
+                <div class="mode rtype">
+                    <div class="seg" role="group" aria-label="Recording type">
+                        <button type="button" class="seg-btn rtype-btn" data-rtype="interview">Clinical interview</button>
+                        <button type="button" class="seg-btn rtype-btn" data-rtype="group">Group discussion</button>
+                    </div>
+                    <p class="text-sm mode-help" id="rtype-help"></p>
+                </div>
+
                 <div class="fields">
-                    <label class="field"><span class="k">Participant</span>
+                    <label class="field"><span class="k" id="participant-label">Participant</span>
                         <input type="text" id="participant-id" placeholder="Optional"
                                title="Leave blank to use each file's name as its participant ID."></label>
                     <label class="field"><span class="k">Session</span>
                         <input type="text" id="session-label" placeholder="Optional"></label>
-                    <label class="field"><span class="k">Criterion score</span>
+                    <label class="field" id="criterion-field"><span class="k">Criterion score</span>
                         <input type="text" id="criterion-score" placeholder="e.g. SHAPS 31"></label>
                     <label class="field"><span class="k">People in the recording</span>
                         <select id="num-speakers">
@@ -83,7 +93,7 @@
 
                 <!-- The checkbox is the state; the two buttons are how it is set. -->
                 <input type="checkbox" id="transcribe-only" hidden>
-                <div class="mode">
+                <div class="mode" id="produce-mode">
                     <div class="seg" role="group" aria-label="What to produce">
                         <button type="button" class="seg-btn" data-mode="transcript">Transcript and measures</button>
                         <button type="button" class="seg-btn" data-mode="scored">Add clinical scores</button>
@@ -91,6 +101,11 @@
                     <p class="text-sm mode-help" id="mode-help"></p>
                     <em class="text-sm" id="transcribe-only-hint"></em>
                 </div>
+                <label class="option-row text-sm hidden" id="group-flags-row">
+                    <input type="checkbox" id="group-risk-flags">
+                    Also mark risk language (self-harm, abuse, crisis words) for review.
+                    Off by default in group discussions.
+                </label>
                 <label class="option-row text-sm">
                     <input type="checkbox" id="silence-names">
                     Also save a copy of the audio with the masked names silenced, for sharing.

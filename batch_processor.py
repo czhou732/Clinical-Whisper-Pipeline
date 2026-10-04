@@ -230,6 +230,8 @@ def batch_process(
     audio_retention: str = "keep",
     guide: Optional[str] = None,
     silence_names: bool = False,
+    group: bool = False,
+    group_risk_flags: bool = False,
 ) -> pd.DataFrame:
     """Process every audio file in *input_dir* and write a summary CSV.
 
@@ -260,6 +262,12 @@ def batch_process(
         cfg.setdefault("roles", {})["guide_path"] = str(Path(guide).expanduser())
     if silence_names:
         cfg.setdefault("audio_deid", {})["enabled"] = True
+    if group:
+        # Group discussion: speaker codes, crosstalk marks, coding files; no
+        # clinical scores or clinical voice models.
+        cfg["recording_type"] = "group"
+        cfg.setdefault("review_flags", {})["group_enabled"] = bool(group_risk_flags)
+        transcribe_only = True
     if transcribe_only:
         # Transcript, de-identification, acoustics and timing only — no 5 GB
         # scoring model. The usual need on a compute cluster.
@@ -475,6 +483,18 @@ def main(argv: Optional[list[str]] = None, prog: str = "clinicalwhisper-batch") 
              "Whoever reads its questions is taken as the interviewer or moderator.",
     )
     parser.add_argument(
+        "--group",
+        action="store_true",
+        help="Group discussions (focus groups): speakers as Moderator, P01, P02..., "
+             "crosstalk marked, a voice check of every speaker label, and coding-ready "
+             "Word, text and subtitle files. No clinical scores.",
+    )
+    parser.add_argument(
+        "--group-risk-flags",
+        action="store_true",
+        help="With --group: also screen for risk language (off by default in groups).",
+    )
+    parser.add_argument(
         "--install-addon", "--install-scoring",
         dest="install_addon",
         metavar="FOLDER",
@@ -507,6 +527,8 @@ def main(argv: Optional[list[str]] = None, prog: str = "clinicalwhisper-batch") 
         args.transcribe_only = True
         log.warning("Clinical scoring isn't installed on this Mac: producing transcripts "
                     "and voice measures only. Install it with --install-addon FOLDER.")
+    if args.group:
+        args.transcribe_only = True  # no clinical scores in group discussions
     if not args.transcribe_only and not args.score and _ram_gib() < 16:
         args.transcribe_only = True
         log.info("This Mac has %.0f GB of memory: clinical scoring is off by default. "
@@ -519,7 +541,8 @@ def main(argv: Optional[list[str]] = None, prog: str = "clinicalwhisper-batch") 
         transcribe_only=args.transcribe_only, device=args.device,
         ids_csv=args.ids, num_speakers=args.speakers, resume=args.resume,
         audio_retention=args.audio_retention, guide=args.guide,
-        silence_names=args.silence_names,
+        silence_names=args.silence_names, group=args.group,
+        group_risk_flags=args.group_risk_flags,
     )
     if df.empty:
         out = Path(args.output).expanduser()

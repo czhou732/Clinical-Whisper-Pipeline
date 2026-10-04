@@ -226,12 +226,29 @@ def _clinical_review(segments: list[dict], roles: dict, cfg: dict) -> dict:
     review_cfg = cfg.get("review_flags", {}) or {}
     if review_cfg.get("enabled", True) is False:
         return {}
+    if _is_group(cfg) and not review_cfg.get("group_enabled", False):
+        # Off by default in group discussions; the user can turn it on.
+        return {"items": [], "counts": {}, "note": "Risk-language flags are off for group "
+                "discussions. Turn them on before processing to screen the transcript."}
     import review_flags
     try:
         return review_flags.find(segments, roles, review_cfg.get("extra_terms"))
     except Exception as exc:  # noqa: BLE001 - a screen failure must not lose the run
         log.warning("Clinical review screen failed: %s", exc)
         return {"items": [], "counts": {}, "note": f"Screen failed: {exc}"}
+
+
+def _is_group(cfg: dict) -> bool:
+    """The user chose "Group discussion" (see group_exports.py)."""
+    return str(cfg.get("recording_type", "interview")).lower() == "group"
+
+
+def _regions_from(probs, frame_s: float, threshold: float) -> list[tuple[float, float]]:
+    """Stretches at or above ``threshold``, at least 0.3 s long."""
+    import numpy as np
+    on = np.concatenate([[False], probs >= threshold, [False]])
+    edges = np.flatnonzero(np.diff(on.astype(int)))
+    return [(a * frame_s, b * frame_s) for a, b in zip(edges[::2], edges[1::2]) if (b - a) * frame_s >= 0.3]
 
 
 def _scoring_installed(cfg: dict) -> bool:
@@ -724,6 +741,51 @@ class InferencePipeline:
             if wav.exists():
                 os.unlink(str(wav))
 
+    def _group_speaker_check(self, segments: list[dict], wav, warnings: list[str]) -> tuple[list[dict], dict]:
+        """Crosstalk marks and voice-based label repair for a group discussion.
+
+        See overlap_detector.py and speaker_check.py. Runs on the original
+        words, before masking; the voice data stays in memory. Any failure
+        leaves the labels as MOSS gave them, with a warning.
+        """
+        self._emit("Checking speakers", None, "crosstalk and voices")
+        out: dict = {"changes": [], "crosstalk_share": None, "crosstalk_segments": 0}
+        try:
+            import soundfile as sf
+            audio, _ = sf.read(str(wav), dtype="float32")
+            if audio.ndim > 1:
+                audio = audio.mean(axis=1)
+        except Exception as exc:  # noqa: BLE001
+            warnings.append(f"Speaker check skipped: audio unreadable ({exc}).")
+            return segments, out
+        regions: list = []
+        try:
+            from overlap_detector import OverlapDetector, THRESHOLD, mark_segments
+            detector = OverlapDetector.load()
+            if detector is not None:
+                probs, speech, frame_s = detector.probabilities(audio)
+                regions = _regions_from(probs, frame_s, THRESHOLD)
+                speech_frames = float((speech >= 0.5).sum()) or 1.0
+                out["crosstalk_share"] = round(float(((probs >= THRESHOLD) & (speech >= 0.5)).sum())
+                                               / speech_frames, 3)
+                out["crosstalk_segments"] = mark_segments(segments, regions)
+            else:
+                warnings.append("The crosstalk model isn't available, so overlapping speech is not marked.")
+        except Exception as exc:  # noqa: BLE001 - marks are an aid, never a reason to fail
+            log.warning("Crosstalk detection failed: %s", exc)
+            warnings.append(f"Crosstalk detection failed ({exc}); overlapping speech is not marked.")
+        try:
+            import speaker_check
+            from voice_embedder import VoiceEmbedder
+            embedder = VoiceEmbedder.load()
+            if embedder is not None:
+                emb = speaker_check.embed_segments(segments, audio, embedder, regions)
+                segments, out["changes"] = speaker_check.refine(segments, emb)
+        except Exception as exc:  # noqa: BLE001
+            log.warning("Speaker check failed: %s", exc)
+            warnings.append(f"Speaker check failed ({exc}); labels are as transcribed.")
+        return segments, out
+
     def _second_name_check(self, masker: dict, pii_cfg: dict, warnings: list[str]):
         """The scoring model as a second name check outside English (name_sweep.py).
 
@@ -767,6 +829,11 @@ class InferencePipeline:
         # Non-fatal stage failures are recorded here and surfaced in the
         # output payload, so a degraded run is never mistaken for a clean one.
         warnings: list[str] = []
+
+        # ── Group discussions: crosstalk marks and a voice check of every label ──
+        group_check: dict = {}
+        if _is_group(self.cfg):
+            segments, group_check = self._group_speaker_check(segments, acoustic_wav, warnings)
 
         # ── HIPAA Scrubbing (OpenMED) ──
         # Fatal when enabled: the app claims Safe Harbor de-identification,
@@ -850,9 +917,11 @@ class InferencePipeline:
         # Kintsugi's voice model (optional add-on), per speaker while the audio
         # is still here; the participant's result is picked once roles are known.
         voice_model = None
+        group = _is_group(self.cfg)
         try:
             import kintsugi_dam
-            voice_model = kintsugi_dam.per_speaker(str(acoustic_wav), segments)
+            # Clinical voice models are for interviews, not group discussions.
+            voice_model = None if group else kintsugi_dam.per_speaker(str(acoustic_wav), segments)
         except Exception as exc:  # noqa: BLE001 - an add-on must not lose the run
             log.warning("Kintsugi voice model failed: %s", exc)
             warnings.append(f"Kintsugi voice model failed: {exc}")
@@ -860,7 +929,7 @@ class InferencePipeline:
         praat = None
         try:
             import praat_measures
-            praat = praat_measures.per_speaker(str(acoustic_wav), segments)
+            praat = None if group else praat_measures.per_speaker(str(acoustic_wav), segments)
         except Exception as exc:  # noqa: BLE001 - an add-on must not lose the run
             log.warning("Praat measures failed: %s", exc)
         audio_deid_result = None
@@ -888,6 +957,7 @@ class InferencePipeline:
             "voice_model": voice_model,
             "praat": praat,
             "audio_deid": audio_deid_result,
+            "group_check": group_check,
             "warnings": warnings,
         }
 
@@ -941,7 +1011,8 @@ class InferencePipeline:
             from transcript_formatter import compute_speaker_stats, format_structured_transcript
 
             assignment = roles_mod.assign(segments, _guide_text(self.cfg),
-                                          state.get("voices"), voice_library.load())
+                                          state.get("voices"), voice_library.load(),
+                                          group=_is_group(self.cfg))
             speaker_roles = assignment["roles"]
             structured_transcript = format_structured_transcript(segments, speaker_roles)
             speaker_stats = compute_speaker_stats(segments, speaker_roles)
@@ -1038,6 +1109,8 @@ class InferencePipeline:
             notes.append(f"Language: {lang.get('name')}. Filler counts and the review "
                          "keyword screen are English-only and were not run.")
 
+        group_exports_written: dict = {}
+
         def _payload(llm_scoring: dict, reliability: dict, status: str = "") -> dict:
             return {
                 "job_id": job_id,
@@ -1096,6 +1169,11 @@ class InferencePipeline:
                                                           timing_payload["subject_speaker"]) or {})}
                              if state.get("voice_model") is not None else None),
                 "llm_clinical_scoring": llm_scoring,
+                "recording_type": "group" if _is_group(self.cfg) else "interview",
+                # Group discussions: labels repaired by voice, crosstalk, coding files.
+                "group_discussion": ({**{k: v for k, v in (state.get("group_check") or {}).items()},
+                                      "exports": group_exports_written}
+                                     if _is_group(self.cfg) else None),
                 "segments": segments,
                 "transcript": transcript,
             }
@@ -1210,5 +1288,40 @@ class InferencePipeline:
             payload["source_audio"]["retention"] = "archived"
         output_path.write_text(json.dumps(payload, indent=2, default=str), encoding="utf-8")
 
+        if _is_group(self.cfg):
+            try:
+                info = self._group_export_info(job, original_filename, stats, state)
+                group_exports_written.update(self._write_group_exports(
+                    output_dir, job, original_filename, segments, speaker_roles, stats, state, info))
+                payload["group_discussion"]["exports"] = group_exports_written
+                payload["group_discussion"]["export_info"] = info
+                payload["group_discussion"]["risk_flags_on"] = bool(
+                    (self.cfg.get("review_flags") or {}).get("group_enabled"))
+                output_path.write_text(json.dumps(payload, indent=2, default=str), encoding="utf-8")
+            except Exception as exc:  # noqa: BLE001 - the analysis itself is already saved
+                log.warning("Job %s: coding files not written: %s", job_id, exc)
+                payload["warnings"].append(f"Coding files (Word, subtitles) could not be written: {exc}")
+                output_path.write_text(json.dumps(payload, indent=2, default=str), encoding="utf-8")
+
         log.info("Job %s: wrote %s", job_id, output_path)
         return str(output_path)
+
+    @staticmethod
+    def _group_export_info(job: dict, original_filename: str, stats: dict, state: dict) -> dict:
+        import datetime
+        stem = Path(original_filename).stem
+        return {"session": job.get("session_label") or stem, "file": original_filename,
+                "processed": datetime.date.today().isoformat(), "version": __version__,
+                "language": (stats.get("language") or {}).get("name", "English"),
+                "audio_silenced": bool(state.get("audio_deid"))}
+
+    def _write_group_exports(self, output_dir: Path, job: dict, original_filename: str,
+                             segments: list[dict], roles: dict, stats: dict, state: dict,
+                             info: dict) -> dict:
+        """Coding-ready transcript, subtitles, participation and de-id record (group_exports.py)."""
+        import group_exports
+        stem = Path(original_filename).stem
+        check = state.get("group_check") or {}
+        return group_exports.write_all(output_dir, f"{job['job_id']}_{stem}", segments, roles, info,
+                                       stats.get("deidentification") or {}, check.get("changes") or [],
+                                       check.get("crosstalk_share"))

@@ -170,12 +170,13 @@ def _score(e: Evidence, first: bool, most_talk: float) -> float:
 
 def assign(segments: list[dict], guide_text: Optional[str] = None,
            voices: Optional[dict[str, np.ndarray]] = None,
-           library: Optional[list[dict]] = None) -> dict:
+           library: Optional[list[dict]] = None, group: bool = False) -> dict:
     """Roles for every speaker, the mode, and how sure the assignment is.
 
     Returns ``{"roles", "mode", "uncertain", "why", "evidence"}``. Roles are
     "Interviewer"/"Subject"/"Other_N" for an interview, and "Moderator N"/
-    "Participant N"/"Other_N" for a group.
+    "Participant N"/"Other_N" for a group. ``group`` (the user chose "Group
+    discussion") uses group roles even when only two people talk much.
     """
     ev = gather(segments, guide_text, voices, library)
     if not ev:
@@ -196,7 +197,7 @@ def assign(segments: list[dict], guide_text: Optional[str] = None,
         return {"roles": {by_talk[0]: "Subject"}, "mode": "interview", "uncertain": False,
                 "why": "", "evidence": evidence}
 
-    if len(substantial) <= 2:
+    if len(substantial) <= 2 and not group:
         core = by_talk[:2]
         a, b = sorted(core, key=lambda s: -ev[s].score)
         roles = {a: "Interviewer", b: "Subject"}
