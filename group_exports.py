@@ -99,9 +99,11 @@ def _turn_line(t: dict) -> str:
 
 
 def header_lines(info: dict) -> list[str]:
-    lines = [f"Group discussion: {info.get('session') or info.get('file') or 'session'}",
+    """Title lines before the first turn. MAXQDA reads any paragraph with a
+    colon in its first 63 characters as a speaker turn, so these have none."""
+    lines = [f"Group discussion, {info.get('session') or info.get('file') or 'session'}".replace(":", " "),
              f"Processed {info.get('processed', '')} with ClinicalWhisper {info.get('version', '')}.",
-             "De-identified: names and other identifiers are replaced by tags such as [first_name_1];",
+             "De-identified. Names and other identifiers are replaced by tags such as [first_name_1];",
              "the same tag means the same identifier throughout. Speakers are codes, not names.",
              f"{CROSSTALK} marks turns where two people spoke at once; the words of the second "
              "speaker may be missing there."]

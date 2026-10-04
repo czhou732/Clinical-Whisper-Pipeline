@@ -106,6 +106,7 @@ uv run pyinstaller --noconfirm \
     --add-data "www:www" \
     --exclude-module parselmouth \
     --add-data "config.example.yaml:." \
+    --add-data "THIRD_PARTY_NOTICES.md:." \
     --add-data ".model_stage:models" \
     --collect-all opensmile \
     --collect-all audresample \

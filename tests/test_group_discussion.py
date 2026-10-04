@@ -127,3 +127,9 @@ def test_risk_flags_off_by_default_in_groups():
     assert off["items"] == [] and "off for group" in off["note"]
     on = _clinical_review(segs, roles, {"recording_type": "group", "review_flags": {"group_enabled": True}})
     assert on["items"]
+
+
+def test_header_lines_are_not_read_as_speakers_by_maxqda():
+    # MAXQDA's focus-group import: a colon in the first 63 characters marks a speaker.
+    for line in group_exports.header_lines({"session": "FG 3: pilot", "processed": "2026-10-04", "version": "5.3.0"}):
+        assert ":" not in line[:63], line
