@@ -706,6 +706,8 @@ async def get_status(batch_id: str):
                     "speaker_roles": f.get("speaker_roles", {}),
                     "speaker_names": f.get("speaker_names", {}),
                     "speaker_samples": f.get("speaker_samples", {}),
+                    # Who owns each transcript line, for "Move to…" (same order as the lines).
+                    "turn_speakers": _turn_speakers(f.get("segments") or []),
                     "preview": f.get("preview"),
                     "speaker_assignment": f.get("speaker_assignment", {}),
                     "can_remember": sorted((f.get("voices") or {}).keys()),
@@ -820,6 +822,55 @@ def _normalise_roles(chosen: dict, segments: list[dict]) -> dict:
     return roles
 
 
+def _turn_speakers(segments: list[dict]) -> list[str]:
+    from transcript_formatter import turn_spans
+    return [segments[idx[0]].get("speaker", "Unknown") for idx in turn_spans(segments)]
+
+
+def _roles_after_move(roles: dict[str, str], segments: list[dict], move: dict) -> dict[str, str]:
+    """Roles once a line has moved: a new speaker gets the next participant
+    (group) or Other (interview) role; a speaker left with no lines is dropped."""
+    present = {s.get("speaker") for s in segments}
+    out = {k: v for k, v in roles.items() if k in present}
+    if move["to"] not in out:
+        group = any(str(r).startswith(("Moderator", "Participant")) for r in roles.values())
+        if group:
+            n = 1 + sum(str(r).startswith("Participant") for r in out.values())
+            out[move["to"]] = f"Participant {n}"
+        else:
+            n = 1 + sum(str(r).startswith("Other") for r in out.values())
+            out[move["to"]] = f"Other_{n}"
+    return out
+
+
+def _apply_move_to_analysis(analysis: dict, segments: list[dict], roles: dict, move: dict) -> None:
+    """Segments, timing and the audit trail after a hand move (in place)."""
+    import audio_edits
+    import elaboration
+    from timing_features import speaker_timing, subject_speaker
+
+    analysis["segments"] = segments
+    edits = audio_edits.Edits.from_dict(analysis.get("audio_edits"))
+    time_map = audio_edits.TimeMap.for_edits(edits)
+    timing_segments = time_map.edited_segments(segments) if time_map else segments
+    timing = dict(analysis.get("timing_features") or {})
+    timing["per_speaker"] = speaker_timing(timing_segments)
+    group = any(str(r).startswith(("Moderator", "Participant")) for r in roles.values())
+    if timing.get("elaboration") is not None and not group:
+        timing["elaboration"] = elaboration.measure(segments, roles)
+    analysis["timing_features"] = timing
+    analysis["speaker_stats"] = None  # recomputed by the caller from the new segments
+    moves = list(analysis.get("manual_moves") or [])
+    moves.append(move)
+    analysis["manual_moves"] = moves
+    note = ("Lines were moved between speakers by hand after processing. Per-speaker voice "
+            "measures (OpenSMILE, Praat, Kintsugi) were computed before the move.")
+    notes = list(analysis.get("notes") or [])
+    if note not in notes:
+        notes.append(note)
+    analysis["notes"] = notes
+
+
 def _roles_with_interviewer(segments: list[dict], interviewer: str) -> dict:
     """The chosen speaker as Interviewer, the other main speaker as Subject."""
     talk: dict[str, float] = {}
@@ -866,6 +917,13 @@ async def rescore(batch_id: str, index: int, payload: dict = Body(default={})):
 
         cfg = load_config(_config_path())
         old_roles = analysis.get("speaker_roles") or {}
+        move_record = None
+        if payload.get("move"):
+            # One transcript line moved to another (or a new) speaker by hand.
+            from transcript_formatter import move_turn
+            mv = payload["move"]
+            segments, move_record = move_turn(segments, int(mv["turn"]), str(mv["to"]), mv.get("start"))
+            old_roles = _roles_after_move(old_roles, segments, move_record)
         roles = _normalise_roles(payload["roles"], segments) if payload.get("roles") else old_roles
         if payload.get("interviewer"):
             roles = _roles_with_interviewer(segments, payload["interviewer"])
@@ -893,8 +951,10 @@ async def rescore(batch_id: str, index: int, payload: dict = Body(default={})):
             # The user has looked at the speakers: the roles are now confirmed.
             assignment.update(uncertain=False, confirmed=True, why="",
                               mode="group" if group else "interview")
+        moved_subject = bool(move_record) and "Subject" in (
+            (analysis.get("speaker_roles") or {}).get(move_record["from"], ""), roles.get(move_record["to"], ""))
         rescored = (not transcribe_only and not group
-                    and (roles != old_roles or (was_uncertain and payload.get("roles"))))
+                    and (roles != old_roles or (was_uncertain and payload.get("roles")) or moved_subject))
         if rescored:
             scoring = await run_in_threadpool(score_transcript, structured, context, cfg)
         elif group:
@@ -903,6 +963,8 @@ async def rescore(batch_id: str, index: int, payload: dict = Body(default={})):
             scoring = analysis.get("llm_clinical_scoring") or {}
 
         analysis = dict(analysis)
+        if move_record:
+            _apply_move_to_analysis(analysis, segments, roles, move_record)
         analysis["llm_clinical_scoring"] = scoring
         analysis["speaker_roles"] = roles
         analysis["speaker_names"] = names
@@ -975,12 +1037,18 @@ async def rescore(batch_id: str, index: int, payload: dict = Body(default={})):
             tgt["speaker_roles"] = roles
             tgt["speaker_names"] = names
             tgt["speaker_assignment"] = assignment
+            if move_record:
+                tgt["segments"] = segments
+                tgt["speaker_samples"] = speaker_samples(segments)
             tgt["quality"] = analysis.get("quality") or {}
             tgt["score_reliability"] = analysis.get("score_reliability") or {}
             _batches[batch_id]["log"].append(
                 f"Re-scored {f['filename']}." if rescored else f"Updated speakers for {f['filename']}.")
 
         return {"status": "success", "result": row, "rescored": rescored,
+                "moved": move_record,
+                "turn_speakers": _turn_speakers(segments),
+                "speaker_samples": speaker_samples(segments) if move_record else None,
                 "quality": analysis.get("quality"),
                 "score_reliability": analysis.get("score_reliability"),
                 "structured_transcript": structured, "speaker_roles": roles,

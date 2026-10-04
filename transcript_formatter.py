@@ -178,29 +178,13 @@ def format_structured_transcript(
     if not segments:
         return ""
 
-    # ── Merge consecutive same-speaker segments ──
-    merged_turns: list[dict] = []
-
-    for seg in segments:
-        spk = seg.get("speaker", "Unknown")
-        text = (seg.get("text") or "").strip()
-        start = float(seg.get("start", 0.0))
-        end = float(seg.get("end", 0.0))
-
-        if not text:
-            continue
-
-        if merged_turns and merged_turns[-1]["speaker"] == spk:
-            # Extend the current turn
-            merged_turns[-1]["end"] = end
-            merged_turns[-1]["texts"].append(text)
-        else:
-            merged_turns.append({
-                "speaker": spk,
-                "start": start,
-                "end": end,
-                "texts": [text],
-            })
+    # ── Merge consecutive same-speaker segments (turn_spans: one line each) ──
+    merged_turns = [{
+        "speaker": segments[idx[0]].get("speaker", "Unknown"),
+        "start": float(segments[idx[0]].get("start", 0.0)),
+        "end": float(segments[idx[-1]].get("end", 0.0)),
+        "texts": [(segments[i].get("text") or "").strip() for i in idx],
+    } for idx in turn_spans(segments)]
 
     # ── Format each turn ──
     lines: list[str] = []
@@ -212,6 +196,59 @@ def format_structured_transcript(
         lines.append(f"[{ts_start} - {ts_end}] {role}: {combined_text}")
 
     return "\n".join(lines)
+
+
+def turn_spans(segments: list[dict]) -> list[list[int]]:
+    """Segment indices of each transcript line: consecutive non-empty segments
+    of one speaker. Line n of format_structured_transcript is turn n here."""
+    spans: list[list[int]] = []
+    last = None
+    for i, seg in enumerate(segments):
+        if not (seg.get("text") or "").strip():
+            continue
+        spk = seg.get("speaker", "Unknown")
+        if spans and spk == last:
+            spans[-1].append(i)
+        else:
+            spans.append([i])
+        last = spk
+    return spans
+
+
+def move_turn(segments: list[dict], turn: int, to: str, start: Optional[float] = None
+              ) -> tuple[list[dict], dict]:
+    """Give transcript line ``turn`` to speaker ``to`` ("new" for a new speaker).
+
+    ``start`` is the line's start time as the user saw it; a mismatch of more
+    than a second means the transcript changed underneath (refused). Returns
+    the new segments and a record of the move, without any text.
+    """
+    spans = turn_spans(segments)
+    if not 0 <= turn < len(spans):
+        raise ValueError("That line is no longer in the transcript. Reload and try again.")
+    idx = spans[turn]
+    first = segments[idx[0]]
+    if start is not None and abs(float(first.get("start", 0.0)) - float(start)) > 1.0:
+        raise ValueError("The transcript changed since it was shown. Reload and try again.")
+    old = first.get("speaker", "Unknown")
+    labels = {s.get("speaker") for s in segments}
+    if to == "new":
+        n = 1
+        while f"S{n:02d}" in labels:
+            n += 1
+        to = f"S{n:02d}"
+    elif to not in labels:
+        raise ValueError(f"Unknown speaker {to!r}.")
+    if to == old:
+        raise ValueError("That line already belongs to this speaker.")
+    out = [dict(s) for s in segments]
+    for i in idx:
+        out[i]["speaker"] = to
+        out[i]["moved_by_hand"] = True
+    record = {"at": round(float(first.get("start", 0.0)), 2), "from": old, "to": to,
+              "seconds": round(sum(float(out[i].get("end", 0)) - float(out[i].get("start", 0)) for i in idx), 1),
+              "new_speaker": to not in labels}
+    return out, record
 
 
 def speaker_label(spk: str, roles: dict[str, str],

@@ -763,6 +763,91 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('speakers-status').textContent = '';
     }
 
+    // The server's answer to a speaker change (roles, names, or a moved line).
+    function applySpeakerUpdate(index, data) {
+        const f = batchFiles[index];
+        batchFiles[index] = Object.assign({}, f, {
+            result: data.result,
+            structured_transcript: data.structured_transcript,
+            speaker_roles: data.speaker_roles,
+            speaker_names: data.speaker_names,
+            speaker_assignment: data.speaker_assignment || f.speaker_assignment,
+            clinical_review: data.clinical_review || f.clinical_review,
+            quality: data.quality || f.quality,
+            score_reliability: data.score_reliability || f.score_reliability,
+            turn_speakers: data.turn_speakers || f.turn_speakers,
+            speaker_samples: data.speaker_samples || f.speaker_samples,
+            mask_legend: f.mask_legend,
+        });
+    }
+
+    function seconds(stamp) {
+        return stamp.split(':').reduce((acc, part) => acc * 60 + Number(part), 0);
+    }
+
+    // "Move to…" on one transcript line: give it to another speaker or a new one.
+    function moveControl(f, turn, startStamp) {
+        const owners = f.turn_speakers || [];
+        const owner = owners[turn];
+        const wrap = document.createElement('span');
+        wrap.className = 'move';
+        if (!owner || !currentBatchId) return wrap;
+        const btn = document.createElement('button');
+        btn.className = 'link-button move-btn';
+        btn.textContent = 'Move to…';
+        btn.title = 'Give this line to another speaker, for example someone who joined late.';
+        const sel = document.createElement('select');
+        sel.className = 'move-to hidden';
+        sel.setAttribute('aria-label', 'Move this line to');
+        const roles = f.speaker_roles || {};
+        const names = f.speaker_names || {};
+        const first = document.createElement('option');
+        first.value = '';
+        first.textContent = 'Move this line to…';
+        sel.appendChild(first);
+        Object.keys(roles).filter(k => k !== owner).forEach(k => {
+            const o = document.createElement('option');
+            o.value = k;
+            o.textContent = names[k] ? `${names[k]} (${roleText(roles[k])})` : roleText(roles[k]);
+            sel.appendChild(o);
+        });
+        const fresh = document.createElement('option');
+        fresh.value = 'new';
+        fresh.textContent = 'A new speaker';
+        sel.appendChild(fresh);
+        btn.addEventListener('click', () => { btn.classList.add('hidden'); sel.classList.remove('hidden'); sel.focus(); });
+        sel.addEventListener('change', async () => {
+            if (!sel.value) return;
+            sel.disabled = true;
+            const index = activeIndex;
+            const status = document.createElement('small');
+            status.className = 'move-status';
+            status.textContent = 'Moving…';
+            wrap.appendChild(status);
+            try {
+                const res = await fetch(`/api/rescore/${currentBatchId}/${index}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ move: { turn, to: sel.value, start: seconds(startStamp) } }),
+                });
+                const data = await res.json();
+                if (data.status === 'success') {
+                    applySpeakerUpdate(index, data);
+                    renderActive();
+                    appendLog(data.rescored ? 'Line moved and the file re-scored.' : 'Line moved.');
+                } else {
+                    status.textContent = data.message || 'Could not move the line.';
+                    sel.disabled = false;
+                }
+            } catch (e) {
+                status.textContent = `Could not move the line: ${e.message}`;
+                sel.disabled = false;
+            }
+        });
+        wrap.append(btn, sel);
+        return wrap;
+    }
+
     // Five seconds of a speaker, from the original recording.
     const samplePlayer = document.getElementById('sample-player');
     let sampleTimer = null;
@@ -820,16 +905,7 @@ document.addEventListener('DOMContentLoaded', () => {
             });
             const data = await res.json();
             if (data.status === 'success') {
-                batchFiles[activeIndex] = Object.assign({}, f, {
-                    result: data.result,
-                    structured_transcript: data.structured_transcript,
-                    speaker_roles: data.speaker_roles,
-                    speaker_names: data.speaker_names,
-                    speaker_assignment: data.speaker_assignment || f.speaker_assignment,
-                    clinical_review: data.clinical_review || f.clinical_review,
-                    quality: data.quality || f.quality,
-                    score_reliability: data.score_reliability || f.score_reliability,
-                });
+                applySpeakerUpdate(activeIndex, data);
                 renderActive();
                 appendLog(data.rescored ? 'Re-scored with the confirmed roles.'
                                         : 'Speakers updated.');
@@ -1555,8 +1631,10 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
         const roles = f.speaker_roles || {};
+        let turn = -1;
         text.split('\n').forEach(line => {
             const m = line.match(LINE);
+            if (m) turn += 1;
             const row = document.createElement('div');
             row.className = 'turn';
             const who = document.createElement('div');
@@ -1570,6 +1648,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const time = document.createElement('small');
             time.textContent = m[1];
             who.appendChild(time);
+            who.appendChild(moveControl(f, turn, m[1]));
             // Fillers dimmed and masking tags set apart, built as text nodes.
             m[4].split(/(\[[a-z_]+_\d+\])/).forEach(part => {
                 if (/^\[[a-z_]+_\d+\]$/.test(part)) {

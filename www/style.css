@@ -354,6 +354,12 @@ select option { background: var(--panel); }
 .turn p { line-height: 1.6; max-width: 72ch; }
 .turn .fill { color: var(--muted); }
 .turn .tag { font: 12.5px var(--mono); color: var(--muted); }
+.turn .move { display: block; }
+.turn .move-btn { font: 11.5px var(--sans); color: var(--muted); padding: 0; opacity: 0; }
+.turn:hover .move-btn, .turn .move-btn:focus-visible { opacity: 1; }
+@media (hover: none) { .turn .move-btn { opacity: 1; } }
+.turn .move-to { font: 12px var(--sans); max-width: 100%; margin-top: 2px; }
+.turn .move-status { display: block; color: var(--muted); font: 11.5px var(--sans); }
 @media (max-width: 560px) { .turn { grid-template-columns: 1fr; gap: 0; } }
 
 .text-block {
