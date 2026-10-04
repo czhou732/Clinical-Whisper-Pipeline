@@ -52,9 +52,10 @@ the audio with the masked names silenced.</p>
 <h2>Running recordings</h2>
 <p>Drop files onto the window or click to pick them. Most audio formats work (wav, mp3, m4a,
 flac and so on). The app reads them where they are and doesn't move or copy them.</p>
-<p>Set "People in the recording" to the number of speakers. For a one-on-one interview, leave it
-at 2. For a focus group, choose "Not sure, or a group". The app then labels moderators and
-participants and doesn't make clinical scores.</p>
+<p>Pick "Clinical interview" or "Group discussion" at the top. For a one-on-one interview, choose
+Clinical interview and leave "People in the recording" at 2. For a focus group, choose Group
+discussion and set the number of people, moderators included, or leave it at "Not sure". Group
+discussions don't get clinical scores, and risk-language flags are off unless you tick the box.</p>
 <p>Choose "Transcript and measures", or "Add clinical scores" if Scoring is installed. Scores need at
 least 3 minutes of the participant talking and a reasonably quiet recording. If either is missing,
 the app says why it skipped them.</p>
@@ -73,6 +74,12 @@ and each batch gets a summary CSV.</p>
 the same word, and there's a key at the top of each transcript. The masking is automatic and it does
 miss things sometimes, more often in languages other than English, so please read over a transcript
 before sharing it with anyone.</p>
+<p>A group discussion also gets files ready for coding: a Word and a text transcript with speakers
+as Moderator, P01, P02 and so on, a subtitle file (.vtt) that plays in sync with the audio in
+ATLAS.ti or MAXQDA, a table of how much each person talked, and a one-page de-identification record
+for your IRB file. Turns where two people talked at once are marked [crosstalk], and the second
+person's words may be missing there. Someone who joins late and says very little can end up under
+another participant's code, so check the codes around a late arrival.</p>
 <p>Statements a clinician may want to look at are listed under "For clinician review" with their
 times. It's a reading aid, not a risk score.</p>
 <p>Each score shows how consistent it was across repeated runs. Flat emotional language is the least
@@ -89,7 +96,7 @@ of any analysis.</p>
 <p>It prints progress and the time left as it goes. If it gets interrupted, run the same command
 again with <span style="white-space:nowrap">--resume</span> added and it picks up where it stopped. Add <span style="white-space:nowrap">--ids ids.csv</span> to attach participant
 IDs (columns filename, participant_id, session_label). Add <span style="white-space:nowrap">--guide guide.txt</span> (one question per
-line) and whoever reads those questions is taken as the interviewer. <span style="white-space:nowrap">--help</span> lists the rest.
+line) and whoever reads those questions is taken as the interviewer. Add <span style="white-space:nowrap">--group</span> for focus groups. <span style="white-space:nowrap">--help</span> lists the rest.
 Try not to run a batch while the app window is also processing, since they'll fight over memory.</p>
 <p>For a sense of timing: on an M2 Max, a three-and-a-half-hour interview took about 12 minutes
 to transcribe and another 17 to score. Yours may be slower. The estimate adjusts after a few files.</p>
