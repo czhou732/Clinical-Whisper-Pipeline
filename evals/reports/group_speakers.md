@@ -35,3 +35,12 @@ label; the app flags labels under 10 s as possibly one person split in two.
 
 Read with care: rebuilt audio has silence where nobody was annotated, which is
 easier than a raw recording; five meetings, one joiner each.
+
+## Known limit: a joiner who says very little
+
+On a real 77-min focus group (UP-25-00970, checked locally, nothing shared), every
+regular speaker kept one label, but a late joiner with under 20 s of clean speech
+(most of it over others) stayed under a participant's label: too little voice to
+split on. A per-segment "voice doesn't match" flag was tried on AMI and dropped:
+13-30% precision at any threshold, so it would mostly raise false alarms. The
+fix is moving a single turn to another speaker by hand (not yet in the app).
