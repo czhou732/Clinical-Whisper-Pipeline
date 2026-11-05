@@ -1,0 +1,300 @@
+{"id": "r00_00", "text": "So um Mei called again last night, like three times.", "entities": [{"start": 6, "end": 9, "type": "first_name", "origin": "chinese"}]}
+{"id": "r01_00", "text": "I grew up outside Fresno, it's a small place.", "entities": [{"start": 18, "end": 24, "type": "city", "origin": "place"}]}
+{"id": "r02_00", "text": "He works over at Pinecrest Dental doing nights.", "entities": [{"start": 17, "end": 33, "type": "organization", "origin": "place"}]}
+{"id": "r03_00", "text": "Her number's zero three four, five eight four six, if you need it.", "entities": [{"start": 13, "end": 49, "type": "phone", "origin": "number"}]}
+{"id": "r04_00", "text": "Yeah it's min-jun dot brennan at gmail dot com.", "entities": [{"start": 10, "end": 46, "type": "email", "origin": "email"}]}
+{"id": "r05_00", "text": "Mm, Rodrigo Chen. That was my old case manager.", "entities": [{"start": 4, "end": 16, "type": "full_name", "origin": "hispanic"}]}
+{"id": "r06_00", "text": "We were living on Vermont Avenue back then.", "entities": [{"start": 18, "end": 32, "type": "street", "origin": "place"}]}
+{"id": "r07_00", "text": "I think it was October 26, maybe a little after.", "entities": [{"start": 15, "end": 25, "type": "date", "origin": "date"}]}
+{"id": "r08_00", "text": "Camila, my cousin, she doesn't really get it.", "entities": [{"start": 0, "end": 6, "type": "first_name", "origin": "hispanic"}]}
+{"id": "r09_00", "text": "I was 30 when that happened.", "entities": [{"start": 6, "end": 8, "type": "age", "origin": "number"}]}
+{"id": "r10_00", "text": "Then Doctor Patel said we should try something else.", "entities": [{"start": 12, "end": 17, "type": "last_name", "origin": "surname"}]}
+{"id": "r11_00", "text": "I keep thinking about Khalid, you know?", "entities": [{"start": 22, "end": 28, "type": "first_name", "origin": "arabic"}]}
+{"id": "r00_01", "text": "So um Rose called again last night, like three times.", "entities": [{"start": 6, "end": 10, "type": "first_name", "origin": "common_word"}]}
+{"id": "r01_01", "text": "I grew up outside Fresno, it's a small place.", "entities": [{"start": 18, "end": 24, "type": "city", "origin": "place"}]}
+{"id": "r02_01", "text": "He works over at Pinecrest Dental doing nights.", "entities": [{"start": 17, "end": 33, "type": "organization", "origin": "place"}]}
+{"id": "r03_01", "text": "Her number's 555-6803, if you need it.", "entities": [{"start": 13, "end": 21, "type": "phone", "origin": "number"}]}
+{"id": "r04_01", "text": "Yeah it's layla dot sharma at gmail dot com.", "entities": [{"start": 10, "end": 43, "type": "email", "origin": "email"}]}
+{"id": "r05_01", "text": "Mm, Lucia Park. That was my old case manager.", "entities": [{"start": 4, "end": 14, "type": "full_name", "origin": "hispanic"}]}
+{"id": "r06_01", "text": "We were living on Vermont Avenue back then.", "entities": [{"start": 18, "end": 32, "type": "street", "origin": "place"}]}
+{"id": "r07_01", "text": "I think it was December 20, maybe a little after.", "entities": [{"start": 15, "end": 26, "type": "date", "origin": "date"}]}
+{"id": "r08_01", "text": "Rodrigo, my son, she doesn't really get it.", "entities": [{"start": 0, "end": 7, "type": "first_name", "origin": "hispanic"}]}
+{"id": "r09_01", "text": "I was 76 when that happened.", "entities": [{"start": 6, "end": 8, "type": "age", "origin": "number"}]}
+{"id": "r10_01", "text": "Then Doctor Okafor said we should try something else.", "entities": [{"start": 12, "end": 18, "type": "last_name", "origin": "surname"}]}
+{"id": "r11_01", "text": "I keep thinking about Kwame, you know?", "entities": [{"start": 22, "end": 27, "type": "first_name", "origin": "african"}]}
+{"id": "r00_02", "text": "So um Sanjana called again last night, like three times.", "entities": [{"start": 6, "end": 13, "type": "first_name", "origin": "indian"}]}
+{"id": "r01_02", "text": "I grew up outside Pasadena, it's a small place.", "entities": [{"start": 18, "end": 26, "type": "city", "origin": "place"}]}
+{"id": "r02_02", "text": "He works over at Kroger doing nights.", "entities": [{"start": 17, "end": 23, "type": "organization", "origin": "place"}]}
+{"id": "r03_02", "text": "Her number's six five zero, two zero zero three, if you need it.", "entities": [{"start": 13, "end": 47, "type": "phone", "origin": "number"}]}
+{"id": "r04_02", "text": "Yeah it's jacob dot chen at gmail dot com.", "entities": [{"start": 10, "end": 41, "type": "email", "origin": "email"}]}
+{"id": "r05_02", "text": "Mm, Min-jun Nguyen. That was my old case manager.", "entities": [{"start": 4, "end": 18, "type": "full_name", "origin": "vietnamese_korean"}]}
+{"id": "r06_02", "text": "We were living on Kingsley Road back then.", "entities": [{"start": 18, "end": 31, "type": "street", "origin": "place"}]}
+{"id": "r07_02", "text": "I think it was August 2, maybe a little after.", "entities": [{"start": 15, "end": 23, "type": "date", "origin": "date"}]}
+{"id": "r08_02", "text": "June, my son, she doesn't really get it.", "entities": [{"start": 0, "end": 4, "type": "first_name", "origin": "common_word"}]}
+{"id": "r09_02", "text": "I was 64 when that happened.", "entities": [{"start": 6, "end": 8, "type": "age", "origin": "number"}]}
+{"id": "r10_02", "text": "Then Doctor Ramirez said we should try something else.", "entities": [{"start": 12, "end": 19, "type": "last_name", "origin": "surname"}]}
+{"id": "r11_02", "text": "I keep thinking about Wei, you know?", "entities": [{"start": 22, "end": 25, "type": "first_name", "origin": "chinese"}]}
+{"id": "r00_03", "text": "So um Tariq called again last night, like three times.", "entities": [{"start": 6, "end": 11, "type": "first_name", "origin": "arabic"}]}
+{"id": "r01_03", "text": "I grew up outside Sacramento, it's a small place.", "entities": [{"start": 18, "end": 28, "type": "city", "origin": "place"}]}
+{"id": "r02_03", "text": "He works over at Bayview High School doing nights.", "entities": [{"start": 17, "end": 36, "type": "organization", "origin": "place"}]}
+{"id": "r03_03", "text": "Her number's five two one, three three zero nine, if you need it.", "entities": [{"start": 13, "end": 48, "type": "phone", "origin": "number"}]}
+{"id": "r04_03", "text": "Yeah it's deepika dot nguyen at gmail dot com.", "entities": [{"start": 10, "end": 45, "type": "email", "origin": "email"}]}
+{"id": "r05_03", "text": "Mm, Aditya Haddad. That was my old case manager.", "entities": [{"start": 4, "end": 17, "type": "full_name", "origin": "indian"}]}
+{"id": "r06_03", "text": "We were living on Kingsley Road back then.", "entities": [{"start": 18, "end": 31, "type": "street", "origin": "place"}]}
+{"id": "r07_03", "text": "I think it was January 8, maybe a little after.", "entities": [{"start": 15, "end": 24, "type": "date", "origin": "date"}]}
+{"id": "r08_03", "text": "Connor, my daughter, she doesn't really get it.", "entities": [{"start": 0, "end": 6, "type": "first_name", "origin": "anglo"}]}
+{"id": "r09_03", "text": "I was 46 when that happened.", "entities": [{"start": 6, "end": 8, "type": "age", "origin": "number"}]}
+{"id": "r10_03", "text": "Then Doctor Okafor said we should try something else.", "entities": [{"start": 12, "end": 18, "type": "last_name", "origin": "surname"}]}
+{"id": "r11_03", "text": "I keep thinking about Grace, you know?", "entities": [{"start": 22, "end": 27, "type": "first_name", "origin": "common_word"}]}
+{"id": "r00_04", "text": "So um Lihua called again last night, like three times.", "entities": [{"start": 6, "end": 11, "type": "first_name", "origin": "chinese"}]}
+{"id": "r01_04", "text": "I grew up outside Sacramento, it's a small place.", "entities": [{"start": 18, "end": 28, "type": "city", "origin": "place"}]}
+{"id": "r02_04", "text": "He works over at Desert Valley Bank doing nights.", "entities": [{"start": 17, "end": 35, "type": "organization", "origin": "place"}]}
+{"id": "r03_04", "text": "Her number's 555-1589, if you need it.", "entities": [{"start": 13, "end": 21, "type": "phone", "origin": "number"}]}
+{"id": "r04_04", "text": "Yeah it's hannah dot tran at gmail dot com.", "entities": [{"start": 10, "end": 42, "type": "email", "origin": "email"}]}
+{"id": "r05_04", "text": "Mm, Thao Park. That was my old case manager.", "entities": [{"start": 4, "end": 13, "type": "full_name", "origin": "vietnamese_korean"}]}
+{"id": "r06_04", "text": "We were living on Ocean Drive back then.", "entities": [{"start": 18, "end": 29, "type": "street", "origin": "place"}]}
+{"id": "r07_04", "text": "I think it was March 2, maybe a little after.", "entities": [{"start": 15, "end": 22, "type": "date", "origin": "date"}]}
+{"id": "r08_04", "text": "Faith, my girlfriend, she doesn't really get it.", "entities": [{"start": 0, "end": 5, "type": "first_name", "origin": "common_word"}]}
+{"id": "r09_04", "text": "I was 47 when that happened.", "entities": [{"start": 6, "end": 8, "type": "age", "origin": "number"}]}
+{"id": "r10_04", "text": "Then Doctor Okafor said we should try something else.", "entities": [{"start": 12, "end": 18, "type": "last_name", "origin": "surname"}]}
+{"id": "r11_04", "text": "I keep thinking about Jun, you know?", "entities": [{"start": 22, "end": 25, "type": "first_name", "origin": "chinese"}]}
+{"id": "r00_05", "text": "So um Amara called again last night, like three times.", "entities": [{"start": 6, "end": 11, "type": "first_name", "origin": "african"}]}
+{"id": "r01_05", "text": "I grew up outside Duluth, it's a small place.", "entities": [{"start": 18, "end": 24, "type": "city", "origin": "place"}]}
+{"id": "r02_05", "text": "He works over at Pinecrest Dental doing nights.", "entities": [{"start": 17, "end": 33, "type": "organization", "origin": "place"}]}
+{"id": "r03_05", "text": "Her number's one seven zero, seven eight five seven, if you need it.", "entities": [{"start": 13, "end": 51, "type": "phone", "origin": "number"}]}
+{"id": "r04_05", "text": "Yeah it's mateo dot delgado at gmail dot com.", "entities": [{"start": 10, "end": 44, "type": "email", "origin": "email"}]}
+{"id": "r05_05", "text": "Mm, Tyler Kowalski. That was my old case manager.", "entities": [{"start": 4, "end": 18, "type": "full_name", "origin": "anglo"}]}
+{"id": "r06_05", "text": "We were living on Kingsley Road back then.", "entities": [{"start": 18, "end": 31, "type": "street", "origin": "place"}]}
+{"id": "r07_05", "text": "I think it was January 15, maybe a little after.", "entities": [{"start": 15, "end": 25, "type": "date", "origin": "date"}]}
+{"id": "r08_05", "text": "Yusuf, my therapist, she doesn't really get it.", "entities": [{"start": 0, "end": 5, "type": "first_name", "origin": "arabic"}]}
+{"id": "r09_05", "text": "I was 30 when that happened.", "entities": [{"start": 6, "end": 8, "type": "age", "origin": "number"}]}
+{"id": "r10_05", "text": "Then Doctor Kowalski said we should try something else.", "entities": [{"start": 12, "end": 20, "type": "last_name", "origin": "surname"}]}
+{"id": "r11_05", "text": "I keep thinking about Camila, you know?", "entities": [{"start": 22, "end": 28, "type": "first_name", "origin": "hispanic"}]}
+{"id": "r00_06", "text": "So um Lihua called again last night, like three times.", "entities": [{"start": 6, "end": 11, "type": "first_name", "origin": "chinese"}]}
+{"id": "r01_06", "text": "I grew up outside Riverside, it's a small place.", "entities": [{"start": 18, "end": 27, "type": "city", "origin": "place"}]}
+{"id": "r02_06", "text": "He works over at Saint Mary's Hospital doing nights.", "entities": [{"start": 17, "end": 38, "type": "organization", "origin": "place"}]}
+{"id": "r03_06", "text": "Her number's nine zero one, three nine zero zero, if you need it.", "entities": [{"start": 13, "end": 48, "type": "phone", "origin": "number"}]}
+{"id": "r04_06", "text": "Yeah it's will dot liu at gmail dot com.", "entities": [{"start": 10, "end": 39, "type": "email", "origin": "email"}]}
+{"id": "r05_06", "text": "Mm, Jacob Patel. That was my old case manager.", "entities": [{"start": 4, "end": 15, "type": "full_name", "origin": "anglo"}]}
+{"id": "r06_06", "text": "We were living on Maple Avenue back then.", "entities": [{"start": 18, "end": 30, "type": "street", "origin": "place"}]}
+{"id": "r07_06", "text": "I think it was December 23, maybe a little after.", "entities": [{"start": 15, "end": 26, "type": "date", "origin": "date"}]}
+{"id": "r08_06", "text": "Bao, my dad, she doesn't really get it.", "entities": [{"start": 0, "end": 3, "type": "first_name", "origin": "vietnamese_korean"}]}
+{"id": "r09_06", "text": "I was 44 when that happened.", "entities": [{"start": 6, "end": 8, "type": "age", "origin": "number"}]}
+{"id": "r10_06", "text": "Then Doctor Park said we should try something else.", "entities": [{"start": 12, "end": 16, "type": "last_name", "origin": "surname"}]}
+{"id": "r11_06", "text": "I keep thinking about Tariq, you know?", "entities": [{"start": 22, "end": 27, "type": "first_name", "origin": "arabic"}]}
+{"id": "r00_07", "text": "So um Arjun called again last night, like three times.", "entities": [{"start": 6, "end": 11, "type": "first_name", "origin": "indian"}]}
+{"id": "r01_07", "text": "I grew up outside Riverside, it's a small place.", "entities": [{"start": 18, "end": 27, "type": "city", "origin": "place"}]}
+{"id": "r02_07", "text": "He works over at Lincoln Elementary doing nights.", "entities": [{"start": 17, "end": 35, "type": "organization", "origin": "place"}]}
+{"id": "r03_07", "text": "Her number's 555-6705, if you need it.", "entities": [{"start": 13, "end": 21, "type": "phone", "origin": "number"}]}
+{"id": "r04_07", "text": "Yeah it's elena dot park at gmail dot com.", "entities": [{"start": 10, "end": 41, "type": "email", "origin": "email"}]}
+{"id": "r05_07", "text": "Mm, Seo-yeon Brennan. That was my old case manager.", "entities": [{"start": 4, "end": 20, "type": "full_name", "origin": "vietnamese_korean"}]}
+{"id": "r06_07", "text": "We were living on Figueroa Street back then.", "entities": [{"start": 18, "end": 33, "type": "street", "origin": "place"}]}
+{"id": "r07_07", "text": "I think it was June 23, maybe a little after.", "entities": [{"start": 15, "end": 22, "type": "date", "origin": "date"}]}
+{"id": "r08_07", "text": "Khalid, my boyfriend, she doesn't really get it.", "entities": [{"start": 0, "end": 6, "type": "first_name", "origin": "arabic"}]}
+{"id": "r09_07", "text": "I was 62 when that happened.", "entities": [{"start": 6, "end": 8, "type": "age", "origin": "number"}]}
+{"id": "r10_07", "text": "Then Doctor Patel said we should try something else.", "entities": [{"start": 12, "end": 17, "type": "last_name", "origin": "surname"}]}
+{"id": "r11_07", "text": "I keep thinking about Logan, you know?", "entities": [{"start": 22, "end": 27, "type": "first_name", "origin": "anglo"}]}
+{"id": "r00_08", "text": "So um Mei called again last night, like three times.", "entities": [{"start": 6, "end": 9, "type": "first_name", "origin": "chinese"}]}
+{"id": "r01_08", "text": "I grew up outside Pasadena, it's a small place.", "entities": [{"start": 18, "end": 26, "type": "city", "origin": "place"}]}
+{"id": "r02_08", "text": "He works over at Riverside Logistics doing nights.", "entities": [{"start": 17, "end": 36, "type": "organization", "origin": "place"}]}
+{"id": "r03_08", "text": "Her number's two three zero, three eight seven zero, if you need it.", "entities": [{"start": 13, "end": 51, "type": "phone", "origin": "number"}]}
+{"id": "r04_08", "text": "Yeah it's ngozi dot brennan at gmail dot com.", "entities": [{"start": 10, "end": 44, "type": "email", "origin": "email"}]}
+{"id": "r05_08", "text": "Mm, Lucia Mensah. That was my old case manager.", "entities": [{"start": 4, "end": 16, "type": "full_name", "origin": "hispanic"}]}
+{"id": "r06_08", "text": "We were living on Kingsley Road back then.", "entities": [{"start": 18, "end": 31, "type": "street", "origin": "place"}]}
+{"id": "r07_08", "text": "I think it was June 25, maybe a little after.", "entities": [{"start": 15, "end": 22, "type": "date", "origin": "date"}]}
+{"id": "r08_08", "text": "Xiaoming, my sister, she doesn't really get it.", "entities": [{"start": 0, "end": 8, "type": "first_name", "origin": "chinese"}]}
+{"id": "r09_08", "text": "I was 41 when that happened.", "entities": [{"start": 6, "end": 8, "type": "age", "origin": "number"}]}
+{"id": "r10_08", "text": "Then Doctor Nguyen said we should try something else.", "entities": [{"start": 12, "end": 18, "type": "last_name", "origin": "surname"}]}
+{"id": "r11_08", "text": "I keep thinking about Elena, you know?", "entities": [{"start": 22, "end": 27, "type": "first_name", "origin": "hispanic"}]}
+{"id": "r00_09", "text": "So um Yuxuan called again last night, like three times.", "entities": [{"start": 6, "end": 12, "type": "first_name", "origin": "chinese"}]}
+{"id": "r01_09", "text": "I grew up outside Dearborn, it's a small place.", "entities": [{"start": 18, "end": 26, "type": "city", "origin": "place"}]}
+{"id": "r02_09", "text": "He works over at Pinecrest Dental doing nights.", "entities": [{"start": 17, "end": 33, "type": "organization", "origin": "place"}]}
+{"id": "r03_09", "text": "Her number's 555-6137, if you need it.", "entities": [{"start": 13, "end": 21, "type": "phone", "origin": "number"}]}
+{"id": "r04_09", "text": "Yeah it's minh dot brennan at gmail dot com.", "entities": [{"start": 10, "end": 43, "type": "email", "origin": "email"}]}
+{"id": "r05_09", "text": "Mm, Amira Tran. That was my old case manager.", "entities": [{"start": 4, "end": 14, "type": "full_name", "origin": "arabic"}]}
+{"id": "r06_09", "text": "We were living on Juniper Lane back then.", "entities": [{"start": 18, "end": 30, "type": "street", "origin": "place"}]}
+{"id": "r07_09", "text": "I think it was October 18, maybe a little after.", "entities": [{"start": 15, "end": 25, "type": "date", "origin": "date"}]}
+{"id": "r08_09", "text": "Linh, my roommate, she doesn't really get it.", "entities": [{"start": 0, "end": 4, "type": "first_name", "origin": "vietnamese_korean"}]}
+{"id": "r09_09", "text": "I was 74 when that happened.", "entities": [{"start": 6, "end": 8, "type": "age", "origin": "number"}]}
+{"id": "r10_09", "text": "Then Doctor Patel said we should try something else.", "entities": [{"start": 12, "end": 17, "type": "last_name", "origin": "surname"}]}
+{"id": "r11_09", "text": "I keep thinking about Mei, you know?", "entities": [{"start": 22, "end": 25, "type": "first_name", "origin": "chinese"}]}
+{"id": "r00_10", "text": "So um Mei called again last night, like three times.", "entities": [{"start": 6, "end": 9, "type": "first_name", "origin": "chinese"}]}
+{"id": "r01_10", "text": "I grew up outside Tucson, it's a small place.", "entities": [{"start": 18, "end": 24, "type": "city", "origin": "place"}]}
+{"id": "r02_10", "text": "He works over at Pinecrest Dental doing nights.", "entities": [{"start": 17, "end": 33, "type": "organization", "origin": "place"}]}
+{"id": "r03_10", "text": "Her number's two six seven, three eight eight five, if you need it.", "entities": [{"start": 13, "end": 50, "type": "phone", "origin": "number"}]}
+{"id": "r04_10", "text": "Yeah it's amira dot mensah at gmail dot com.", "entities": [{"start": 10, "end": 43, "type": "email", "origin": "email"}]}
+{"id": "r05_10", "text": "Mm, Chidi Park. That was my old case manager.", "entities": [{"start": 4, "end": 14, "type": "full_name", "origin": "african"}]}
+{"id": "r06_10", "text": "We were living on Elm Court back then.", "entities": [{"start": 18, "end": 27, "type": "street", "origin": "place"}]}
+{"id": "r07_10", "text": "I think it was January 4, maybe a little after.", "entities": [{"start": 15, "end": 24, "type": "date", "origin": "date"}]}
+{"id": "r08_10", "text": "Khalid, my wife, she doesn't really get it.", "entities": [{"start": 0, "end": 6, "type": "first_name", "origin": "arabic"}]}
+{"id": "r09_10", "text": "I was 35 when that happened.", "entities": [{"start": 6, "end": 8, "type": "age", "origin": "number"}]}
+{"id": "r10_10", "text": "Then Doctor Okafor said we should try something else.", "entities": [{"start": 12, "end": 18, "type": "last_name", "origin": "surname"}]}
+{"id": "r11_10", "text": "I keep thinking about Ximena, you know?", "entities": [{"start": 22, "end": 28, "type": "first_name", "origin": "hispanic"}]}
+{"id": "r00_11", "text": "So um Bao called again last night, like three times.", "entities": [{"start": 6, "end": 9, "type": "first_name", "origin": "vietnamese_korean"}]}
+{"id": "r01_11", "text": "I grew up outside Tucson, it's a small place.", "entities": [{"start": 18, "end": 24, "type": "city", "origin": "place"}]}
+{"id": "r02_11", "text": "He works over at Lincoln Elementary doing nights.", "entities": [{"start": 17, "end": 35, "type": "organization", "origin": "place"}]}
+{"id": "r03_11", "text": "Her number's 555-1910, if you need it.", "entities": [{"start": 13, "end": 21, "type": "phone", "origin": "number"}]}
+{"id": "r04_11", "text": "Yeah it's deepika dot tran at gmail dot com.", "entities": [{"start": 10, "end": 43, "type": "email", "origin": "email"}]}
+{"id": "r05_11", "text": "Mm, Ximena Park. That was my old case manager.", "entities": [{"start": 4, "end": 15, "type": "full_name", "origin": "hispanic"}]}
+{"id": "r06_11", "text": "We were living on Hollis Street back then.", "entities": [{"start": 18, "end": 31, "type": "street", "origin": "place"}]}
+{"id": "r07_11", "text": "I think it was December 13, maybe a little after.", "entities": [{"start": 15, "end": 26, "type": "date", "origin": "date"}]}
+{"id": "r08_11", "text": "Layla, my wife, she doesn't really get it.", "entities": [{"start": 0, "end": 5, "type": "first_name", "origin": "arabic"}]}
+{"id": "r09_11", "text": "I was 47 when that happened.", "entities": [{"start": 6, "end": 8, "type": "age", "origin": "number"}]}
+{"id": "r10_11", "text": "Then Doctor Delgado said we should try something else.", "entities": [{"start": 12, "end": 19, "type": "last_name", "origin": "surname"}]}
+{"id": "r11_11", "text": "I keep thinking about Logan, you know?", "entities": [{"start": 22, "end": 27, "type": "first_name", "origin": "anglo"}]}
+{"id": "r00_12", "text": "So um Xiaoming called again last night, like three times.", "entities": [{"start": 6, "end": 14, "type": "first_name", "origin": "chinese"}]}
+{"id": "r01_12", "text": "I grew up outside Katy, it's a small place.", "entities": [{"start": 18, "end": 22, "type": "city", "origin": "place"}]}
+{"id": "r02_12", "text": "He works over at Pinecrest Dental doing nights.", "entities": [{"start": 17, "end": 33, "type": "organization", "origin": "place"}]}
+{"id": "r03_12", "text": "Her number's zero five two, seven zero three three, if you need it.", "entities": [{"start": 13, "end": 50, "type": "phone", "origin": "number"}]}
+{"id": "r04_12", "text": "Yeah it's tariq dot ramirez at gmail dot com.", "entities": [{"start": 10, "end": 44, "type": "email", "origin": "email"}]}
+{"id": "r05_12", "text": "Mm, Zuri Park. That was my old case manager.", "entities": [{"start": 4, "end": 13, "type": "full_name", "origin": "african"}]}
+{"id": "r06_12", "text": "We were living on Hollis Street back then.", "entities": [{"start": 18, "end": 31, "type": "street", "origin": "place"}]}
+{"id": "r07_12", "text": "I think it was August 22, maybe a little after.", "entities": [{"start": 15, "end": 24, "type": "date", "origin": "date"}]}
+{"id": "r08_12", "text": "Wei, my brother, she doesn't really get it.", "entities": [{"start": 0, "end": 3, "type": "first_name", "origin": "chinese"}]}
+{"id": "r09_12", "text": "I was 61 when that happened.", "entities": [{"start": 6, "end": 8, "type": "age", "origin": "number"}]}
+{"id": "r10_12", "text": "Then Doctor Mensah said we should try something else.", "entities": [{"start": 12, "end": 18, "type": "last_name", "origin": "surname"}]}
+{"id": "r11_12", "text": "I keep thinking about Rohan, you know?", "entities": [{"start": 22, "end": 27, "type": "first_name", "origin": "indian"}]}
+{"id": "r00_13", "text": "So um Amira called again last night, like three times.", "entities": [{"start": 6, "end": 11, "type": "first_name", "origin": "arabic"}]}
+{"id": "r01_13", "text": "I grew up outside Lagos, it's a small place.", "entities": [{"start": 18, "end": 23, "type": "city", "origin": "place"}]}
+{"id": "r02_13", "text": "He works over at Kroger doing nights.", "entities": [{"start": 17, "end": 23, "type": "organization", "origin": "place"}]}
+{"id": "r03_13", "text": "Her number's 555-4235, if you need it.", "entities": [{"start": 13, "end": 21, "type": "phone", "origin": "number"}]}
+{"id": "r04_13", "text": "Yeah it's elena dot haddad at gmail dot com.", "entities": [{"start": 10, "end": 43, "type": "email", "origin": "email"}]}
+{"id": "r05_13", "text": "Mm, Camila Haddad. That was my old case manager.", "entities": [{"start": 4, "end": 17, "type": "full_name", "origin": "hispanic"}]}
+{"id": "r06_13", "text": "We were living on Figueroa Street back then.", "entities": [{"start": 18, "end": 33, "type": "street", "origin": "place"}]}
+{"id": "r07_13", "text": "I think it was December 11, maybe a little after.", "entities": [{"start": 15, "end": 26, "type": "date", "origin": "date"}]}
+{"id": "r08_13", "text": "Vikram, my boyfriend, she doesn't really get it.", "entities": [{"start": 0, "end": 6, "type": "first_name", "origin": "indian"}]}
+{"id": "r09_13", "text": "I was 36 when that happened.", "entities": [{"start": 6, "end": 8, "type": "age", "origin": "number"}]}
+{"id": "r10_13", "text": "Then Doctor Chen said we should try something else.", "entities": [{"start": 12, "end": 16, "type": "last_name", "origin": "surname"}]}
+{"id": "r11_13", "text": "I keep thinking about Jun, you know?", "entities": [{"start": 22, "end": 25, "type": "first_name", "origin": "chinese"}]}
+{"id": "r00_14", "text": "So um Hunter called again last night, like three times.", "entities": [{"start": 6, "end": 12, "type": "first_name", "origin": "common_word"}]}
+{"id": "r01_14", "text": "I grew up outside Riverside, it's a small place.", "entities": [{"start": 18, "end": 27, "type": "city", "origin": "place"}]}
+{"id": "r02_14", "text": "He works over at Riverside Logistics doing nights.", "entities": [{"start": 17, "end": 36, "type": "organization", "origin": "place"}]}
+{"id": "r03_14", "text": "Her number's 555-6420, if you need it.", "entities": [{"start": 13, "end": 21, "type": "phone", "origin": "number"}]}
+{"id": "r04_14", "text": "Yeah it's khalid dot patel at gmail dot com.", "entities": [{"start": 10, "end": 43, "type": "email", "origin": "email"}]}
+{"id": "r05_14", "text": "Mm, Ji-woo Chen. That was my old case manager.", "entities": [{"start": 4, "end": 15, "type": "full_name", "origin": "vietnamese_korean"}]}
+{"id": "r06_14", "text": "We were living on Elm Court back then.", "entities": [{"start": 18, "end": 27, "type": "street", "origin": "place"}]}
+{"id": "r07_14", "text": "I think it was December 15, maybe a little after.", "entities": [{"start": 15, "end": 26, "type": "date", "origin": "date"}]}
+{"id": "r08_14", "text": "Priya, my roommate, she doesn't really get it.", "entities": [{"start": 0, "end": 5, "type": "first_name", "origin": "indian"}]}
+{"id": "r09_14", "text": "I was 58 when that happened.", "entities": [{"start": 6, "end": 8, "type": "age", "origin": "number"}]}
+{"id": "r10_14", "text": "Then Doctor Chen said we should try something else.", "entities": [{"start": 12, "end": 16, "type": "last_name", "origin": "surname"}]}
+{"id": "r11_14", "text": "I keep thinking about Yuxuan, you know?", "entities": [{"start": 22, "end": 28, "type": "first_name", "origin": "chinese"}]}
+{"id": "r00_15", "text": "So um Abena called again last night, like three times.", "entities": [{"start": 6, "end": 11, "type": "first_name", "origin": "african"}]}
+{"id": "r01_15", "text": "I grew up outside Shenzhen, it's a small place.", "entities": [{"start": 18, "end": 26, "type": "city", "origin": "place"}]}
+{"id": "r02_15", "text": "He works over at Bayview High School doing nights.", "entities": [{"start": 17, "end": 36, "type": "organization", "origin": "place"}]}
+{"id": "r03_15", "text": "Her number's zero seven nine, four four four one, if you need it.", "entities": [{"start": 13, "end": 48, "type": "phone", "origin": "number"}]}
+{"id": "r04_15", "text": "Yeah it's linh dot liu at gmail dot com.", "entities": [{"start": 10, "end": 39, "type": "email", "origin": "email"}]}
+{"id": "r05_15", "text": "Mm, Ngozi Delgado. That was my old case manager.", "entities": [{"start": 4, "end": 17, "type": "full_name", "origin": "african"}]}
+{"id": "r06_15", "text": "We were living on Vermont Avenue back then.", "entities": [{"start": 18, "end": 32, "type": "street", "origin": "place"}]}
+{"id": "r07_15", "text": "I think it was October 27, maybe a little after.", "entities": [{"start": 15, "end": 25, "type": "date", "origin": "date"}]}
+{"id": "r08_15", "text": "Vikram, my mom, she doesn't really get it.", "entities": [{"start": 0, "end": 6, "type": "first_name", "origin": "indian"}]}
+{"id": "r09_15", "text": "I was 56 when that happened.", "entities": [{"start": 6, "end": 8, "type": "age", "origin": "number"}]}
+{"id": "r10_15", "text": "Then Doctor Brennan said we should try something else.", "entities": [{"start": 12, "end": 19, "type": "last_name", "origin": "surname"}]}
+{"id": "r11_15", "text": "I keep thinking about Abigail, you know?", "entities": [{"start": 22, "end": 29, "type": "first_name", "origin": "anglo"}]}
+{"id": "r00_16", "text": "So um Summer called again last night, like three times.", "entities": [{"start": 6, "end": 12, "type": "first_name", "origin": "common_word"}]}
+{"id": "r01_16", "text": "I grew up outside Riverside, it's a small place.", "entities": [{"start": 18, "end": 27, "type": "city", "origin": "place"}]}
+{"id": "r02_16", "text": "He works over at Bayview High School doing nights.", "entities": [{"start": 17, "end": 36, "type": "organization", "origin": "place"}]}
+{"id": "r03_16", "text": "Her number's zero seven five, five six six eight, if you need it.", "entities": [{"start": 13, "end": 48, "type": "phone", "origin": "number"}]}
+{"id": "r04_16", "text": "Yeah it's elena dot abdullah at gmail dot com.", "entities": [{"start": 10, "end": 45, "type": "email", "origin": "email"}]}
+{"id": "r05_16", "text": "Mm, Javier Abdullah. That was my old case manager.", "entities": [{"start": 4, "end": 19, "type": "full_name", "origin": "hispanic"}]}
+{"id": "r06_16", "text": "We were living on Maple Avenue back then.", "entities": [{"start": 18, "end": 30, "type": "street", "origin": "place"}]}
+{"id": "r07_16", "text": "I think it was March 25, maybe a little after.", "entities": [{"start": 15, "end": 23, "type": "date", "origin": "date"}]}
+{"id": "r08_16", "text": "Hunter, my therapist, she doesn't really get it.", "entities": [{"start": 0, "end": 6, "type": "first_name", "origin": "common_word"}]}
+{"id": "r09_16", "text": "I was 70 when that happened.", "entities": [{"start": 6, "end": 8, "type": "age", "origin": "number"}]}
+{"id": "r10_16", "text": "Then Doctor Brennan said we should try something else.", "entities": [{"start": 12, "end": 19, "type": "last_name", "origin": "surname"}]}
+{"id": "r11_16", "text": "I keep thinking about Lucia, you know?", "entities": [{"start": 22, "end": 27, "type": "first_name", "origin": "hispanic"}]}
+{"id": "r00_17", "text": "So um Megan called again last night, like three times.", "entities": [{"start": 6, "end": 11, "type": "first_name", "origin": "anglo"}]}
+{"id": "r01_17", "text": "I grew up outside Hanoi, it's a small place.", "entities": [{"start": 18, "end": 23, "type": "city", "origin": "place"}]}
+{"id": "r02_17", "text": "He works over at Pinecrest Dental doing nights.", "entities": [{"start": 17, "end": 33, "type": "organization", "origin": "place"}]}
+{"id": "r03_17", "text": "Her number's four nine three, five zero one three, if you need it.", "entities": [{"start": 13, "end": 49, "type": "phone", "origin": "number"}]}
+{"id": "r04_17", "text": "Yeah it's thao dot liu at gmail dot com.", "entities": [{"start": 10, "end": 39, "type": "email", "origin": "email"}]}
+{"id": "r05_17", "text": "Mm, Logan Sharma. That was my old case manager.", "entities": [{"start": 4, "end": 16, "type": "full_name", "origin": "anglo"}]}
+{"id": "r06_17", "text": "We were living on Elm Court back then.", "entities": [{"start": 18, "end": 27, "type": "street", "origin": "place"}]}
+{"id": "r07_17", "text": "I think it was December 3, maybe a little after.", "entities": [{"start": 15, "end": 25, "type": "date", "origin": "date"}]}
+{"id": "r08_17", "text": "Zuri, my husband, she doesn't really get it.", "entities": [{"start": 0, "end": 4, "type": "first_name", "origin": "african"}]}
+{"id": "r09_17", "text": "I was 30 when that happened.", "entities": [{"start": 6, "end": 8, "type": "age", "origin": "number"}]}
+{"id": "r10_17", "text": "Then Doctor Nguyen said we should try something else.", "entities": [{"start": 12, "end": 18, "type": "last_name", "origin": "surname"}]}
+{"id": "r11_17", "text": "I keep thinking about Mateo, you know?", "entities": [{"start": 22, "end": 27, "type": "first_name", "origin": "hispanic"}]}
+{"id": "r00_18", "text": "So um Kwame called again last night, like three times.", "entities": [{"start": 6, "end": 11, "type": "first_name", "origin": "african"}]}
+{"id": "r01_18", "text": "I grew up outside Pune, it's a small place.", "entities": [{"start": 18, "end": 22, "type": "city", "origin": "place"}]}
+{"id": "r02_18", "text": "He works over at Saint Mary's Hospital doing nights.", "entities": [{"start": 17, "end": 38, "type": "organization", "origin": "place"}]}
+{"id": "r03_18", "text": "Her number's eight two one, zero five eight nine, if you need it.", "entities": [{"start": 13, "end": 48, "type": "phone", "origin": "number"}]}
+{"id": "r04_18", "text": "Yeah it's emily dot feldman at gmail dot com.", "entities": [{"start": 10, "end": 44, "type": "email", "origin": "email"}]}
+{"id": "r05_18", "text": "Mm, Vikram Patel. That was my old case manager.", "entities": [{"start": 4, "end": 16, "type": "full_name", "origin": "indian"}]}
+{"id": "r06_18", "text": "We were living on Elm Court back then.", "entities": [{"start": 18, "end": 27, "type": "street", "origin": "place"}]}
+{"id": "r07_18", "text": "I think it was June 6, maybe a little after.", "entities": [{"start": 15, "end": 21, "type": "date", "origin": "date"}]}
+{"id": "r08_18", "text": "Elena, my girlfriend, she doesn't really get it.", "entities": [{"start": 0, "end": 5, "type": "first_name", "origin": "hispanic"}]}
+{"id": "r09_18", "text": "I was 76 when that happened.", "entities": [{"start": 6, "end": 8, "type": "age", "origin": "number"}]}
+{"id": "r10_18", "text": "Then Doctor Chen said we should try something else.", "entities": [{"start": 12, "end": 16, "type": "last_name", "origin": "surname"}]}
+{"id": "r11_18", "text": "I keep thinking about Logan, you know?", "entities": [{"start": 22, "end": 27, "type": "first_name", "origin": "anglo"}]}
+{"id": "r00_19", "text": "So um Faith called again last night, like three times.", "entities": [{"start": 6, "end": 11, "type": "first_name", "origin": "common_word"}]}
+{"id": "r01_19", "text": "I grew up outside Duluth, it's a small place.", "entities": [{"start": 18, "end": 24, "type": "city", "origin": "place"}]}
+{"id": "r02_19", "text": "He works over at Bayview High School doing nights.", "entities": [{"start": 17, "end": 36, "type": "organization", "origin": "place"}]}
+{"id": "r03_19", "text": "Her number's zero six one, three zero one two, if you need it.", "entities": [{"start": 13, "end": 45, "type": "phone", "origin": "number"}]}
+{"id": "r04_19", "text": "Yeah it's deepika dot patel at gmail dot com.", "entities": [{"start": 10, "end": 44, "type": "email", "origin": "email"}]}
+{"id": "r05_19", "text": "Mm, Chidi Abdullah. That was my old case manager.", "entities": [{"start": 4, "end": 18, "type": "full_name", "origin": "african"}]}
+{"id": "r06_19", "text": "We were living on Ocean Drive back then.", "entities": [{"start": 18, "end": 29, "type": "street", "origin": "place"}]}
+{"id": "r07_19", "text": "I think it was October 16, maybe a little after.", "entities": [{"start": 15, "end": 25, "type": "date", "origin": "date"}]}
+{"id": "r08_19", "text": "Priya, my sister, she doesn't really get it.", "entities": [{"start": 0, "end": 5, "type": "first_name", "origin": "indian"}]}
+{"id": "r09_19", "text": "I was 21 when that happened.", "entities": [{"start": 6, "end": 8, "type": "age", "origin": "number"}]}
+{"id": "r10_19", "text": "Then Doctor Patel said we should try something else.", "entities": [{"start": 12, "end": 17, "type": "last_name", "origin": "surname"}]}
+{"id": "r11_19", "text": "I keep thinking about Ngozi, you know?", "entities": [{"start": 22, "end": 27, "type": "first_name", "origin": "african"}]}
+{"id": "r00_20", "text": "So um Chengdong called again last night, like three times.", "entities": [{"start": 6, "end": 15, "type": "first_name", "origin": "chinese"}]}
+{"id": "r01_20", "text": "I grew up outside Duluth, it's a small place.", "entities": [{"start": 18, "end": 24, "type": "city", "origin": "place"}]}
+{"id": "r02_20", "text": "He works over at Lincoln Elementary doing nights.", "entities": [{"start": 17, "end": 35, "type": "organization", "origin": "place"}]}
+{"id": "r03_20", "text": "Her number's 555-8728, if you need it.", "entities": [{"start": 13, "end": 21, "type": "phone", "origin": "number"}]}
+{"id": "r04_20", "text": "Yeah it's chengdong dot delgado at gmail dot com.", "entities": [{"start": 10, "end": 48, "type": "email", "origin": "email"}]}
+{"id": "r05_20", "text": "Mm, Abigail Park. That was my old case manager.", "entities": [{"start": 4, "end": 16, "type": "full_name", "origin": "anglo"}]}
+{"id": "r06_20", "text": "We were living on Maple Avenue back then.", "entities": [{"start": 18, "end": 30, "type": "street", "origin": "place"}]}
+{"id": "r07_20", "text": "I think it was June 14, maybe a little after.", "entities": [{"start": 15, "end": 22, "type": "date", "origin": "date"}]}
+{"id": "r08_20", "text": "Jun, my cousin, she doesn't really get it.", "entities": [{"start": 0, "end": 3, "type": "first_name", "origin": "chinese"}]}
+{"id": "r09_20", "text": "I was 43 when that happened.", "entities": [{"start": 6, "end": 8, "type": "age", "origin": "number"}]}
+{"id": "r10_20", "text": "Then Doctor Patel said we should try something else.", "entities": [{"start": 12, "end": 17, "type": "last_name", "origin": "surname"}]}
+{"id": "r11_20", "text": "I keep thinking about Ximena, you know?", "entities": [{"start": 22, "end": 28, "type": "first_name", "origin": "hispanic"}]}
+{"id": "r00_21", "text": "So um Ananya called again last night, like three times.", "entities": [{"start": 6, "end": 12, "type": "first_name", "origin": "indian"}]}
+{"id": "r01_21", "text": "I grew up outside Dearborn, it's a small place.", "entities": [{"start": 18, "end": 26, "type": "city", "origin": "place"}]}
+{"id": "r02_21", "text": "He works over at the Hollis Clinic doing nights.", "entities": [{"start": 21, "end": 34, "type": "organization", "origin": "place"}]}
+{"id": "r03_21", "text": "Her number's two zero eight, zero nine five five, if you need it.", "entities": [{"start": 13, "end": 48, "type": "phone", "origin": "number"}]}
+{"id": "r04_21", "text": "Yeah it's khalid dot okafor at gmail dot com.", "entities": [{"start": 10, "end": 44, "type": "email", "origin": "email"}]}
+{"id": "r05_21", "text": "Mm, Priya Okafor. That was my old case manager.", "entities": [{"start": 4, "end": 16, "type": "full_name", "origin": "indian"}]}
+{"id": "r06_21", "text": "We were living on Kingsley Road back then.", "entities": [{"start": 18, "end": 31, "type": "street", "origin": "place"}]}
+{"id": "r07_21", "text": "I think it was June 25, maybe a little after.", "entities": [{"start": 15, "end": 22, "type": "date", "origin": "date"}]}
+{"id": "r08_21", "text": "Vikram, my cousin, she doesn't really get it.", "entities": [{"start": 0, "end": 6, "type": "first_name", "origin": "indian"}]}
+{"id": "r09_21", "text": "I was 35 when that happened.", "entities": [{"start": 6, "end": 8, "type": "age", "origin": "number"}]}
+{"id": "r10_21", "text": "Then Doctor Abdullah said we should try something else.", "entities": [{"start": 12, "end": 20, "type": "last_name", "origin": "surname"}]}
+{"id": "r11_21", "text": "I keep thinking about Arjun, you know?", "entities": [{"start": 22, "end": 27, "type": "first_name", "origin": "indian"}]}
+{"id": "r00_22", "text": "So um Yusuf called again last night, like three times.", "entities": [{"start": 6, "end": 11, "type": "first_name", "origin": "arabic"}]}
+{"id": "r01_22", "text": "I grew up outside Boise, it's a small place.", "entities": [{"start": 18, "end": 23, "type": "city", "origin": "place"}]}
+{"id": "r02_22", "text": "He works over at the Hollis Clinic doing nights.", "entities": [{"start": 21, "end": 34, "type": "organization", "origin": "place"}]}
+{"id": "r03_22", "text": "Her number's 555-1987, if you need it.", "entities": [{"start": 13, "end": 21, "type": "phone", "origin": "number"}]}
+{"id": "r04_22", "text": "Yeah it's layla dot delgado at gmail dot com.", "entities": [{"start": 10, "end": 44, "type": "email", "origin": "email"}]}
+{"id": "r05_22", "text": "Mm, Faith Sharma. That was my old case manager.", "entities": [{"start": 4, "end": 16, "type": "full_name", "origin": "common_word"}]}
+{"id": "r06_22", "text": "We were living on Vermont Avenue back then.", "entities": [{"start": 18, "end": 32, "type": "street", "origin": "place"}]}
+{"id": "r07_22", "text": "I think it was August 14, maybe a little after.", "entities": [{"start": 15, "end": 24, "type": "date", "origin": "date"}]}
+{"id": "r08_22", "text": "Chidi, my wife, she doesn't really get it.", "entities": [{"start": 0, "end": 5, "type": "first_name", "origin": "african"}]}
+{"id": "r09_22", "text": "I was 78 when that happened.", "entities": [{"start": 6, "end": 8, "type": "age", "origin": "number"}]}
+{"id": "r10_22", "text": "Then Doctor Kowalski said we should try something else.", "entities": [{"start": 12, "end": 20, "type": "last_name", "origin": "surname"}]}
+{"id": "r11_22", "text": "I keep thinking about Emily, you know?", "entities": [{"start": 22, "end": 27, "type": "first_name", "origin": "anglo"}]}
+{"id": "r00_23", "text": "So um Priya called again last night, like three times.", "entities": [{"start": 6, "end": 11, "type": "first_name", "origin": "indian"}]}
+{"id": "r01_23", "text": "I grew up outside Pasadena, it's a small place.", "entities": [{"start": 18, "end": 26, "type": "city", "origin": "place"}]}
+{"id": "r02_23", "text": "He works over at Kroger doing nights.", "entities": [{"start": 17, "end": 23, "type": "organization", "origin": "place"}]}
+{"id": "r03_23", "text": "Her number's four five six, eight seven seven three, if you need it.", "entities": [{"start": 13, "end": 51, "type": "phone", "origin": "number"}]}
+{"id": "r04_23", "text": "Yeah it's lihua dot abdullah at gmail dot com.", "entities": [{"start": 10, "end": 45, "type": "email", "origin": "email"}]}
+{"id": "r05_23", "text": "Mm, Hyun Liu. That was my old case manager.", "entities": [{"start": 4, "end": 12, "type": "full_name", "origin": "vietnamese_korean"}]}
+{"id": "r06_23", "text": "We were living on Elm Court back then.", "entities": [{"start": 18, "end": 27, "type": "street", "origin": "place"}]}
+{"id": "r07_23", "text": "I think it was August 19, maybe a little after.", "entities": [{"start": 15, "end": 24, "type": "date", "origin": "date"}]}
+{"id": "r08_23", "text": "Lucia, my brother, she doesn't really get it.", "entities": [{"start": 0, "end": 5, "type": "first_name", "origin": "hispanic"}]}
+{"id": "r09_23", "text": "I was 74 when that happened.", "entities": [{"start": 6, "end": 8, "type": "age", "origin": "number"}]}
+{"id": "r10_23", "text": "Then Doctor Tran said we should try something else.", "entities": [{"start": 12, "end": 16, "type": "last_name", "origin": "surname"}]}
+{"id": "r11_23", "text": "I keep thinking about Zuri, you know?", "entities": [{"start": 22, "end": 26, "type": "first_name", "origin": "african"}]}
+{"id": "r00_24", "text": "So um Lihua called again last night, like three times.", "entities": [{"start": 6, "end": 11, "type": "first_name", "origin": "chinese"}]}
+{"id": "r01_24", "text": "I grew up outside Wugang, it's a small place.", "entities": [{"start": 18, "end": 24, "type": "city", "origin": "place"}]}
+{"id": "r02_24", "text": "He works over at Lincoln Elementary doing nights.", "entities": [{"start": 17, "end": 35, "type": "organization", "origin": "place"}]}
+{"id": "r03_24", "text": "Her number's six eight zero, eight nine seven two, if you need it.", "entities": [{"start": 13, "end": 49, "type": "phone", "origin": "number"}]}
+{"id": "r04_24", "text": "Yeah it's june dot park at gmail dot com.", "entities": [{"start": 10, "end": 40, "type": "email", "origin": "email"}]}
+{"id": "r05_24", "text": "Mm, Chidi Ramirez. That was my old case manager.", "entities": [{"start": 4, "end": 17, "type": "full_name", "origin": "african"}]}
+{"id": "r06_24", "text": "We were living on Figueroa Street back then.", "entities": [{"start": 18, "end": 33, "type": "street", "origin": "place"}]}
+{"id": "r07_24", "text": "I think it was March 2, maybe a little after.", "entities": [{"start": 15, "end": 22, "type": "date", "origin": "date"}]}
+{"id": "r08_24", "text": "Minh, my dad, she doesn't really get it.", "entities": [{"start": 0, "end": 4, "type": "first_name", "origin": "vietnamese_korean"}]}
+{"id": "r09_24", "text": "I was 33 when that happened.", "entities": [{"start": 6, "end": 8, "type": "age", "origin": "number"}]}
+{"id": "r10_24", "text": "Then Doctor Haddad said we should try something else.", "entities": [{"start": 12, "end": 18, "type": "last_name", "origin": "surname"}]}
+{"id": "r11_24", "text": "I keep thinking about Jacob, you know?", "entities": [{"start": 22, "end": 27, "type": "first_name", "origin": "anglo"}]}

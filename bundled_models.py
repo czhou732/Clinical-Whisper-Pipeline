@@ -40,6 +40,34 @@ def openmed_cache_dir() -> Optional[str]:
     return str(_openmed_cache) if _openmed_cache else None
 
 
+def _hub_with_addons(bundle_hub: Path) -> str:
+    """One model cache that shows the app's own models and installed add-ons.
+
+    Hugging Face reads a single cache folder, and the app's is inside the
+    signed, read-only bundle. Add-ons (language packs, the word aligner) bring
+    their own model folders, so a folder of links to both is built here at
+    every start. Any problem falls back to the bundle's cache alone.
+    """
+    links = APP_SUPPORT / "hub-links"
+    addon_hubs = sorted((APP_SUPPORT / "addons").glob("*/hub"))
+    if not addon_hubs:
+        return str(bundle_hub)
+    try:
+        if links.exists():
+            for old in links.iterdir():
+                if old.is_symlink():
+                    old.unlink()
+        links.mkdir(parents=True, exist_ok=True)
+        for hub in [bundle_hub, *addon_hubs]:
+            for model in hub.glob("models--*"):
+                target = links / model.name
+                if not target.exists():
+                    target.symlink_to(model, target_is_directory=True)
+        return str(links)
+    except OSError:
+        return str(bundle_hub)
+
+
 def configure() -> bool:
     """Redirect the model loaders at the bundled weights. Returns True if used.
 
@@ -63,7 +91,7 @@ def configure() -> bool:
     except OSError:
         return False
 
-    os.environ.setdefault("HF_HUB_CACHE", str(models / "hub"))
+    os.environ.setdefault("HF_HUB_CACHE", _hub_with_addons(models / "hub"))
     os.environ.setdefault("HF_HOME", str(hf_home))
     os.environ.setdefault("HF_HUB_OFFLINE", "1")
     os.environ.setdefault("TRANSFORMERS_OFFLINE", "1")

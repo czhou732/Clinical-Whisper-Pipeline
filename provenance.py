@@ -20,7 +20,7 @@ from typing import Any, Optional
 
 log = logging.getLogger("ClinicalWhisper")
 
-APP_VERSION = "5.1"
+from version import __version__ as APP_VERSION  # noqa: E402
 
 
 def _hf_revision(repo_id: str) -> Optional[str]:
@@ -96,8 +96,10 @@ def build(cfg: dict[str, Any]) -> dict[str, Any]:
                                  "samples": llm_cfg.get("samples", 1),
                                  "temperature": llm_cfg.get("temperature", 0.0),
                                  "transcript_scope": llm_cfg.get("transcript_scope", "dialogue")},
+            # The English default; the model and threshold a job actually used
+            # (they change with the language) are in its deidentification summary.
             "deidentification": {"repo": pii_repo, "revision": _hf_revision(pii_repo),
-                                 "confidence_threshold": pii_cfg.get("confidence_threshold", 0.7)},
+                                 "confidence_threshold": pii_cfg.get("confidence_threshold", 0.5)},
         },
         "packages": _package_versions(),
     }

@@ -50,6 +50,7 @@ from acoustic_context import build_acoustic_prompt_context  # noqa: E402
 from llm_clinical_scorer import (  # noqa: E402
     CLINICAL_SCORING_PROMPT,
     REQUIRED_SCORE_KEYS,
+    SCALE_MAX,
     _load_scoring_config,
     score_transcript,
 )
@@ -134,8 +135,8 @@ def validate_case(case: dict[str, Any], seen_ids: set[str]) -> None:
         lo, hi = band
         if not all(isinstance(v, (int, float)) for v in (lo, hi)):
             raise ValueError(f"[{case_id}] band for '{dim}' must be numeric, got {band!r}")
-        if not (0 <= lo <= hi <= 10):
-            raise ValueError(f"[{case_id}] band for '{dim}' must satisfy 0 <= lo <= hi <= 10, got {band!r}")
+        if not (0 <= lo <= hi <= SCALE_MAX):
+            raise ValueError(f"[{case_id}] band for '{dim}' must satisfy 0 <= lo <= hi <= {SCALE_MAX}, got {band!r}")
 
     for rel in case.get("relations", []):
         if not isinstance(rel, list) or len(rel) != 3:
@@ -390,14 +391,14 @@ def self_test(dataset_path: Path) -> bool:
 
     # Exercise the assertion logic against synthetic scores.
     probe = {
-        "id": "_probe", "category": "_probe", "expect": {"affect_flatness": [6, 10]},
-        "relations": [["elaboration_negative", ">", "elaboration_positive"]],
+        "id": "_probe", "category": "_probe", "expect": {"affect_flatness": [2, 3]},
+        "relations": [["anhedonia_content", ">", "engagement_level"]],
     }
-    hit = check_case(probe, {"affect_flatness": 8, "elaboration_negative": 7, "elaboration_positive": 2})
-    miss = check_case(probe, {"affect_flatness": 2, "elaboration_negative": 1, "elaboration_positive": 9})
+    hit = check_case(probe, {"affect_flatness": 3, "anhedonia_content": 3, "engagement_level": 0})
+    miss = check_case(probe, {"affect_flatness": 0, "anhedonia_content": 0, "engagement_level": 3})
     assert all(c["passed"] for c in hit), "assertion logic failed to pass a satisfying score"
     assert not any(c["passed"] for c in miss), "assertion logic passed a violating score"
-    assert miss[0]["deviation"] == 4.0, f"band deviation miscomputed: {miss[0]['deviation']}"
+    assert miss[0]["deviation"] == 2.0, f"band deviation miscomputed: {miss[0]['deviation']}"
 
     # A fallback/unparseable result must be detected as a failure.
     assert _scoring_failed({"_meta": {"error": "boom"}}), "generation failure not detected"

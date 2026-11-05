@@ -1,0 +1,182 @@
+{
+ "label": "OpenMed 0.5 alone",
+ "threshold": 0.5,
+ "sentences": 300,
+ "recall": 0.89,
+ "identifiers": 300,
+ "over_masking": 0.033,
+ "recall_by_type": {
+  "age": 1.0,
+  "city": 1.0,
+  "date": 1.0,
+  "email": 0.96,
+  "first_name": 1.0,
+  "full_name": 1.0,
+  "last_name": 1.0,
+  "organization": 0.48,
+  "phone": 0.32,
+  "street": 0.92
+ },
+ "name_recall_by_origin": {
+  "african": 1.0,
+  "anglo": 1.0,
+  "arabic": 1.0,
+  "chinese": 1.0,
+  "common_word": 1.0,
+  "hispanic": 1.0,
+  "indian": 1.0,
+  "vietnamese_korean": 1.0
+ },
+ "misses_sample": [
+  {
+   "id": "r03_00",
+   "type": "phone",
+   "text": "zero three four, five eight four six",
+   "sentence": "Her number's zero three four, five eight four six, if you need it."
+  },
+  {
+   "id": "r02_02",
+   "type": "organization",
+   "text": "Kroger",
+   "sentence": "He works over at Kroger doing nights."
+  },
+  {
+   "id": "r03_02",
+   "type": "phone",
+   "text": "six five zero, two zero zero three",
+   "sentence": "Her number's six five zero, two zero zero three, if you need it."
+  },
+  {
+   "id": "r02_03",
+   "type": "organization",
+   "text": "Bayview High School",
+   "sentence": "He works over at Bayview High School doing nights."
+  },
+  {
+   "id": "r03_03",
+   "type": "phone",
+   "text": "five two one, three three zero nine",
+   "sentence": "Her number's five two one, three three zero nine, if you need it."
+  },
+  {
+   "id": "r06_04",
+   "type": "street",
+   "text": "Ocean Drive",
+   "sentence": "We were living on Ocean Drive back then."
+  },
+  {
+   "id": "r03_05",
+   "type": "phone",
+   "text": "one seven zero, seven eight five seven",
+   "sentence": "Her number's one seven zero, seven eight five seven, if you need it."
+  },
+  {
+   "id": "r02_06",
+   "type": "organization",
+   "text": "Saint Mary's Hospital",
+   "sentence": "He works over at Saint Mary's Hospital doing nights."
+  },
+  {
+   "id": "r03_06",
+   "type": "phone",
+   "text": "nine zero one, three nine zero zero",
+   "sentence": "Her number's nine zero one, three nine zero zero, if you need it."
+  },
+  {
+   "id": "r02_07",
+   "type": "organization",
+   "text": "Lincoln Elementary",
+   "sentence": "He works over at Lincoln Elementary doing nights."
+  },
+  {
+   "id": "r03_08",
+   "type": "phone",
+   "text": "two three zero, three eight seven zero",
+   "sentence": "Her number's two three zero, three eight seven zero, if you need it."
+  },
+  {
+   "id": "r03_09",
+   "type": "phone",
+   "text": "555-6137",
+   "sentence": "Her number's 555-6137, if you need it."
+  },
+  {
+   "id": "r03_10",
+   "type": "phone",
+   "text": "two six seven, three eight eight five",
+   "sentence": "Her number's two six seven, three eight eight five, if you need it."
+  },
+  {
+   "id": "r02_11",
+   "type": "organization",
+   "text": "Lincoln Elementary",
+   "sentence": "He works over at Lincoln Elementary doing nights."
+  },
+  {
+   "id": "r03_12",
+   "type": "phone",
+   "text": "zero five two, seven zero three three",
+   "sentence": "Her number's zero five two, seven zero three three, if you need it."
+  },
+  {
+   "id": "r02_13",
+   "type": "organization",
+   "text": "Kroger",
+   "sentence": "He works over at Kroger doing nights."
+  },
+  {
+   "id": "r02_15",
+   "type": "organization",
+   "text": "Bayview High School",
+   "sentence": "He works over at Bayview High School doing nights."
+  },
+  {
+   "id": "r03_15",
+   "type": "phone",
+   "text": "zero seven nine, four four four one",
+   "sentence": "Her number's zero seven nine, four four four one, if you need it."
+  },
+  {
+   "id": "r04_15",
+   "type": "email",
+   "text": "linh dot liu at gmail dot com",
+   "sentence": "Yeah it's linh dot liu at gmail dot com."
+  },
+  {
+   "id": "r02_16",
+   "type": "organization",
+   "text": "Bayview High School",
+   "sentence": "He works over at Bayview High School doing nights."
+  },
+  {
+   "id": "r03_16",
+   "type": "phone",
+   "text": "zero seven five, five six six eight",
+   "sentence": "Her number's zero seven five, five six six eight, if you need it."
+  },
+  {
+   "id": "r03_17",
+   "type": "phone",
+   "text": "four nine three, five zero one three",
+   "sentence": "Her number's four nine three, five zero one three, if you need it."
+  },
+  {
+   "id": "r02_18",
+   "type": "organization",
+   "text": "Saint Mary's Hospital",
+   "sentence": "He works over at Saint Mary's Hospital doing nights."
+  },
+  {
+   "id": "r03_18",
+   "type": "phone",
+   "text": "eight two one, zero five eight nine",
+   "sentence": "Her number's eight two one, zero five eight nine, if you need it."
+  },
+  {
+   "id": "r02_19",
+   "type": "organization",
+   "text": "Bayview High School",
+   "sentence": "He works over at Bayview High School doing nights."
+  }
+ ]
+}

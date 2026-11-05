@@ -1,0 +1,182 @@
+{
+ "label": "presidio default",
+ "threshold": null,
+ "sentences": 300,
+ "recall": 0.743,
+ "identifiers": 300,
+ "over_masking": 0.027,
+ "recall_by_type": {
+  "age": 1.0,
+  "city": 1.0,
+  "date": 1.0,
+  "email": 0.0,
+  "first_name": 0.933,
+  "full_name": 0.88,
+  "last_name": 1.0,
+  "organization": 0.2,
+  "phone": 0.24,
+  "street": 0.8
+ },
+ "name_recall_by_origin": {
+  "african": 0.846,
+  "anglo": 1.0,
+  "arabic": 1.0,
+  "chinese": 0.941,
+  "common_word": 0.667,
+  "hispanic": 1.0,
+  "indian": 1.0,
+  "vietnamese_korean": 0.778
+ },
+ "misses_sample": [
+  {
+   "id": "r02_00",
+   "type": "organization",
+   "text": "Pinecrest Dental",
+   "sentence": "He works over at Pinecrest Dental doing nights."
+  },
+  {
+   "id": "r03_00",
+   "type": "phone",
+   "text": "zero three four, five eight four six",
+   "sentence": "Her number's zero three four, five eight four six, if you need it."
+  },
+  {
+   "id": "r04_00",
+   "type": "email",
+   "text": "min-jun dot brennan at gmail dot com",
+   "sentence": "Yeah it's min-jun dot brennan at gmail dot com."
+  },
+  {
+   "id": "r02_01",
+   "type": "organization",
+   "text": "Pinecrest Dental",
+   "sentence": "He works over at Pinecrest Dental doing nights."
+  },
+  {
+   "id": "r03_01",
+   "type": "phone",
+   "text": "555-6803",
+   "sentence": "Her number's 555-6803, if you need it."
+  },
+  {
+   "id": "r04_01",
+   "type": "email",
+   "text": "layla dot sharma at gmail dot com",
+   "sentence": "Yeah it's layla dot sharma at gmail dot com."
+  },
+  {
+   "id": "r02_02",
+   "type": "organization",
+   "text": "Kroger",
+   "sentence": "He works over at Kroger doing nights."
+  },
+  {
+   "id": "r03_02",
+   "type": "phone",
+   "text": "six five zero, two zero zero three",
+   "sentence": "Her number's six five zero, two zero zero three, if you need it."
+  },
+  {
+   "id": "r04_02",
+   "type": "email",
+   "text": "jacob dot chen at gmail dot com",
+   "sentence": "Yeah it's jacob dot chen at gmail dot com."
+  },
+  {
+   "id": "r05_02",
+   "type": "full_name",
+   "text": "Min-jun Nguyen",
+   "sentence": "Mm, Min-jun Nguyen. That was my old case manager."
+  },
+  {
+   "id": "r02_03",
+   "type": "organization",
+   "text": "Bayview High School",
+   "sentence": "He works over at Bayview High School doing nights."
+  },
+  {
+   "id": "r03_03",
+   "type": "phone",
+   "text": "five two one, three three zero nine",
+   "sentence": "Her number's five two one, three three zero nine, if you need it."
+  },
+  {
+   "id": "r04_03",
+   "type": "email",
+   "text": "deepika dot nguyen at gmail dot com",
+   "sentence": "Yeah it's deepika dot nguyen at gmail dot com."
+  },
+  {
+   "id": "r04_04",
+   "type": "email",
+   "text": "hannah dot tran at gmail dot com",
+   "sentence": "Yeah it's hannah dot tran at gmail dot com."
+  },
+  {
+   "id": "r08_04",
+   "type": "first_name",
+   "text": "Faith",
+   "sentence": "Faith, my girlfriend, she doesn't really get it."
+  },
+  {
+   "id": "r02_05",
+   "type": "organization",
+   "text": "Pinecrest Dental",
+   "sentence": "He works over at Pinecrest Dental doing nights."
+  },
+  {
+   "id": "r03_05",
+   "type": "phone",
+   "text": "one seven zero, seven eight five seven",
+   "sentence": "Her number's one seven zero, seven eight five seven, if you need it."
+  },
+  {
+   "id": "r04_05",
+   "type": "email",
+   "text": "mateo dot delgado at gmail dot com",
+   "sentence": "Yeah it's mateo dot delgado at gmail dot com."
+  },
+  {
+   "id": "r04_06",
+   "type": "email",
+   "text": "will dot liu at gmail dot com",
+   "sentence": "Yeah it's will dot liu at gmail dot com."
+  },
+  {
+   "id": "r02_07",
+   "type": "organization",
+   "text": "Lincoln Elementary",
+   "sentence": "He works over at Lincoln Elementary doing nights."
+  },
+  {
+   "id": "r03_07",
+   "type": "phone",
+   "text": "555-6705",
+   "sentence": "Her number's 555-6705, if you need it."
+  },
+  {
+   "id": "r04_07",
+   "type": "email",
+   "text": "elena dot park at gmail dot com",
+   "sentence": "Yeah it's elena dot park at gmail dot com."
+  },
+  {
+   "id": "r05_07",
+   "type": "full_name",
+   "text": "Seo-yeon Brennan",
+   "sentence": "Mm, Seo-yeon Brennan. That was my old case manager."
+  },
+  {
+   "id": "r02_08",
+   "type": "organization",
+   "text": "Riverside Logistics",
+   "sentence": "He works over at Riverside Logistics doing nights."
+  },
+  {
+   "id": "r03_08",
+   "type": "phone",
+   "text": "two three zero, three eight seven zero",
+   "sentence": "Her number's two three zero, three eight seven zero, if you need it."
+  }
+ ]
+}

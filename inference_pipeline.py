@@ -18,8 +18,10 @@ import gc
 import json
 import logging
 import os
+import re
 import shutil
 import tempfile
+from concurrent.futures import ThreadPoolExecutor, wait
 from pathlib import Path
 from typing import Optional
 
@@ -48,15 +50,212 @@ TARGET_SR = 16000
 TARGET_RMS_DBFS = -20.0
 TARGET_PEAK_DBFS = -1.5
 # Used only to turn a token count into an approximate progress fraction.
-MOSS_TOKENS_PER_SECOND = 5.0
+# Measured ~9 output tokens per second of conversational audio (timestamps and
+# speaker tags included); overlapping windows add ~10%.
+MOSS_TOKENS_PER_SECOND = 10.0
+# Speakers whose voice features are extracted at the same time. Each worker
+# holds one speaker's audio, so this also bounds the extra memory.
+ACOUSTIC_WORKERS = min(4, max(1, (os.cpu_count() or 2) // 2))
+# Status of an analysis saved before scoring finished (see score_job).
+SCORING_PENDING = "scoring_pending"
+# Files transcribed together are grouped up to about this much audio, or this
+# many files (see InferencePipeline.iter_transcribed).
+POOL_AUDIO_SECONDS = 2 * 3600
+POOL_MAX_FILES = 32
 # Resolution of the |amplitude| histogram used for the streaming percentile.
 AMPLITUDE_BINS = 4096
 # Samples per block when re-reading for normalisation (~1 s of audio).
 DECODE_BLOCK = 16384
 
+import crash_diagnostics
+from version import __version__
+from clinical_safeguards import (
+    RESEARCH_USE_NOTICE,
+    assess_quality,
+    filevault_on,
+    level_stats,
+    score_reliability,
+)
 from cw_config import resolve_path
 
 log = logging.getLogger("ClinicalWhisper")
+
+
+def _overall_acoustics(wav_path: Path) -> dict:
+    """Whole-file OpenSMILE features; runs on a worker thread during transcription."""
+    from acoustic_features import AcousticExtractor
+
+    extractor = AcousticExtractor()
+    if not extractor.is_available():
+        return {}
+    return extractor.process_audio_file(str(wav_path))
+
+
+# Checked once per process: whether outputs land on an encrypted disk.
+_FILEVAULT = filevault_on()
+
+# "[first_name_2]", "[city_1]", "[REDACTED]": one word each in the transcript.
+_MASK_TOKEN = re.compile(r"\[[A-Za-z_]+(?:_\d+)?\]")
+
+_SCRATCH_ROOT = Path(tempfile.gettempdir()) / "clinicalwhisper"
+
+
+def _scratch_dir() -> Path:
+    """This process's folder for decoded audio copies.
+
+    One folder per process, so a stale-copy sweep never touches files another
+    running instance (the app and a batch run, say) is still using.
+    """
+    path = _SCRATCH_ROOT / str(os.getpid())
+    path.mkdir(parents=True, exist_ok=True)
+    os.chmod(path, 0o700)
+    return path
+
+
+def clear_stale_scratch() -> int:
+    """Delete decoded audio left behind by processes that are no longer running.
+
+    A job that is killed (force quit, crash, power loss) never reaches its
+    cleanup, and its 16 kHz copies carry identifiable voices. Returns the
+    number of folders removed.
+    """
+    removed = 0
+    if not _SCRATCH_ROOT.is_dir():
+        return removed
+    for entry in _SCRATCH_ROOT.iterdir():
+        if not entry.is_dir() or not entry.name.isdigit() or int(entry.name) == os.getpid():
+            continue
+        try:
+            os.kill(int(entry.name), 0)  # still running: leave it alone
+            continue
+        except ProcessLookupError:
+            pass
+        except PermissionError:
+            continue  # another user's live process
+        shutil.rmtree(entry, ignore_errors=True)
+        removed += 1
+    if removed:
+        log.info("Removed decoded audio left by %d interrupted run(s).", removed)
+    return removed
+
+
+def _guide_text(cfg: dict):
+    """The study's interview guide, if one is configured (roles.guide_path)."""
+    path = (cfg.get("roles") or {}).get("guide_path")
+    if not path:
+        return None
+    try:
+        return Path(resolve_path(path)).read_text(encoding="utf-8", errors="replace")
+    except OSError as exc:
+        log.warning("Interview guide not readable (%s); roles use the other evidence.", exc)
+        return None
+
+
+def _scoring_gate(quality: dict, cfg: dict) -> str:
+    """Why clinical scores shouldn't be made for this recording, or "".
+
+    Version 1 rated a 30-second roll call as "consistent with anhedonic
+    presentation". Scores need enough of the participant, clearly recorded.
+    """
+    sc = cfg.get("llm_scoring", {})
+    min_speech = float(sc.get("min_participant_speech_s", 180))
+    min_snr = float(sc.get("min_snr_db", 15))
+    speech = quality.get("participant_speech_s") or 0.0
+    snr = quality.get("snr_db")
+    if speech < min_speech:
+        return (f"Clinical scores were not made: {speech / 60:.1f} min of participant speech, "
+                f"and scores need at least {min_speech / 60:.0f} min.")
+    if isinstance(snr, (int, float)) and snr < min_snr:
+        return (f"Clinical scores were not made: background noise is close to the voice "
+                f"(SNR {snr:.0f} dB, below {min_snr:.0f} dB).")
+    return ""
+
+
+def _english(lang: dict) -> bool:
+    """English, or too little text to tell (treated as before)."""
+    import language
+    return not lang or lang.get("code") == "und" or language.is_english(lang)
+
+
+def _masker_for(lang: dict) -> dict:
+    """Which masking model to use for a recording's language, or stop.
+
+    English uses the bundled English model. Anything else needs the Languages
+    add-on, and only for the languages its model was trained on: the English
+    model run on Spanish or Chinese text misses most names, so writing that
+    transcript would quietly break the de-identification promise.
+    """
+    import addons
+    import language
+
+    if language.is_english(lang) or lang.get("code") == "und":
+        return {}
+    name = lang.get("name", lang.get("code"))
+    pack = addons.language_pack(lang.get("code"))
+    if pack is not None:
+        # Recall over precision outside English: a missed name is the worse
+        # error, and the packs score short-sentence names around 0.6.
+        return {**pack, "confidence_threshold": 0.5}
+    if lang.get("code") not in addons.MASKABLE:
+        raise RuntimeError(
+            f"This recording is in {name}. ClinicalWhisper can't mask names in {name} yet, "
+            "so no transcript was written.")
+    if not addons.languages_available():
+        hint = (f"the {name} language pack" if lang.get("code") in addons.LANGUAGE_PACKS
+                else "the multilingual Languages add-on")
+        raise RuntimeError(
+            f"This recording is in {name} (or mixes it with English). Masking names outside "
+            f"English needs {hint}, so no transcript was written. "
+            "Install it and process the file again.")
+    import pii_scrubber
+    from openmed.core.pii_i18n import SUPPORTED_LANGUAGES
+    code = lang["code"] if lang["code"] in SUPPORTED_LANGUAGES else "en"
+    # Recall over precision outside English: 0.3 caught 10-25 points more names
+    # and places than 0.5 (evals/masking/multilingual.py), with at most 5% of
+    # other characters masked. OpenMED's own patterns for ``code``; the
+    # safety-net rules for the real language.
+    return {"model_name": addons.LANGUAGES_MODEL, "lang": code, "rules_lang": lang["code"],
+            "confidence_threshold": 0.3} if pii_scrubber.deidentify is not None else {}
+
+
+import kintsugi_dam  # noqa: E402  (after the module's own helpers it imports)
+
+
+def _clinical_review(segments: list[dict], roles: dict, cfg: dict) -> dict:
+    """Keyword screen for passages to review (see review_flags.py)."""
+    review_cfg = cfg.get("review_flags", {}) or {}
+    if review_cfg.get("enabled", True) is False:
+        return {}
+    if _is_group(cfg) and not review_cfg.get("group_enabled", False):
+        # Off by default in group discussions; the user can turn it on.
+        return {"items": [], "counts": {}, "note": "Risk-language flags are off for group "
+                "discussions. Turn them on before processing to screen the transcript."}
+    import review_flags
+    try:
+        return review_flags.find(segments, roles, review_cfg.get("extra_terms"))
+    except Exception as exc:  # noqa: BLE001 - a screen failure must not lose the run
+        log.warning("Clinical review screen failed: %s", exc)
+        return {"items": [], "counts": {}, "note": f"Screen failed: {exc}"}
+
+
+def _is_group(cfg: dict) -> bool:
+    """The user chose "Group discussion" (see group_exports.py)."""
+    return str(cfg.get("recording_type", "interview")).lower() == "group"
+
+
+def _regions_from(probs, frame_s: float, threshold: float) -> list[tuple[float, float]]:
+    """Stretches at or above ``threshold``, at least 0.3 s long."""
+    import numpy as np
+    on = np.concatenate([[False], probs >= threshold, [False]])
+    edges = np.flatnonzero(np.diff(on.astype(int)))
+    return [(a * frame_s, b * frame_s) for a, b in zip(edges[::2], edges[1::2]) if (b - a) * frame_s >= 0.3]
+
+
+def _scoring_installed(cfg: dict) -> bool:
+    """Whether the clinical scoring model is on this Mac (see addons.py)."""
+    import addons
+    model = cfg.get("llm_scoring", {}).get("mlx_model", addons.SCORING_MODEL)
+    return addons.scoring_available(model)
 
 
 def _free_ram():
@@ -78,9 +277,19 @@ class InferencePipeline:
         self.cfg = cfg
         self.progress_cb = progress_cb
         self.should_cancel = should_cancel
-        log.info("InferencePipeline v5.1 initialized (MOSS + OpenMED + MLX LLM)")
+        self._acoustic_pool: Optional[ThreadPoolExecutor] = None
+        try:
+            clear_stale_scratch()
+        except OSError as exc:  # never block a run over housekeeping
+            log.warning("Could not clear stale audio copies: %s", exc)
+        log.info("ClinicalWhisper %s pipeline initialized", __version__)
 
     def _emit(self, stage: str, fraction=None, detail: str = "") -> None:
+        if stage != getattr(self, "_last_stage", None):
+            # Breadcrumb for crash reports: a native crash or OOM kill leaves
+            # no traceback, so the last recorded stage is the only evidence.
+            self._last_stage = stage
+            crash_diagnostics.mark_stage(stage, detail)
         if self.progress_cb is not None:
             try:
                 self.progress_cb(stage, fraction, detail)
@@ -167,10 +376,12 @@ class InferencePipeline:
             (10.0 ** (TARGET_PEAK_DBFS / 20.0)) / peak_ref,
         )
 
-    def _preprocess_audio(self, source_path: Path) -> tuple[Path, Path]:
+    def _preprocess_audio(self, source_path: Path, tag: str = "",
+                          edits=None) -> tuple[Path, Path, dict]:
         """Produce the two 16 kHz mono WAVs the pipeline needs.
 
-        Returns ``(asr_wav, acoustic_wav)``:
+        Returns ``(asr_wav, acoustic_wav, level_stats)``, the last being the
+        original recording's level and clipping for the quality check:
 
         * ``asr_wav`` is level-normalised. Clinical recordings are often very
           quiet (the pilot recordings here average about -35 dBFS), and MOSS
@@ -188,24 +399,35 @@ class InferencePipeline:
                 "Reinstall dependencies with `uv pip install -e .`"
             )
 
-        tmp_dir = Path(tempfile.gettempdir())
-        acoustic_wav = tmp_dir / f"{source_path.stem}_16k.wav"
-        asr_wav = tmp_dir / f"{source_path.stem}_16k_norm.wav"
+        tmp_dir = _scratch_dir()
+        # Prefixed with the job id: two recordings with the same name (P01/session.m4a,
+        # P02/session.m4a, or interview.m4a beside interview.mp3) otherwise share
+        # these paths, and in a batch one file is transcribed from the other's audio.
+        prefix = f"{tag}_" if tag else ""
+        acoustic_wav = tmp_dir / f"{prefix}{source_path.stem}_16k.wav"
+        asr_wav = tmp_dir / f"{prefix}{source_path.stem}_16k_norm.wav"
 
         # Pass 1: decode straight to disk at original gain, accumulating the
         # statistics the ASR copy needs.
         log.info("Decoding audio to 16kHz mono...")
         sum_squares = 0.0
         count = 0
+        clipped = 0
         hist = np.zeros(AMPLITUDE_BINS, dtype=np.int64)
 
         with sf.SoundFile(str(acoustic_wav), mode="w", samplerate=TARGET_SR,
                           channels=1, subtype="PCM_16") as out:
-            for block in self._decode_stream(source_path):
+            blocks = self._decode_stream(source_path)
+            if edits is not None:
+                # Only the stretches the user kept (see audio_edits.py).
+                import audio_edits
+                blocks = audio_edits.apply(blocks, edits, TARGET_SR)
+            for block in blocks:
                 out.write(block)
                 sum_squares += float(np.dot(block, block))
                 count += block.size
                 magnitudes = np.minimum(np.abs(block), 0.999999)
+                clipped += int(np.count_nonzero(magnitudes >= 0.999))
                 hist += np.bincount(
                     (magnitudes * AMPLITUDE_BINS).astype(np.int32),
                     minlength=AMPLITUDE_BINS,
@@ -226,7 +448,7 @@ class InferencePipeline:
         del hist
         _free_ram()
 
-        return asr_wav, acoustic_wav
+        return asr_wav, acoustic_wav, level_stats(sum_squares, count, clipped, TARGET_SR)
 
     def _extract_speaker_acoustics(self, extractor, wav_path: Path, segments: list[dict]) -> dict:
         """Extract acoustic features per speaker using streaming reads (low RAM)."""
@@ -248,21 +470,37 @@ class InferencePipeline:
                         continue
 
                     audio_file.seek(start_sample)
-                    chunk = audio_file.read(num_frames)
+                    # float32 holds 16-bit audio exactly, so features are unchanged
+                    # and a long file's speech takes half the memory of float64.
+                    chunk = audio_file.read(num_frames, dtype="float32")
 
                     if len(chunk) > 0:
                         speaker_chunks.setdefault(speaker, []).append(chunk)
 
-            speaker_acoustics = {}
-            for speaker, chunks in speaker_chunks.items():
-                concatenated = np.concatenate(chunks)
-                metrics = extractor.process_audio_segment(concatenated, sr)
-                speaker_acoustics[speaker] = metrics
-                del concatenated
-            del speaker_chunks
+            # Join each speaker's pieces, releasing them as we go so peak memory
+            # is one copy of the speech rather than two.
+            speaker_audio = {spk: np.concatenate(speaker_chunks.pop(spk))
+                             for spk in list(speaker_chunks)}
+            workers = min(len(speaker_audio), ACOUSTIC_WORKERS)
+
+            def _one(item):
+                speaker, audio = item
+                # A separate OpenSMILE instance per thread: instances are not
+                # documented as thread-safe. The computation is the same either
+                # way; the library releases Python's lock while it runs, so
+                # speakers are extracted side by side.
+                ex = extractor if workers <= 1 else type(extractor)()
+                return speaker, ex.process_audio_segment(audio, sr)
+
+            if workers <= 1:
+                results = [_one(item) for item in speaker_audio.items()]
+            else:
+                with ThreadPoolExecutor(max_workers=workers) as pool:
+                    results = list(pool.map(_one, speaker_audio.items()))
+            del speaker_audio
             _free_ram()
 
-            return speaker_acoustics
+            return dict(results)
         except Exception as e:
             log.warning("Failed to extract per-speaker acoustics: %s", e)
             return {}
@@ -283,8 +521,14 @@ class InferencePipeline:
         if segments:
             duration_seconds = max(float(seg["end"]) for seg in segments)
 
+        # Masked identifiers stay in the text as one tag per word, so the count
+        # above matches what the person actually said. Analyses that would
+        # rather not count them get the second figure.
+        masked = sum(1 for w in words if _MASK_TOKEN.fullmatch(w.strip(".,;:!?\"'()")))
         return {
             "word_count": len(words),
+            "word_count_excluding_masked": len(words) - masked,
+            "masked_word_count": masked,
             "character_count": len(transcript),
             "sentence_count": sentence_count,
             "estimated_minutes": round(duration_seconds / 60.0, 2) if duration_seconds > 0 else round(len(words) / 150.0, 2),
@@ -323,106 +567,319 @@ class InferencePipeline:
     def release_all(self) -> None:
         self.release_transcriber()
         self.release_scorer()
+        if self._acoustic_pool is not None:
+            self._acoustic_pool.shutdown(wait=True)
+            self._acoustic_pool = None
 
     def transcribe_job(self, job: dict) -> dict:
-        """First half: decode, transcribe, de-identify, acoustics.
+        """First half for one file: decode, transcribe, de-identify, acoustics.
 
         Returns the intermediate state that :meth:`score_job` consumes. Nothing
         here touches the scoring model.
         """
-        job_id = job["job_id"]
-        file_path = Path(job["file_path"]).expanduser()
-        original_filename = job.get("original_filename", file_path.name)
+        result = self.transcribe_jobs([job])[0]
+        if isinstance(result, Exception):
+            raise result
+        return result
 
+    def transcribe_jobs(self, jobs: list[dict]) -> list:
+        """First half for many files. See :meth:`iter_transcribed`.
+
+        Returns, per job, the state for :meth:`score_job` or the exception that
+        file raised — one bad file does not sink the batch.
+        """
+        results: list = [None] * len(jobs)
+        for group in self.iter_transcribed(jobs):
+            for index, outcome in group:
+                results[index] = outcome
+        return results
+
+    def iter_transcribed(self, jobs: list[dict]):
+        """Transcribe files in groups, yielding one list of
+        ``(job index, state or exception)`` per group.
+
+        Files in a group share decoding batches (see
+        ``moss_windowed.transcribe_many``), so a folder of short interviews is
+        decoded at batch speed rather than one file at a time. Groups are capped
+        at about :data:`POOL_AUDIO_SECONDS` of audio: every started file holds
+        two temporary WAVs on disk until it is finished, so starting all 220
+        files of a multi-day batch at once would need ~60 GB of scratch space,
+        and a crash would lose every result. Yielding per group lets a caller
+        save each file's output as soon as it exists, and swap models between
+        groups.
+        """
+        group: list[tuple[int, dict]] = []
+        failed: list[tuple[int, Exception]] = []
+        group_audio = 0.0
+        for i, job in enumerate(jobs):
+            try:
+                prep = self._start_job(job)
+            except Exception as e:
+                failed.append((i, e))
+                continue
+            group.append((i, prep))
+            group_audio += prep["audio_seconds"] or 0.0
+            if group_audio >= POOL_AUDIO_SECONDS or len(group) >= POOL_MAX_FILES:
+                yield failed + list(self._transcribe_group(group))
+                group, failed, group_audio = [], [], 0.0
+        if group or failed:
+            yield failed + (list(self._transcribe_group(group)) if group else [])
+
+    def _transcribe_group(self, started: list[tuple[int, dict]]):
+        try:
+            moss = self._make_moss()
+            total_audio = sum(p["audio_seconds"] or 0 for _, p in started)
+
+            # The bar is an estimate, not a countdown — the token count next
+            # to it is the honest number.
+            def _moss_progress(tokens: int, _audio_seconds=None) -> None:
+                if total_audio:
+                    est = max(1.0, total_audio * MOSS_TOKENS_PER_SECOND)
+                    self._emit("Transcribing", min(0.99, tokens / est), f"{tokens} tokens")
+                else:
+                    self._emit("Transcribing", None, f"{tokens} tokens")
+
+            self._emit("Transcribing", 0.0, f"{len(started)} file(s)")
+            all_segments = moss.process_files(
+                [str(p["asr_wav"]) for _, p in started],
+                progress_cb=_moss_progress,
+                should_cancel=self.should_cancel,
+            )
+            self._emit("Transcribing", 1.0, f"{sum(len(x) for x in all_segments)} segments")
+            del moss
+            _free_ram()
+        except Exception as e:
+            for i, prep in started:
+                self._cleanup(prep)
+                yield i, e
+            return
+
+        for (i, prep), segments in zip(started, all_segments):
+            try:
+                if not segments:
+                    # The model emits nothing on silent or near-silent audio.
+                    raise RuntimeError(
+                        "MOSS returned an empty transcript — the audio may be "
+                        "silent, too quiet, or not speech."
+                    )
+                yield i, self._finish_job(prep, segments)
+            except Exception as e:
+                self._cleanup(prep)
+                yield i, e
+
+    def _make_moss(self):
+        from moss_diarizer import MOSSDiarizer
+
+        moss_cfg = self.cfg.get("moss", {})
+        moss = MOSSDiarizer(
+            model_name=moss_cfg.get("model", "OpenMOSS-Team/MOSS-Transcribe-Diarize"),
+            device=moss_cfg.get("device"),
+            dtype=moss_cfg.get("dtype"),
+            hotwords=moss_cfg.get("hotwords"),
+            **{
+                k: v for k, v in moss_cfg.items()
+                if k in (
+                    "backend", "window_seconds", "window_overlap_seconds",
+                    "batch_size", "speaker_similarity", "speaker_merge_similarity",
+                    "speaker_split_similarity", "num_speakers",
+                ) and v is not None
+            },
+        )
+        # A failure here is fatal. Continuing with an empty segment list yields
+        # a well-formed analysis JSON full of zeros and nulls, which is
+        # indistinguishable from a genuine result.
+        if not moss.is_available:
+            raise RuntimeError(
+                "MOSS transcription model could not be loaded. Check that "
+                "moss-transcribe-diarize is installed and the model weights "
+                "downloaded."
+            )
+        return moss
+
+    def _start_job(self, job: dict) -> dict:
+        """Validate and decode one file, and start its whole-file acoustics."""
+        file_path = Path(job["file_path"]).expanduser()
         if not file_path.exists():
             raise FileNotFoundError(f"Audio file not found: {file_path}")
+        log.info("Job %s: Processing %s", job["job_id"], file_path.name)
 
-        log.info("Job %s: Processing %s", job_id, file_path.name)
-
-        # ── Preprocess ──
         # Decoding is a hard requirement: MOSS needs level-normalised audio and
         # OpenSMILE needs 16 kHz mono PCM. Falling back to the raw file here
         # used to produce silently-empty analyses.
-        asr_wav, acoustic_wav = self._preprocess_audio(file_path)
-        temp_wavs = [asr_wav, acoustic_wav]
+        import audio_edits
+        edits = audio_edits.Edits.from_dict(job.get("audio_edits"))
+        asr_wav, acoustic_wav, audio_stats = self._preprocess_audio(
+            file_path, tag=job["job_id"], edits=edits)
+
+        # Whole-file acoustics need only the audio, not the transcript, and use
+        # the CPU while transcription uses the GPU — so start them now instead
+        # of after transcription and de-identification.
+        # One shared worker: a per-file pool ran OpenSMILE on every file of a
+        # group at once, competing with the decoder for CPU.
+        if self._acoustic_pool is None:
+            self._acoustic_pool = ThreadPoolExecutor(max_workers=1)
+        from moss_diarizer import _audio_duration
+
+        return {
+            "job": job,
+            "file_path": file_path,
+            "asr_wav": asr_wav,
+            "acoustic_wav": acoustic_wav,
+            "audio_stats": audio_stats,
+            "time_map": audio_edits.TimeMap.for_edits(edits),
+            "overall_future": self._acoustic_pool.submit(_overall_acoustics, acoustic_wav),
+            "audio_seconds": _audio_duration(str(asr_wav)),
+        }
+
+    @staticmethod
+    def _cleanup(prep: dict) -> None:
+        # The acoustics worker may still be reading acoustic_wav.
+        future = prep["overall_future"]
+        if not future.cancel():
+            wait([future])
+        for wav in (prep["asr_wav"], prep["acoustic_wav"]):
+            if wav.exists():
+                os.unlink(str(wav))
+
+    def _group_speaker_check(self, segments: list[dict], wav, warnings: list[str]) -> tuple[list[dict], dict]:
+        """Crosstalk marks and voice-based label repair for a group discussion.
+
+        See overlap_detector.py and speaker_check.py. Runs on the original
+        words, before masking; the voice data stays in memory. Any failure
+        leaves the labels as MOSS gave them, with a warning.
+        """
+        self._emit("Checking speakers", None, "crosstalk and voices")
+        out: dict = {"changes": [], "crosstalk_share": None, "crosstalk_segments": 0}
+        try:
+            import soundfile as sf
+            audio, _ = sf.read(str(wav), dtype="float32")
+            if audio.ndim > 1:
+                audio = audio.mean(axis=1)
+        except Exception as exc:  # noqa: BLE001
+            warnings.append(f"Speaker check skipped: audio unreadable ({exc}).")
+            return segments, out
+        regions: list = []
+        try:
+            from overlap_detector import OverlapDetector, THRESHOLD, mark_segments
+            detector = OverlapDetector.load()
+            if detector is not None:
+                probs, speech, frame_s = detector.probabilities(audio)
+                regions = _regions_from(probs, frame_s, THRESHOLD)
+                speech_frames = float((speech >= 0.5).sum()) or 1.0
+                out["crosstalk_share"] = round(float(((probs >= THRESHOLD) & (speech >= 0.5)).sum())
+                                               / speech_frames, 3)
+                out["crosstalk_segments"] = mark_segments(segments, regions)
+            else:
+                warnings.append("The crosstalk model isn't available, so overlapping speech is not marked.")
+        except Exception as exc:  # noqa: BLE001 - marks are an aid, never a reason to fail
+            log.warning("Crosstalk detection failed: %s", exc)
+            warnings.append(f"Crosstalk detection failed ({exc}); overlapping speech is not marked.")
+        try:
+            import speaker_check
+            from voice_embedder import VoiceEmbedder
+            embedder = VoiceEmbedder.load()
+            if embedder is not None:
+                emb = speaker_check.embed_segments(segments, audio, embedder, regions)
+                segments, out["changes"] = speaker_check.refine(segments, emb)
+        except Exception as exc:  # noqa: BLE001
+            log.warning("Speaker check failed: %s", exc)
+            warnings.append(f"Speaker check failed ({exc}); labels are as transcribed.")
+        return segments, out
+
+    def _second_name_check(self, masker: dict, pii_cfg: dict, warnings: list[str]):
+        """The scoring model as a second name check outside English (name_sweep.py).
+
+        Returns None for English, when switched off, or when the Research
+        scoring add-on is missing; in the last case the transcript carries a
+        warning, since the masker alone misses more names outside English.
+        """
+        if not masker:
+            return None
+        if not pii_cfg.get("second_check", True) or not _scoring_installed(self.cfg):
+            warnings.append(
+                "Names outside English were masked without the second name check (it needs "
+                "the Research scoring add-on). In testing, masking alone missed 12-36% of "
+                "names and places outside English; read the transcript before sharing it.")
+            return None
+        # Even with the check, two unseen test sets kept up to 1 name or place
+        # in 4 in Korean (evals/masking/README.md).
+        warnings.append(
+            "Masking outside English is less complete than in English: in testing it caught "
+            "74-100% of names and places, depending on the language. Read the transcript "
+            "before sharing it.")
+        try:
+            import name_sweep
+            # Transcription is done for this file; never hold both models at once.
+            self.release_transcriber()
+            self._emit("De-identifying", None, "second name check")
+            model = self.cfg.get("llm_scoring", {}).get("mlx_model")
+            import addons
+            return name_sweep.llama(model or addons.SCORING_MODEL)
+        except Exception as exc:  # noqa: BLE001 - masking must still run
+            log.warning("Second name check unavailable: %s", exc)
+            warnings.append(f"The second name check could not start ({exc}); "
+                            "read the transcript before sharing it.")
+            return None
+
+    def _finish_job(self, prep: dict, segments: list[dict]) -> dict:
+        """De-identify, compute statistics and acoustics for one transcribed file."""
+        job = prep["job"]
+        file_path = prep["file_path"]
+        acoustic_wav = prep["acoustic_wav"]
         # Non-fatal stage failures are recorded here and surfaced in the
         # output payload, so a degraded run is never mistaken for a clean one.
         warnings: list[str] = []
 
-        try:
-            # ── Stage 1: Transcription & Diarization (MOSS) ──
-            # A failure here is fatal. Continuing with an empty segment list
-            # yields a well-formed analysis JSON full of zeros and nulls, which
-            # is indistinguishable from a genuine result.
-            from moss_diarizer import MOSSDiarizer
-            moss = MOSSDiarizer(
-                model_name=self.cfg.get("moss", {}).get(
-                    "model", "OpenMOSS-Team/MOSS-Transcribe-Diarize"
-                ),
-                device=self.cfg.get("moss", {}).get("device"),
-                dtype=self.cfg.get("moss", {}).get("dtype"),
-                hotwords=self.cfg.get("moss", {}).get("hotwords"),
-            )
-            if not moss.is_available:
+        # ── Group discussions: crosstalk marks and a voice check of every label ──
+        group_check: dict = {}
+        if _is_group(self.cfg):
+            segments, group_check = self._group_speaker_check(segments, acoustic_wav, warnings)
+
+        # ── HIPAA Scrubbing (OpenMED) ──
+        # Fatal when enabled: the app claims Safe Harbor de-identification,
+        # so it must not emit a transcript that was never scrubbed.
+        pii_cfg = self.cfg.get("pii_scrubbing", {})
+        deid_summary: dict = {"enabled": False}
+        # The language decides which masker can run (see language.py).
+        import language
+        lang = language.detect(" ".join(seg.get("text", "") for seg in segments))
+        log.info("Job %s: language %s (%s)", job.get("job_id"), lang["name"], lang["code"])
+        if pii_cfg.get("enabled", True):
+            from pii_scrubber import PIIScrubber
+            masker = _masker_for(lang)
+            check = self._second_name_check(masker, pii_cfg, warnings)
+            scrubber = PIIScrubber(**{
+                "confidence_threshold": pii_cfg.get("confidence_threshold", 0.5),
+                "strict": pii_cfg.get("strict", True),
+                **masker,
+                "second_check": check,
+            })
+            if not scrubber.is_available:
                 raise RuntimeError(
-                    "MOSS transcription model could not be loaded. Check that "
-                    "moss-transcribe-diarize is installed and the model weights "
-                    "downloaded."
+                    "PII scrubbing is enabled but the openmed package is not "
+                    "installed. Install it, or set pii_scrubbing.enabled: false."
                 )
-            # Rough: measured ~4 tokens per second of speech-dense audio, so
-            # 5 keeps a typical file from pinning at 99% while silence-heavy
-            # recordings finish early. The bar is an estimate, not a countdown —
-            # the token count next to it is the honest number.
-            def _moss_progress(tokens: int, audio_seconds) -> None:
-                if audio_seconds:
-                    est = max(1.0, audio_seconds * MOSS_TOKENS_PER_SECOND)
-                    self._emit("Transcribing", min(0.99, tokens / est),
-                               f"{tokens} tokens")
-                else:
-                    self._emit("Transcribing", None, f"{tokens} tokens")
-
-            self._emit("Transcribing", 0.0, "starting")
-            segments = moss.process_file(
-                str(asr_wav),
-                progress_cb=_moss_progress,
-                should_cancel=self.should_cancel,
-            )
-            self._emit("Transcribing", 1.0, f"{len(segments)} segments")
-            del moss
+            self._emit("De-identifying", None, f"{len(segments)} segments")
+            # The original words are kept in memory, only long enough to find
+            # where the masked names are spoken (audio_deid.py).
+            raw_segments = [dict(seg) for seg in segments]
+            segments = scrubber.scrub_segments(segments)
+            deid_summary = scrubber.summary()
+            del scrubber
+            if check is not None:
+                self.release_scorer()  # scoring loads it again; the next file needs the room
             _free_ram()
+        else:
+            log.warning("PII scrubbing is DISABLED — transcript retains identifiers.")
 
-            # ── Stage 2: HIPAA Scrubbing (OpenMED) ──
-            # Also fatal when enabled: the app claims Safe Harbor de-identification,
-            # so it must not emit a transcript that was never scrubbed.
-            pii_cfg = self.cfg.get("pii_scrubbing", {})
-            if pii_cfg.get("enabled", True):
-                from pii_scrubber import PIIScrubber
-                scrubber = PIIScrubber(
-                    confidence_threshold=pii_cfg.get("confidence_threshold", 0.7),
-                    strict=pii_cfg.get("strict", True),
-                )
-                if not scrubber.is_available:
-                    raise RuntimeError(
-                        "PII scrubbing is enabled but the openmed package is not "
-                        "installed. Install it, or set pii_scrubbing.enabled: false."
-                    )
-                self._emit("De-identifying", None, f"{len(segments)} segments")
-                segments = scrubber.scrub_segments(segments)
-                del scrubber
-                _free_ram()
-            else:
-                log.warning("PII scrubbing is DISABLED — transcript retains identifiers.")
-        except Exception:
-            for wav in temp_wavs:
-                if wav.exists():
-                    os.unlink(str(wav))
-            raise
-
-        # Reconstruct Transcript
         transcript = " ".join([seg.get("text", "") for seg in segments]).strip()
         stats = self._compute_statistics(transcript, segments)
+        # Each masked word stays in the text as one tag ("Sarah Johnson" ->
+        # "[first_name_1] [last_name_1]"), so word counts include masked names.
+        stats["deidentification"] = deid_summary
+        stats["language"] = lang
 
-        # ── Stage 3: Acoustic extraction ──
+        # ── Acoustic extraction ──
         overall_acoustics = {}
         speaker_acoustics = {}
         try:
@@ -432,7 +889,7 @@ class InferencePipeline:
                 log.info("Extracting acoustic features...")
                 self._emit("Acoustics", None, "")
                 # Original-gain audio: loudness/VTA features are amplitude-dependent.
-                overall_acoustics = extractor.process_audio_file(str(acoustic_wav))
+                overall_acoustics = prep["overall_future"].result()
                 speaker_acoustics = self._extract_speaker_acoustics(
                     extractor, acoustic_wav, segments
                 )
@@ -446,23 +903,86 @@ class InferencePipeline:
             msg = f"Acoustic extraction failed: {e}"
             log.error(msg)
             warnings.append(msg)
-
-        for wav in temp_wavs:
-            if wav.exists():
-                os.unlink(str(wav))
+        audio_stats = dict(prep.get("audio_stats") or {})
+        from snr import estimate_snr
+        audio_stats["snr_db"] = estimate_snr(str(acoustic_wav), segments)
+        # Voice embeddings per speaker, in memory only: they recognise
+        # remembered staff voices and let a confirmed moderator be remembered.
+        voices = None
+        try:
+            import voice_library
+            voices = voice_library.embeddings_for(segments, str(acoustic_wav))
+        except Exception as exc:  # noqa: BLE001 - roles fall back to text evidence
+            log.info("No voice embeddings for role matching: %s", exc)
+        # Kintsugi's voice model (optional add-on), per speaker while the audio
+        # is still here; the participant's result is picked once roles are known.
+        voice_model = None
+        group = _is_group(self.cfg)
+        try:
+            import kintsugi_dam
+            # Clinical voice models are for interviews, not group discussions.
+            voice_model = None if group else kintsugi_dam.per_speaker(str(acoustic_wav), segments)
+        except Exception as exc:  # noqa: BLE001 - an add-on must not lose the run
+            log.warning("Kintsugi voice model failed: %s", exc)
+            warnings.append(f"Kintsugi voice model failed: {exc}")
+        # Praat voice measures (optional add-on, senselab / Bridge2AI definitions).
+        praat = None
+        try:
+            import praat_measures
+            praat = None if group else praat_measures.per_speaker(str(acoustic_wav), segments)
+        except Exception as exc:  # noqa: BLE001 - an add-on must not lose the run
+            log.warning("Praat measures failed: %s", exc)
+        audio_deid_result = None
+        if (self.cfg.get("audio_deid") or {}).get("enabled") and pii_cfg.get("enabled", True):
+            audio_deid_result = self._silence_names(raw_segments, segments, acoustic_wav, job)
+        raw_segments = None
+        self._cleanup(prep)
+        # Measured on the edited audio above; reported in the recording's own
+        # time from here on, so timestamps match the file the user has.
+        if prep.get("time_map") is not None:
+            segments = prep["time_map"].segments(segments)
 
         return {
             "job": job,
-            "job_id": job_id,
+            "job_id": job["job_id"],
             "file_path": file_path,
-            "original_filename": original_filename,
+            "original_filename": job.get("original_filename", file_path.name),
             "segments": segments,
             "transcript": transcript,
             "stats": stats,
             "overall_acoustics": overall_acoustics,
             "speaker_acoustics": speaker_acoustics,
+            "audio_stats": audio_stats,
+            "voices": voices,
+            "voice_model": voice_model,
+            "praat": praat,
+            "audio_deid": audio_deid_result,
+            "group_check": group_check,
             "warnings": warnings,
         }
+
+    def _silence_names(self, raw_segments, segments, wav_path, job) -> dict:
+        """Write a copy of the processed audio with every masked word silenced."""
+        import audio_deid
+
+        self._emit("Silencing names in the audio", None, "")
+        try:
+            found = audio_deid.silence_spans(raw_segments, segments, str(wav_path))
+            out_dir = Path(resolve_path(self.cfg.get("pipeline", {}).get(
+                "analysis_output_folder", self.cfg.get("output_folder", "./Output"))))
+            stem = Path(job.get("original_filename") or wav_path).stem
+            out = audio_deid.write(str(wav_path), found["spans"],
+                                   out_dir / f"{job['job_id']}_{stem}_names_silenced.wav")
+            return {"path": str(out), "silenced_spans": len(found["spans"]),
+                    "segments_aligned": found["segments_aligned"],
+                    "segments_silenced_whole": found["segments_silenced_whole"],
+                    "aligner": "word-level" if audio_deid.available() else "whole segments",
+                    "note": ("Names the transcript masker caught are silent in this copy; names it "
+                             "missed are not. Listen before sharing. 16 kHz mono, and if parts were "
+                             "left out before processing, those parts are not in it.")}
+        except Exception as exc:  # noqa: BLE001 - the transcript must not be lost over this
+            log.warning("Silencing names in the audio failed: %s", exc)
+            return {"error": str(exc)}
 
     def score_job(self, state: dict) -> str:
         """Second half: role detection, clinical scoring, write the analysis.
@@ -482,19 +1002,27 @@ class InferencePipeline:
         warnings = state["warnings"]
 
         # ── Stage 4: Structured Transcript (role detection + formatting) ──
-        structured_result = {}
+        notes: list[str] = []
+        structured_transcript, speaker_roles, speaker_stats = "", {}, {}
+        assignment: dict = {"mode": "interview", "uncertain": False}
         try:
-            from transcript_formatter import process_segments
-            structured_result = process_segments(segments)
-            log.info("Job %s: structured transcript — roles: %s",
-                     job_id, structured_result.get("roles", {}))
+            import speaker_roles as roles_mod
+            import voice_library
+            from transcript_formatter import compute_speaker_stats, format_structured_transcript
+
+            assignment = roles_mod.assign(segments, _guide_text(self.cfg),
+                                          state.get("voices"), voice_library.load(),
+                                          group=_is_group(self.cfg))
+            speaker_roles = assignment["roles"]
+            structured_transcript = format_structured_transcript(segments, speaker_roles)
+            speaker_stats = compute_speaker_stats(segments, speaker_roles)
+            log.info("Job %s: %s, roles %s%s", job_id, assignment["mode"], speaker_roles,
+                     " (uncertain)" if assignment["uncertain"] else "")
         except Exception as exc:
             log.warning("Job %s: structured transcript failed: %s", job_id, exc)
             warnings.append(f"Structured transcript failed: {exc}")
-
-        structured_transcript = structured_result.get("structured_transcript", "")
-        speaker_roles = structured_result.get("roles", {})
-        speaker_stats = structured_result.get("speaker_stats", {})
+        group = assignment.get("mode") == "group"
+        roles_uncertain = bool(assignment.get("uncertain"))
 
         # ── Stage 5a: Acoustic Context Serialization ──
         acoustic_context = ""
@@ -505,26 +1033,6 @@ class InferencePipeline:
             )
         except Exception as exc:
             log.warning("Job %s: acoustic context serialization failed: %s", job_id, exc)
-
-        # ── Stage 5b: LLM Clinical Scoring (MLX) ──
-        llm_scoring = {}
-        llm_enabled = self.cfg.get("llm_scoring", {}).get("enabled", True)
-        if structured_transcript and llm_enabled:
-            try:
-                from llm_clinical_scorer import score_transcript
-                log.info("Job %s: running LLM clinical scoring...", job_id)
-                self._emit("Clinical scoring", None, "")
-                llm_scoring = score_transcript(
-                    structured_transcript, acoustic_context, self.cfg
-                )
-                log.info("Job %s: LLM scoring complete", job_id)
-            except Exception as exc:
-                log.warning("Job %s: LLM clinical scoring failed: %s", job_id, exc)
-                warnings.append(f"LLM clinical scoring failed: {exc}")
-        elif not llm_enabled:
-            msg = "llm_scoring.enabled is false — clinical scores are blank."
-            log.warning("Job %s: %s", job_id, msg)
-            warnings.append(msg)
 
         # ── Provenance ──
         # Recorded per job so a result stays reproducible even if a model repo
@@ -548,35 +1056,211 @@ class InferencePipeline:
         output_dir.mkdir(parents=True, exist_ok=True)
         output_path = output_dir / f"{job_id}_analysis.json"
 
-        payload = {
-            "job_id": job_id,
-            # Free-text study identifiers, so a results CSV can be grouped by
-            # participant and session rather than by filename alone.
-            "participant_id": job.get("participant_id", ""),
-            "session_label": job.get("session_label", ""),
-            # Criterion measure captured at recording time (e.g. "SHAPS 34").
-            # Free text so it is not locked to one instrument. This is what makes
-            # a later validity analysis possible — it cannot be retrofitted onto
-            # audio that was collected without it.
-            "criterion_score": job.get("criterion_score", ""),
-            "status": "completed_with_warnings" if warnings else "completed",
-            "warnings": warnings,
-            "pipeline_version": "5.1",
-            "provenance": provenance_record,
-            "source_audio": {
-                "original_filename": original_filename,
-                "stored_path": str(file_path),
-            },
-            "statistics": stats,
-            "overall_acoustics": overall_acoustics,
-            "speaker_acoustics": speaker_acoustics,
-            "speaker_roles": speaker_roles,
-            "speaker_stats": speaker_stats,
-            "structured_transcript": structured_transcript,
-            "llm_clinical_scoring": llm_scoring,
-            "segments": segments,
-            "transcript": transcript,
+        from timing_features import speaker_timing, subject_speaker
+
+        # Pauses and latency on the edited timeline: on the original one a
+        # skipped stretch would count as one enormous pause.
+        import audio_edits
+        edits = audio_edits.Edits.from_dict(job.get("audio_edits"))
+        time_map = audio_edits.TimeMap.for_edits(edits)
+        timing_segments = time_map.edited_segments(segments) if time_map else segments
+        if edits is not None:
+            notes.append(edits.describe())
+        timing = speaker_timing(timing_segments)
+        # No single participant in a group, and none to report while the roles
+        # are uncertain: per-speaker measures stay in per_speaker.
+        import elaboration
+        lang = stats.get("language") or {}
+        english = _english(lang)
+        timing_payload = {
+            # Words per answer after positive / neutral / negative questions.
+            "elaboration": (elaboration.measure(segments, speaker_roles or {})
+                            if english and not group and not roles_uncertain else None),
+            "subject_speaker": (None if group or roles_uncertain
+                                else subject_speaker(timing, speaker_roles or {})),
+            "per_speaker": timing,
         }
+        quality = assess_quality(
+            segments, timing_payload["subject_speaker"], state.get("audio_stats"),
+            expected_speakers=self.cfg.get("moss", {}).get("num_speakers"),
+        )
+        if roles_uncertain:
+            quality["flags"].append({"code": "roles_uncertain", "message": (
+                "It isn't clear who is interviewing. " + assignment.get("why", "") +
+                " Participant measures and clinical scores wait until the roles are "
+                "confirmed in the Speakers panel.")})
+        if group:
+            # Measures are per speaker in a group; "no participant" doesn't apply.
+            quality["flags"] = [f for f in quality["flags"] if f["code"] not in
+                                ("no_participant", "little_participant_speech")]
+            notes.append("Group recording: moderators and participants are listed separately, "
+                         "with measures for each speaker in timing_features.per_speaker. "
+                         "Clinical scores are for one-to-one interviews and were not run.")
+        lang = stats.get("language") or {}
+        english = _english(lang)
+        clinical_review = _clinical_review(segments, speaker_roles, self.cfg)
+        if not english:
+            # The keyword lists are English; an empty list would read as "nothing found".
+            clinical_review = {"items": [], "counts": {}, "note": (
+                f"The review keywords are English-only, so this {lang.get('name')} recording "
+                "wasn't screened. The transcript needs to be read.")}
+            for per in timing.values():
+                per["filler_rate"] = None  # the filler list is English
+            notes.append(f"Language: {lang.get('name')}. Filler counts and the review "
+                         "keyword screen are English-only and were not run.")
+
+        group_exports_written: dict = {}
+
+        def _payload(llm_scoring: dict, reliability: dict, status: str = "") -> dict:
+            return {
+                "job_id": job_id,
+                # Free-text study identifiers, so a results CSV can be grouped by
+                # participant and session rather than by filename alone.
+                "participant_id": job.get("participant_id", ""),
+                "session_label": job.get("session_label", ""),
+                # Criterion measure captured at recording time (e.g. "SHAPS 34").
+                # Free text so it is not locked to one instrument. This is what makes
+                # a later validity analysis possible — it cannot be retrofitted onto
+                # audio that was collected without it.
+                "criterion_score": job.get("criterion_score", ""),
+                "status": status or ("completed_with_warnings" if warnings else "completed"),
+                "warnings": warnings,
+                # Deliberate choices worth recording, which are not problems.
+                "notes": notes,
+                "intended_use": RESEARCH_USE_NOTICE,
+                # Input problems that make the measures less trustworthy.
+                "quality": quality,
+                # Measured test-retest reliability of each LLM score at this run count.
+                "score_reliability": reliability,
+                "storage": {"filevault": _FILEVAULT},
+                "pipeline_version": __version__,
+                "provenance": provenance_record,
+                "source_audio": {
+                    "original_filename": original_filename,
+                    "stored_path": str(file_path),
+                },
+                "language": stats.get("language"),
+                # Copy of the audio with masked names silenced, when asked for.
+                "audio_deid": state.get("audio_deid"),
+                # Stretches left out before processing; null when none.
+                "audio_edits": edits.as_dict() if edits else None,
+                "statistics": stats,
+                "overall_acoustics": overall_acoustics,
+                "speaker_acoustics": speaker_acoustics,
+                # Deterministic pause / rate / latency measures from segment timing.
+                "timing_features": timing_payload,
+                "speaker_roles": speaker_roles,
+                # How the roles were decided: mode, certainty, and the evidence.
+                "speaker_assignment": {k: assignment.get(k) for k in
+                                       ("mode", "uncertain", "why", "evidence")},
+                "speaker_stats": speaker_stats,
+                "structured_transcript": structured_transcript,
+                # Keyword screen for passages a clinician should read; not scored.
+                "clinical_review": clinical_review,
+                # Praat measures (senselab definitions), if the add-on is installed.
+                "praat_measures": ({"per_speaker": state.get("praat"),
+                                    "subject": (state.get("praat") or {}).get(timing_payload["subject_speaker"]),
+                                    "definitions": "senselab / Bridge2AI-Voice (Praat via parselmouth)"}
+                                   if state.get("praat") is not None else None),
+                # Kintsugi's open voice model, if installed: per speaker, and the
+                # participant's estimate (research only).
+                "kintsugi": ({"per_speaker": state.get("voice_model"),
+                              **(kintsugi_dam.for_subject(state.get("voice_model"),
+                                                          timing_payload["subject_speaker"]) or {})}
+                             if state.get("voice_model") is not None else None),
+                "llm_clinical_scoring": llm_scoring,
+                "recording_type": "group" if _is_group(self.cfg) else "interview",
+                # Group discussions: labels repaired by voice, crosstalk, coding files.
+                "group_discussion": ({**{k: v for k, v in (state.get("group_check") or {}).items()},
+                                      "exports": group_exports_written}
+                                     if _is_group(self.cfg) else None),
+                "segments": segments,
+                "transcript": transcript,
+            }
+
+
+        # Checkpoint: the transcript, timing and voice features are saved before
+        # scoring starts, so a crash, Stop or sleep during a long scoring stage
+        # does not throw them away. The batch command resumes scoring from here.
+        llm_enabled = self.cfg.get("llm_scoring", {}).get("enabled", True)
+        if llm_enabled and structured_transcript and (group or roles_uncertain):
+            llm_enabled = False
+        if llm_enabled and structured_transcript and not english:
+            llm_enabled = False
+            notes.append(f"Clinical scores were built and checked on English interviews, so "
+                         f"they weren't run on this {lang.get('name')} recording.")
+        # Only asked when scores are wanted and nothing above already ruled them out.
+        gate = _scoring_gate(quality, self.cfg) if (llm_enabled and structured_transcript) else ""
+        if gate:
+            llm_enabled = False
+            notes.append(gate)
+        scoring_missing = bool(structured_transcript and llm_enabled
+                               and not _scoring_installed(self.cfg))
+        if scoring_missing:
+            # Without the add-on the scorer would fail every run and fall back
+            # to placeholder numbers that look like real scores.
+            llm_enabled = False
+            warnings.append("Clinical scoring isn't installed on this Mac, so the "
+                            "scores are blank. Install the ClinicalWhisper Scoring add-on "
+                            "to get them.")
+        if structured_transcript and llm_enabled:
+            output_path.write_text(json.dumps(
+                _payload({}, {}, status=SCORING_PENDING), indent=2, default=str), encoding="utf-8")
+            os.chmod(output_path, 0o600)
+
+        # ── Stage 5b: LLM Clinical Scoring (MLX) ──
+        llm_scoring = {}
+        if structured_transcript and llm_enabled:
+            try:
+                from llm_clinical_scorer import score_transcript
+                log.info("Job %s: running LLM clinical scoring...", job_id)
+                self._emit("Clinical scoring", None, "")
+                llm_scoring = score_transcript(
+                    structured_transcript, acoustic_context, self.cfg,
+                    progress=lambda frac, detail: self._emit("Clinical scoring", frac, detail),
+                    should_cancel=self.should_cancel,
+                )
+                log.info("Job %s: LLM scoring complete", job_id)
+            except Exception as exc:
+                log.warning("Job %s: LLM clinical scoring failed: %s", job_id, exc)
+                warnings.append(f"LLM clinical scoring failed: {exc}")
+        elif not llm_enabled and not scoring_missing and english and not gate:
+            # Asked for deliberately (the app's "transcribe only", the batch
+            # command's --transcribe-only), this is a choice, not a fault: it
+            # must not mark an otherwise clean run as "completed with warnings".
+            # A group or unconfirmed roles already explain themselves above.
+            msg = "Clinical scoring was skipped; the scores are blank."
+            log.info("Job %s: %s", job_id, msg)
+            if self.cfg.get("llm_scoring", {}).get("skipped_by_request"):
+                notes.append(msg)
+            elif not (group or roles_uncertain):
+                warnings.append(msg)
+
+
+        # Reliability at the number of runs actually averaged per chunk.
+        meta = llm_scoring.get("_meta") or {}
+        if meta.get("error"):
+            # Every run failed: the scores are missing, and the result says so.
+            warnings.append(f"Clinical scoring failed: {meta['error']}")
+        if llm_scoring and not meta.get("error"):
+            import consistency
+            subject_t = (timing_payload.get("per_speaker") or {}).get(
+                timing_payload.get("subject_speaker")) or {}
+            quality["flags"].extend(consistency.check(
+                " ".join([llm_scoring.get("summary") or ""] + list(llm_scoring.get("key_observations") or [])),
+                subject_t))
+        runs = meta.get("samples_per_window") or self.cfg.get("llm_scoring", {}).get("samples", 1)
+        if meta.get("runs_used") and meta.get("windows"):
+            runs = max(1, min(runs, meta["runs_used"] // meta["windows"]))
+        reliability = score_reliability(runs) if llm_scoring else {}
+        if meta.get("runs_failed"):
+            quality["flags"].append({
+                "code": "scoring_runs_failed",
+                "message": (f"{meta['runs_failed']} of {meta['runs_expected']} scoring runs "
+                            f"could not be used; reliability is shown for {runs} run(s) per chunk."),
+            })
+
+        payload = _payload(llm_scoring, reliability)
 
         output_path.write_text(json.dumps(payload, indent=2, default=str), encoding="utf-8")
         os.chmod(output_path, 0o600)
@@ -594,11 +1278,50 @@ class InferencePipeline:
             except OSError as exc:
                 log.warning("Job %s: could not delete source audio: %s", job_id, exc)
                 payload["source_audio"]["retention"] = "delete_failed"
+        elif retention == "keep":
+            # Leave the file where it is: batch runs over a study's originals.
+            payload["source_audio"]["archived_path"] = None
+            payload["source_audio"]["retention"] = "kept"
         else:
             archived_path = self._archive_audio(job_id, file_path, original_filename)
             payload["source_audio"]["archived_path"] = archived_path
             payload["source_audio"]["retention"] = "archived"
         output_path.write_text(json.dumps(payload, indent=2, default=str), encoding="utf-8")
 
+        if _is_group(self.cfg):
+            try:
+                info = self._group_export_info(job, original_filename, stats, state)
+                group_exports_written.update(self._write_group_exports(
+                    output_dir, job, original_filename, segments, speaker_roles, stats, state, info))
+                payload["group_discussion"]["exports"] = group_exports_written
+                payload["group_discussion"]["export_info"] = info
+                payload["group_discussion"]["risk_flags_on"] = bool(
+                    (self.cfg.get("review_flags") or {}).get("group_enabled"))
+                output_path.write_text(json.dumps(payload, indent=2, default=str), encoding="utf-8")
+            except Exception as exc:  # noqa: BLE001 - the analysis itself is already saved
+                log.warning("Job %s: coding files not written: %s", job_id, exc)
+                payload["warnings"].append(f"Coding files (Word, subtitles) could not be written: {exc}")
+                output_path.write_text(json.dumps(payload, indent=2, default=str), encoding="utf-8")
+
         log.info("Job %s: wrote %s", job_id, output_path)
         return str(output_path)
+
+    @staticmethod
+    def _group_export_info(job: dict, original_filename: str, stats: dict, state: dict) -> dict:
+        import datetime
+        stem = Path(original_filename).stem
+        return {"session": job.get("session_label") or stem, "file": original_filename,
+                "processed": datetime.date.today().isoformat(), "version": __version__,
+                "language": (stats.get("language") or {}).get("name", "English"),
+                "audio_silenced": bool(state.get("audio_deid"))}
+
+    def _write_group_exports(self, output_dir: Path, job: dict, original_filename: str,
+                             segments: list[dict], roles: dict, stats: dict, state: dict,
+                             info: dict) -> dict:
+        """Coding-ready transcript, subtitles, participation and de-id record (group_exports.py)."""
+        import group_exports
+        stem = Path(original_filename).stem
+        check = state.get("group_check") or {}
+        return group_exports.write_all(output_dir, f"{job['job_id']}_{stem}", segments, roles, info,
+                                       stats.get("deidentification") or {}, check.get("changes") or [],
+                                       check.get("crosstalk_share"))

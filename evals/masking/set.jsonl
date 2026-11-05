@@ -1,0 +1,400 @@
+{"id": "00_00", "text": "Mostly I talk to my son Vikram, she checks on me every day.", "entities": [{"start": 24, "end": 30, "type": "first_name", "origin": "indian"}]}
+{"id": "01_00", "text": "My boyfriend Ji-woo drove me here today.", "entities": [{"start": 13, "end": 19, "type": "first_name", "origin": "vietnamese_korean"}]}
+{"id": "02_00", "text": "I live in Hanoi with my girlfriend Thao.", "entities": [{"start": 10, "end": 15, "type": "city", "origin": "place"}, {"start": 35, "end": 39, "type": "first_name", "origin": "vietnamese_korean"}]}
+{"id": "03_00", "text": "Chengdong and I used to go running on Sundays.", "entities": [{"start": 0, "end": 9, "type": "first_name", "origin": "chinese"}]}
+{"id": "04_00", "text": "My name is Abena Okafor and I'm 50 years old.", "entities": [{"start": 11, "end": 23, "type": "full_name", "origin": "african"}, {"start": 32, "end": 34, "type": "age", "origin": "number"}]}
+{"id": "05_00", "text": "I work at Bayview High School over on Elm Court.", "entities": [{"start": 10, "end": 29, "type": "organization", "origin": "place"}, {"start": 38, "end": 47, "type": "street", "origin": "place"}]}
+{"id": "06_00", "text": "I moved from Boise back in January 28.", "entities": [{"start": 13, "end": 18, "type": "city", "origin": "place"}, {"start": 27, "end": 37, "type": "date", "origin": "date"}]}
+{"id": "07_00", "text": "You can reach me at 555-8591.", "entities": [{"start": 20, "end": 28, "type": "phone", "origin": "number"}]}
+{"id": "08_00", "text": "My email is zuri dot tran at gmail dot com.", "entities": [{"start": 12, "end": 42, "type": "email", "origin": "email"}]}
+{"id": "09_00", "text": "Doctor Chen at Bayview High School changed my medication.", "entities": [{"start": 7, "end": 11, "type": "last_name", "origin": "surname"}, {"start": 15, "end": 34, "type": "organization", "origin": "place"}]}
+{"id": "10_00", "text": "I told Noor I couldn't come, and Noor got upset.", "entities": [{"start": 7, "end": 11, "type": "first_name", "origin": "arabic"}, {"start": 33, "end": 37, "type": "first_name", "origin": "arabic"}]}
+{"id": "11_00", "text": "We grew up on Elm Court in Sacramento.", "entities": [{"start": 14, "end": 23, "type": "street", "origin": "place"}, {"start": 27, "end": 37, "type": "city", "origin": "place"}]}
+{"id": "12_00", "text": "My boss, Megan Nguyen, is the only one who knows.", "entities": [{"start": 9, "end": 21, "type": "full_name", "origin": "anglo"}]}
+{"id": "13_00", "text": "Last December 26 I stayed with Rodrigo for a week.", "entities": [{"start": 5, "end": 16, "type": "date", "origin": "date"}, {"start": 31, "end": 38, "type": "first_name", "origin": "hispanic"}]}
+{"id": "14_00", "text": "I haven't seen Deepika since the funeral.", "entities": [{"start": 15, "end": 22, "type": "first_name", "origin": "indian"}]}
+{"id": "15_00", "text": "Honestly Xiaoming is the reason I'm still going.", "entities": [{"start": 9, "end": 17, "type": "first_name", "origin": "chinese"}]}
+{"id": "00_01", "text": "Mostly I talk to my son Chengdong, she checks on me every day.", "entities": [{"start": 24, "end": 33, "type": "first_name", "origin": "chinese"}]}
+{"id": "01_01", "text": "My roommate Wei drove me here today.", "entities": [{"start": 12, "end": 15, "type": "first_name", "origin": "chinese"}]}
+{"id": "02_01", "text": "I live in Chandler with my cousin Camila.", "entities": [{"start": 10, "end": 18, "type": "city", "origin": "place"}, {"start": 34, "end": 40, "type": "first_name", "origin": "hispanic"}]}
+{"id": "03_01", "text": "Camila and I used to go running on Sundays.", "entities": [{"start": 0, "end": 6, "type": "first_name", "origin": "hispanic"}]}
+{"id": "04_01", "text": "My name is Summer Brennan and I'm 21 years old.", "entities": [{"start": 11, "end": 25, "type": "full_name", "origin": "common_word"}, {"start": 34, "end": 36, "type": "age", "origin": "number"}]}
+{"id": "05_01", "text": "I work at Desert Valley Bank over on Ocean Drive.", "entities": [{"start": 10, "end": 28, "type": "organization", "origin": "place"}, {"start": 37, "end": 48, "type": "street", "origin": "place"}]}
+{"id": "06_01", "text": "I moved from Fresno back in October 28.", "entities": [{"start": 13, "end": 19, "type": "city", "origin": "place"}, {"start": 28, "end": 38, "type": "date", "origin": "date"}]}
+{"id": "07_01", "text": "You can reach me at two four four, two five six four.", "entities": [{"start": 20, "end": 52, "type": "phone", "origin": "number"}]}
+{"id": "08_01", "text": "My email is tariq dot haddad at gmail dot com.", "entities": [{"start": 12, "end": 45, "type": "email", "origin": "email"}]}
+{"id": "09_01", "text": "Doctor Okafor at Saint Mary's Hospital changed my medication.", "entities": [{"start": 7, "end": 13, "type": "last_name", "origin": "surname"}, {"start": 17, "end": 38, "type": "organization", "origin": "place"}]}
+{"id": "10_01", "text": "I told Fatima I couldn't come, and Fatima got upset.", "entities": [{"start": 7, "end": 13, "type": "first_name", "origin": "arabic"}, {"start": 35, "end": 41, "type": "first_name", "origin": "arabic"}]}
+{"id": "11_01", "text": "We grew up on Figueroa Street in Chandler.", "entities": [{"start": 14, "end": 29, "type": "street", "origin": "place"}, {"start": 33, "end": 41, "type": "city", "origin": "place"}]}
+{"id": "12_01", "text": "My wife, Arjun Brennan, is the only one who knows.", "entities": [{"start": 9, "end": 22, "type": "full_name", "origin": "indian"}]}
+{"id": "13_01", "text": "Last December 19 I stayed with Yusuf for a week.", "entities": [{"start": 5, "end": 16, "type": "date", "origin": "date"}, {"start": 31, "end": 36, "type": "first_name", "origin": "arabic"}]}
+{"id": "14_01", "text": "I haven't seen Chidi since the funeral.", "entities": [{"start": 15, "end": 20, "type": "first_name", "origin": "african"}]}
+{"id": "15_01", "text": "Honestly Logan is the reason I'm still going.", "entities": [{"start": 9, "end": 14, "type": "first_name", "origin": "anglo"}]}
+{"id": "00_02", "text": "Mostly I talk to my wife Ji-woo, she checks on me every day.", "entities": [{"start": 25, "end": 31, "type": "first_name", "origin": "vietnamese_korean"}]}
+{"id": "01_02", "text": "My dad Tariq drove me here today.", "entities": [{"start": 7, "end": 12, "type": "first_name", "origin": "arabic"}]}
+{"id": "02_02", "text": "I live in Chandler with my mom Lucia.", "entities": [{"start": 10, "end": 18, "type": "city", "origin": "place"}, {"start": 31, "end": 36, "type": "first_name", "origin": "hispanic"}]}
+{"id": "03_02", "text": "Omar and I used to go running on Sundays.", "entities": [{"start": 0, "end": 4, "type": "first_name", "origin": "arabic"}]}
+{"id": "04_02", "text": "My name is Zuri Patel and I'm 29 years old.", "entities": [{"start": 11, "end": 21, "type": "full_name", "origin": "african"}, {"start": 30, "end": 32, "type": "age", "origin": "number"}]}
+{"id": "05_02", "text": "I work at Saint Mary's Hospital over on Maple Avenue.", "entities": [{"start": 10, "end": 31, "type": "organization", "origin": "place"}, {"start": 40, "end": 52, "type": "street", "origin": "place"}]}
+{"id": "06_02", "text": "I moved from Dearborn back in March 2.", "entities": [{"start": 13, "end": 21, "type": "city", "origin": "place"}, {"start": 30, "end": 37, "type": "date", "origin": "date"}]}
+{"id": "07_02", "text": "You can reach me at 555-1358.", "entities": [{"start": 20, "end": 28, "type": "phone", "origin": "number"}]}
+{"id": "08_02", "text": "My email is bao dot delgado at gmail dot com.", "entities": [{"start": 12, "end": 44, "type": "email", "origin": "email"}]}
+{"id": "09_02", "text": "Doctor Delgado at Riverside Logistics changed my medication.", "entities": [{"start": 7, "end": 14, "type": "last_name", "origin": "surname"}, {"start": 18, "end": 37, "type": "organization", "origin": "place"}]}
+{"id": "10_02", "text": "I told Hope I couldn't come, and Hope got upset.", "entities": [{"start": 7, "end": 11, "type": "first_name", "origin": "common_word"}, {"start": 33, "end": 37, "type": "first_name", "origin": "common_word"}]}
+{"id": "11_02", "text": "We grew up on Juniper Lane in Riverside.", "entities": [{"start": 14, "end": 26, "type": "street", "origin": "place"}, {"start": 30, "end": 39, "type": "city", "origin": "place"}]}
+{"id": "12_02", "text": "My mom, Chengdong Brennan, is the only one who knows.", "entities": [{"start": 8, "end": 25, "type": "full_name", "origin": "chinese"}]}
+{"id": "13_02", "text": "Last August 26 I stayed with Chidi for a week.", "entities": [{"start": 5, "end": 14, "type": "date", "origin": "date"}, {"start": 29, "end": 34, "type": "first_name", "origin": "african"}]}
+{"id": "14_02", "text": "I haven't seen Thao since the funeral.", "entities": [{"start": 15, "end": 19, "type": "first_name", "origin": "vietnamese_korean"}]}
+{"id": "15_02", "text": "Honestly Fatima is the reason I'm still going.", "entities": [{"start": 9, "end": 15, "type": "first_name", "origin": "arabic"}]}
+{"id": "00_03", "text": "Mostly I talk to my daughter Tariq, she checks on me every day.", "entities": [{"start": 29, "end": 34, "type": "first_name", "origin": "arabic"}]}
+{"id": "01_03", "text": "My boyfriend Fatima drove me here today.", "entities": [{"start": 13, "end": 19, "type": "first_name", "origin": "arabic"}]}
+{"id": "02_03", "text": "I live in Katy with my son Hyun.", "entities": [{"start": 10, "end": 14, "type": "city", "origin": "place"}, {"start": 27, "end": 31, "type": "first_name", "origin": "vietnamese_korean"}]}
+{"id": "03_03", "text": "Connor and I used to go running on Sundays.", "entities": [{"start": 0, "end": 6, "type": "first_name", "origin": "anglo"}]}
+{"id": "04_03", "text": "My name is Priya Brennan and I'm 39 years old.", "entities": [{"start": 11, "end": 24, "type": "full_name", "origin": "indian"}, {"start": 33, "end": 35, "type": "age", "origin": "number"}]}
+{"id": "05_03", "text": "I work at Pinecrest Dental over on Elm Court.", "entities": [{"start": 10, "end": 26, "type": "organization", "origin": "place"}, {"start": 35, "end": 44, "type": "street", "origin": "place"}]}
+{"id": "06_03", "text": "I moved from Tucson back in October 8.", "entities": [{"start": 13, "end": 19, "type": "city", "origin": "place"}, {"start": 28, "end": 37, "type": "date", "origin": "date"}]}
+{"id": "07_03", "text": "You can reach me at 555-3592.", "entities": [{"start": 20, "end": 28, "type": "phone", "origin": "number"}]}
+{"id": "08_03", "text": "My email is jacob dot kowalski at gmail dot com.", "entities": [{"start": 12, "end": 47, "type": "email", "origin": "email"}]}
+{"id": "09_03", "text": "Doctor Haddad at Pinecrest Dental changed my medication.", "entities": [{"start": 7, "end": 13, "type": "last_name", "origin": "surname"}, {"start": 17, "end": 33, "type": "organization", "origin": "place"}]}
+{"id": "10_03", "text": "I told Elena I couldn't come, and Elena got upset.", "entities": [{"start": 7, "end": 12, "type": "first_name", "origin": "hispanic"}, {"start": 34, "end": 39, "type": "first_name", "origin": "hispanic"}]}
+{"id": "11_03", "text": "We grew up on Hollis Street in Riverside.", "entities": [{"start": 14, "end": 27, "type": "street", "origin": "place"}, {"start": 31, "end": 40, "type": "city", "origin": "place"}]}
+{"id": "12_03", "text": "My brother, Mei Brennan, is the only one who knows.", "entities": [{"start": 12, "end": 23, "type": "full_name", "origin": "chinese"}]}
+{"id": "13_03", "text": "Last January 24 I stayed with Rose for a week.", "entities": [{"start": 5, "end": 15, "type": "date", "origin": "date"}, {"start": 30, "end": 34, "type": "first_name", "origin": "common_word"}]}
+{"id": "14_03", "text": "I haven't seen Yuxuan since the funeral.", "entities": [{"start": 15, "end": 21, "type": "first_name", "origin": "chinese"}]}
+{"id": "15_03", "text": "Honestly June is the reason I'm still going.", "entities": [{"start": 9, "end": 13, "type": "first_name", "origin": "common_word"}]}
+{"id": "00_04", "text": "Mostly I talk to my wife June, she checks on me every day.", "entities": [{"start": 25, "end": 29, "type": "first_name", "origin": "common_word"}]}
+{"id": "01_04", "text": "My friend Wei drove me here today.", "entities": [{"start": 10, "end": 13, "type": "first_name", "origin": "chinese"}]}
+{"id": "02_04", "text": "I live in Tucson with my boyfriend Ngozi.", "entities": [{"start": 10, "end": 16, "type": "city", "origin": "place"}, {"start": 35, "end": 40, "type": "first_name", "origin": "african"}]}
+{"id": "03_04", "text": "Rose and I used to go running on Sundays.", "entities": [{"start": 0, "end": 4, "type": "first_name", "origin": "common_word"}]}
+{"id": "04_04", "text": "My name is Connor Kowalski and I'm 51 years old.", "entities": [{"start": 11, "end": 26, "type": "full_name", "origin": "anglo"}, {"start": 35, "end": 37, "type": "age", "origin": "number"}]}
+{"id": "05_04", "text": "I work at Bayview High School over on Hollis Street.", "entities": [{"start": 10, "end": 29, "type": "organization", "origin": "place"}, {"start": 38, "end": 51, "type": "street", "origin": "place"}]}
+{"id": "06_04", "text": "I moved from Fresno back in June 16.", "entities": [{"start": 13, "end": 19, "type": "city", "origin": "place"}, {"start": 28, "end": 35, "type": "date", "origin": "date"}]}
+{"id": "07_04", "text": "You can reach me at seven zero zero, four six two two.", "entities": [{"start": 20, "end": 53, "type": "phone", "origin": "number"}]}
+{"id": "08_04", "text": "My email is camila dot nguyen at gmail dot com.", "entities": [{"start": 12, "end": 46, "type": "email", "origin": "email"}]}
+{"id": "09_04", "text": "Doctor Delgado at Riverside Logistics changed my medication.", "entities": [{"start": 7, "end": 14, "type": "last_name", "origin": "surname"}, {"start": 18, "end": 37, "type": "organization", "origin": "place"}]}
+{"id": "10_04", "text": "I told Chidi I couldn't come, and Chidi got upset.", "entities": [{"start": 7, "end": 12, "type": "first_name", "origin": "african"}, {"start": 34, "end": 39, "type": "first_name", "origin": "african"}]}
+{"id": "11_04", "text": "We grew up on Figueroa Street in Tucson.", "entities": [{"start": 14, "end": 29, "type": "street", "origin": "place"}, {"start": 33, "end": 39, "type": "city", "origin": "place"}]}
+{"id": "12_04", "text": "My wife, Lihua Park, is the only one who knows.", "entities": [{"start": 9, "end": 19, "type": "full_name", "origin": "chinese"}]}
+{"id": "13_04", "text": "Last August 26 I stayed with Vikram for a week.", "entities": [{"start": 5, "end": 14, "type": "date", "origin": "date"}, {"start": 29, "end": 35, "type": "first_name", "origin": "indian"}]}
+{"id": "14_04", "text": "I haven't seen Javier since the funeral.", "entities": [{"start": 15, "end": 21, "type": "first_name", "origin": "hispanic"}]}
+{"id": "15_04", "text": "Honestly Priya is the reason I'm still going.", "entities": [{"start": 9, "end": 14, "type": "first_name", "origin": "indian"}]}
+{"id": "00_05", "text": "Mostly I talk to my friend June, she checks on me every day.", "entities": [{"start": 27, "end": 31, "type": "first_name", "origin": "common_word"}]}
+{"id": "01_05", "text": "My daughter Jun drove me here today.", "entities": [{"start": 12, "end": 15, "type": "first_name", "origin": "chinese"}]}
+{"id": "02_05", "text": "I live in Riverside with my wife Yuxuan.", "entities": [{"start": 10, "end": 19, "type": "city", "origin": "place"}, {"start": 33, "end": 39, "type": "first_name", "origin": "chinese"}]}
+{"id": "03_05", "text": "Will and I used to go running on Sundays.", "entities": [{"start": 0, "end": 4, "type": "first_name", "origin": "common_word"}]}
+{"id": "04_05", "text": "My name is Ji-woo Tran and I'm 21 years old.", "entities": [{"start": 11, "end": 22, "type": "full_name", "origin": "vietnamese_korean"}, {"start": 31, "end": 33, "type": "age", "origin": "number"}]}
+{"id": "05_05", "text": "I work at Desert Valley Bank over on Vermont Avenue.", "entities": [{"start": 10, "end": 28, "type": "organization", "origin": "place"}, {"start": 37, "end": 51, "type": "street", "origin": "place"}]}
+{"id": "06_05", "text": "I moved from Lagos back in June 15.", "entities": [{"start": 13, "end": 18, "type": "city", "origin": "place"}, {"start": 27, "end": 34, "type": "date", "origin": "date"}]}
+{"id": "07_05", "text": "You can reach me at one one four, two one zero six.", "entities": [{"start": 20, "end": 50, "type": "phone", "origin": "number"}]}
+{"id": "08_05", "text": "My email is camila dot nguyen at gmail dot com.", "entities": [{"start": 12, "end": 46, "type": "email", "origin": "email"}]}
+{"id": "09_05", "text": "Doctor Chen at Saint Mary's Hospital changed my medication.", "entities": [{"start": 7, "end": 11, "type": "last_name", "origin": "surname"}, {"start": 15, "end": 36, "type": "organization", "origin": "place"}]}
+{"id": "10_05", "text": "I told Tyler I couldn't come, and Tyler got upset.", "entities": [{"start": 7, "end": 12, "type": "first_name", "origin": "anglo"}, {"start": 34, "end": 39, "type": "first_name", "origin": "anglo"}]}
+{"id": "11_05", "text": "We grew up on Maple Avenue in Dearborn.", "entities": [{"start": 14, "end": 26, "type": "street", "origin": "place"}, {"start": 30, "end": 38, "type": "city", "origin": "place"}]}
+{"id": "12_05", "text": "My daughter, Hope Delgado, is the only one who knows.", "entities": [{"start": 13, "end": 25, "type": "full_name", "origin": "common_word"}]}
+{"id": "13_05", "text": "Last January 7 I stayed with Yuxuan for a week.", "entities": [{"start": 5, "end": 14, "type": "date", "origin": "date"}, {"start": 29, "end": 35, "type": "first_name", "origin": "chinese"}]}
+{"id": "14_05", "text": "I haven't seen Rodrigo since the funeral.", "entities": [{"start": 15, "end": 22, "type": "first_name", "origin": "hispanic"}]}
+{"id": "15_05", "text": "Honestly Sanjana is the reason I'm still going.", "entities": [{"start": 9, "end": 16, "type": "first_name", "origin": "indian"}]}
+{"id": "00_06", "text": "Mostly I talk to my cousin Jun, she checks on me every day.", "entities": [{"start": 27, "end": 30, "type": "first_name", "origin": "chinese"}]}
+{"id": "01_06", "text": "My therapist Tyler drove me here today.", "entities": [{"start": 13, "end": 18, "type": "first_name", "origin": "anglo"}]}
+{"id": "02_06", "text": "I live in Shenzhen with my cousin Abigail.", "entities": [{"start": 10, "end": 18, "type": "city", "origin": "place"}, {"start": 34, "end": 41, "type": "first_name", "origin": "anglo"}]}
+{"id": "03_06", "text": "Abena and I used to go running on Sundays.", "entities": [{"start": 0, "end": 5, "type": "first_name", "origin": "african"}]}
+{"id": "04_06", "text": "My name is Khalid Okafor and I'm 33 years old.", "entities": [{"start": 11, "end": 24, "type": "full_name", "origin": "arabic"}, {"start": 33, "end": 35, "type": "age", "origin": "number"}]}
+{"id": "05_06", "text": "I work at Riverside Logistics over on Figueroa Street.", "entities": [{"start": 10, "end": 29, "type": "organization", "origin": "place"}, {"start": 38, "end": 53, "type": "street", "origin": "place"}]}
+{"id": "06_06", "text": "I moved from Wugang back in June 17.", "entities": [{"start": 13, "end": 19, "type": "city", "origin": "place"}, {"start": 28, "end": 35, "type": "date", "origin": "date"}]}
+{"id": "07_06", "text": "You can reach me at 555-5337.", "entities": [{"start": 20, "end": 28, "type": "phone", "origin": "number"}]}
+{"id": "08_06", "text": "My email is camila dot park at gmail dot com.", "entities": [{"start": 12, "end": 44, "type": "email", "origin": "email"}]}
+{"id": "09_06", "text": "Doctor Abdullah at Kroger changed my medication.", "entities": [{"start": 7, "end": 15, "type": "last_name", "origin": "surname"}, {"start": 19, "end": 25, "type": "organization", "origin": "place"}]}
+{"id": "10_06", "text": "I told Rohan I couldn't come, and Rohan got upset.", "entities": [{"start": 7, "end": 12, "type": "first_name", "origin": "indian"}, {"start": 34, "end": 39, "type": "first_name", "origin": "indian"}]}
+{"id": "11_06", "text": "We grew up on Maple Avenue in Riverside.", "entities": [{"start": 14, "end": 26, "type": "street", "origin": "place"}, {"start": 30, "end": 39, "type": "city", "origin": "place"}]}
+{"id": "12_06", "text": "My mom, Logan Haddad, is the only one who knows.", "entities": [{"start": 8, "end": 20, "type": "full_name", "origin": "anglo"}]}
+{"id": "13_06", "text": "Last March 5 I stayed with June for a week.", "entities": [{"start": 5, "end": 12, "type": "date", "origin": "date"}, {"start": 27, "end": 31, "type": "first_name", "origin": "common_word"}]}
+{"id": "14_06", "text": "I haven't seen Hope since the funeral.", "entities": [{"start": 15, "end": 19, "type": "first_name", "origin": "common_word"}]}
+{"id": "15_06", "text": "Honestly Hope is the reason I'm still going.", "entities": [{"start": 9, "end": 13, "type": "first_name", "origin": "common_word"}]}
+{"id": "00_07", "text": "Mostly I talk to my wife Rodrigo, she checks on me every day.", "entities": [{"start": 25, "end": 32, "type": "first_name", "origin": "hispanic"}]}
+{"id": "01_07", "text": "My brother Min-jun drove me here today.", "entities": [{"start": 11, "end": 18, "type": "first_name", "origin": "vietnamese_korean"}]}
+{"id": "02_07", "text": "I live in Duluth with my friend Megan.", "entities": [{"start": 10, "end": 16, "type": "city", "origin": "place"}, {"start": 32, "end": 37, "type": "first_name", "origin": "anglo"}]}
+{"id": "03_07", "text": "Wei and I used to go running on Sundays.", "entities": [{"start": 0, "end": 3, "type": "first_name", "origin": "chinese"}]}
+{"id": "04_07", "text": "My name is Hannah Tran and I'm 34 years old.", "entities": [{"start": 11, "end": 22, "type": "full_name", "origin": "anglo"}, {"start": 31, "end": 33, "type": "age", "origin": "number"}]}
+{"id": "05_07", "text": "I work at Lincoln Elementary over on Figueroa Street.", "entities": [{"start": 10, "end": 28, "type": "organization", "origin": "place"}, {"start": 37, "end": 52, "type": "street", "origin": "place"}]}
+{"id": "06_07", "text": "I moved from Shenzhen back in March 3.", "entities": [{"start": 13, "end": 21, "type": "city", "origin": "place"}, {"start": 30, "end": 37, "type": "date", "origin": "date"}]}
+{"id": "07_07", "text": "You can reach me at nine six seven, four two five one.", "entities": [{"start": 20, "end": 53, "type": "phone", "origin": "number"}]}
+{"id": "08_07", "text": "My email is deepika dot mensah at gmail dot com.", "entities": [{"start": 12, "end": 47, "type": "email", "origin": "email"}]}
+{"id": "09_07", "text": "Doctor Liu at Riverside Logistics changed my medication.", "entities": [{"start": 7, "end": 10, "type": "last_name", "origin": "surname"}, {"start": 14, "end": 33, "type": "organization", "origin": "place"}]}
+{"id": "10_07", "text": "I told Jacob I couldn't come, and Jacob got upset.", "entities": [{"start": 7, "end": 12, "type": "first_name", "origin": "anglo"}, {"start": 34, "end": 39, "type": "first_name", "origin": "anglo"}]}
+{"id": "11_07", "text": "We grew up on Elm Court in Katy.", "entities": [{"start": 14, "end": 23, "type": "street", "origin": "place"}, {"start": 27, "end": 31, "type": "city", "origin": "place"}]}
+{"id": "12_07", "text": "My wife, Abigail Park, is the only one who knows.", "entities": [{"start": 9, "end": 21, "type": "full_name", "origin": "anglo"}]}
+{"id": "13_07", "text": "Last August 10 I stayed with Min-jun for a week.", "entities": [{"start": 5, "end": 14, "type": "date", "origin": "date"}, {"start": 29, "end": 36, "type": "first_name", "origin": "vietnamese_korean"}]}
+{"id": "14_07", "text": "I haven't seen Aditya since the funeral.", "entities": [{"start": 15, "end": 21, "type": "first_name", "origin": "indian"}]}
+{"id": "15_07", "text": "Honestly Xiaoming is the reason I'm still going.", "entities": [{"start": 9, "end": 17, "type": "first_name", "origin": "chinese"}]}
+{"id": "00_08", "text": "Mostly I talk to my neighbor Noor, she checks on me every day.", "entities": [{"start": 29, "end": 33, "type": "first_name", "origin": "arabic"}]}
+{"id": "01_08", "text": "My boyfriend Minh drove me here today.", "entities": [{"start": 13, "end": 17, "type": "first_name", "origin": "vietnamese_korean"}]}
+{"id": "02_08", "text": "I live in Hanoi with my therapist Seo-yeon.", "entities": [{"start": 10, "end": 15, "type": "city", "origin": "place"}, {"start": 34, "end": 42, "type": "first_name", "origin": "vietnamese_korean"}]}
+{"id": "03_08", "text": "Ji-woo and I used to go running on Sundays.", "entities": [{"start": 0, "end": 6, "type": "first_name", "origin": "vietnamese_korean"}]}
+{"id": "04_08", "text": "My name is Megan Haddad and I'm 23 years old.", "entities": [{"start": 11, "end": 23, "type": "full_name", "origin": "anglo"}, {"start": 32, "end": 34, "type": "age", "origin": "number"}]}
+{"id": "05_08", "text": "I work at Pinecrest Dental over on Maple Avenue.", "entities": [{"start": 10, "end": 26, "type": "organization", "origin": "place"}, {"start": 35, "end": 47, "type": "street", "origin": "place"}]}
+{"id": "06_08", "text": "I moved from Tucson back in January 28.", "entities": [{"start": 13, "end": 19, "type": "city", "origin": "place"}, {"start": 28, "end": 38, "type": "date", "origin": "date"}]}
+{"id": "07_08", "text": "You can reach me at five two six, nine nine six nine.", "entities": [{"start": 20, "end": 52, "type": "phone", "origin": "number"}]}
+{"id": "08_08", "text": "My email is arjun dot okafor at gmail dot com.", "entities": [{"start": 12, "end": 45, "type": "email", "origin": "email"}]}
+{"id": "09_08", "text": "Doctor Sharma at Lincoln Elementary changed my medication.", "entities": [{"start": 7, "end": 13, "type": "last_name", "origin": "surname"}, {"start": 17, "end": 35, "type": "organization", "origin": "place"}]}
+{"id": "10_08", "text": "I told Zuri I couldn't come, and Zuri got upset.", "entities": [{"start": 7, "end": 11, "type": "first_name", "origin": "african"}, {"start": 33, "end": 37, "type": "first_name", "origin": "african"}]}
+{"id": "11_08", "text": "We grew up on Maple Avenue in Katy.", "entities": [{"start": 14, "end": 26, "type": "street", "origin": "place"}, {"start": 30, "end": 34, "type": "city", "origin": "place"}]}
+{"id": "12_08", "text": "My dad, Priya Okafor, is the only one who knows.", "entities": [{"start": 8, "end": 20, "type": "full_name", "origin": "indian"}]}
+{"id": "13_08", "text": "Last December 21 I stayed with Vikram for a week.", "entities": [{"start": 5, "end": 16, "type": "date", "origin": "date"}, {"start": 31, "end": 37, "type": "first_name", "origin": "indian"}]}
+{"id": "14_08", "text": "I haven't seen Elena since the funeral.", "entities": [{"start": 15, "end": 20, "type": "first_name", "origin": "hispanic"}]}
+{"id": "15_08", "text": "Honestly Hunter is the reason I'm still going.", "entities": [{"start": 9, "end": 15, "type": "first_name", "origin": "common_word"}]}
+{"id": "00_09", "text": "Mostly I talk to my son Rodrigo, she checks on me every day.", "entities": [{"start": 24, "end": 31, "type": "first_name", "origin": "hispanic"}]}
+{"id": "01_09", "text": "My cousin Hyun drove me here today.", "entities": [{"start": 10, "end": 14, "type": "first_name", "origin": "vietnamese_korean"}]}
+{"id": "02_09", "text": "I live in Tucson with my husband June.", "entities": [{"start": 10, "end": 16, "type": "city", "origin": "place"}, {"start": 33, "end": 37, "type": "first_name", "origin": "common_word"}]}
+{"id": "03_09", "text": "Emily and I used to go running on Sundays.", "entities": [{"start": 0, "end": 5, "type": "first_name", "origin": "anglo"}]}
+{"id": "04_09", "text": "My name is Jun Kowalski and I'm 66 years old.", "entities": [{"start": 11, "end": 23, "type": "full_name", "origin": "chinese"}, {"start": 32, "end": 34, "type": "age", "origin": "number"}]}
+{"id": "05_09", "text": "I work at Bayview High School over on Kingsley Road.", "entities": [{"start": 10, "end": 29, "type": "organization", "origin": "place"}, {"start": 38, "end": 51, "type": "street", "origin": "place"}]}
+{"id": "06_09", "text": "I moved from Wugang back in December 12.", "entities": [{"start": 13, "end": 19, "type": "city", "origin": "place"}, {"start": 28, "end": 39, "type": "date", "origin": "date"}]}
+{"id": "07_09", "text": "You can reach me at four five nine, six four seven six.", "entities": [{"start": 20, "end": 54, "type": "phone", "origin": "number"}]}
+{"id": "08_09", "text": "My email is hope dot okafor at gmail dot com.", "entities": [{"start": 12, "end": 44, "type": "email", "origin": "email"}]}
+{"id": "09_09", "text": "Doctor Ramirez at the Hollis Clinic changed my medication.", "entities": [{"start": 7, "end": 14, "type": "last_name", "origin": "surname"}, {"start": 22, "end": 35, "type": "organization", "origin": "place"}]}
+{"id": "10_09", "text": "I told Logan I couldn't come, and Logan got upset.", "entities": [{"start": 7, "end": 12, "type": "first_name", "origin": "anglo"}, {"start": 34, "end": 39, "type": "first_name", "origin": "anglo"}]}
+{"id": "11_09", "text": "We grew up on Figueroa Street in Sacramento.", "entities": [{"start": 14, "end": 29, "type": "street", "origin": "place"}, {"start": 33, "end": 43, "type": "city", "origin": "place"}]}
+{"id": "12_09", "text": "My neighbor, Hyun Okafor, is the only one who knows.", "entities": [{"start": 13, "end": 24, "type": "full_name", "origin": "vietnamese_korean"}]}
+{"id": "13_09", "text": "Last August 1 I stayed with Lihua for a week.", "entities": [{"start": 5, "end": 13, "type": "date", "origin": "date"}, {"start": 28, "end": 33, "type": "first_name", "origin": "chinese"}]}
+{"id": "14_09", "text": "I haven't seen Javier since the funeral.", "entities": [{"start": 15, "end": 21, "type": "first_name", "origin": "hispanic"}]}
+{"id": "15_09", "text": "Honestly Faith is the reason I'm still going.", "entities": [{"start": 9, "end": 14, "type": "first_name", "origin": "common_word"}]}
+{"id": "00_10", "text": "Mostly I talk to my friend June, she checks on me every day.", "entities": [{"start": 27, "end": 31, "type": "first_name", "origin": "common_word"}]}
+{"id": "01_10", "text": "My therapist Jun drove me here today.", "entities": [{"start": 13, "end": 16, "type": "first_name", "origin": "chinese"}]}
+{"id": "02_10", "text": "I live in Boise with my wife Connor.", "entities": [{"start": 10, "end": 15, "type": "city", "origin": "place"}, {"start": 29, "end": 35, "type": "first_name", "origin": "anglo"}]}
+{"id": "03_10", "text": "Ngozi and I used to go running on Sundays.", "entities": [{"start": 0, "end": 5, "type": "first_name", "origin": "african"}]}
+{"id": "04_10", "text": "My name is Wei Haddad and I'm 48 years old.", "entities": [{"start": 11, "end": 21, "type": "full_name", "origin": "chinese"}, {"start": 30, "end": 32, "type": "age", "origin": "number"}]}
+{"id": "05_10", "text": "I work at Pinecrest Dental over on Hollis Street.", "entities": [{"start": 10, "end": 26, "type": "organization", "origin": "place"}, {"start": 35, "end": 48, "type": "street", "origin": "place"}]}
+{"id": "06_10", "text": "I moved from Chandler back in January 19.", "entities": [{"start": 13, "end": 21, "type": "city", "origin": "place"}, {"start": 30, "end": 40, "type": "date", "origin": "date"}]}
+{"id": "07_10", "text": "You can reach me at nine nine one, five four six seven.", "entities": [{"start": 20, "end": 54, "type": "phone", "origin": "number"}]}
+{"id": "08_10", "text": "My email is tendai dot haddad at gmail dot com.", "entities": [{"start": 12, "end": 46, "type": "email", "origin": "email"}]}
+{"id": "09_10", "text": "Doctor Nguyen at Lincoln Elementary changed my medication.", "entities": [{"start": 7, "end": 13, "type": "last_name", "origin": "surname"}, {"start": 17, "end": 35, "type": "organization", "origin": "place"}]}
+{"id": "10_10", "text": "I told Summer I couldn't come, and Summer got upset.", "entities": [{"start": 7, "end": 13, "type": "first_name", "origin": "common_word"}, {"start": 35, "end": 41, "type": "first_name", "origin": "common_word"}]}
+{"id": "11_10", "text": "We grew up on Hollis Street in Katy.", "entities": [{"start": 14, "end": 27, "type": "street", "origin": "place"}, {"start": 31, "end": 35, "type": "city", "origin": "place"}]}
+{"id": "12_10", "text": "My wife, Fatima Nguyen, is the only one who knows.", "entities": [{"start": 9, "end": 22, "type": "full_name", "origin": "arabic"}]}
+{"id": "13_10", "text": "Last January 21 I stayed with Fatima for a week.", "entities": [{"start": 5, "end": 15, "type": "date", "origin": "date"}, {"start": 30, "end": 36, "type": "first_name", "origin": "arabic"}]}
+{"id": "14_10", "text": "I haven't seen Jacob since the funeral.", "entities": [{"start": 15, "end": 20, "type": "first_name", "origin": "anglo"}]}
+{"id": "15_10", "text": "Honestly Khalid is the reason I'm still going.", "entities": [{"start": 9, "end": 15, "type": "first_name", "origin": "arabic"}]}
+{"id": "00_11", "text": "Mostly I talk to my girlfriend Ananya, she checks on me every day.", "entities": [{"start": 31, "end": 37, "type": "first_name", "origin": "indian"}]}
+{"id": "01_11", "text": "My boyfriend Rodrigo drove me here today.", "entities": [{"start": 13, "end": 20, "type": "first_name", "origin": "hispanic"}]}
+{"id": "02_11", "text": "I live in Dearborn with my boyfriend Zhang Wei.", "entities": [{"start": 10, "end": 18, "type": "city", "origin": "place"}, {"start": 37, "end": 46, "type": "first_name", "origin": "chinese"}]}
+{"id": "03_11", "text": "Tyler and I used to go running on Sundays.", "entities": [{"start": 0, "end": 5, "type": "first_name", "origin": "anglo"}]}
+{"id": "04_11", "text": "My name is Min-jun Abdullah and I'm 36 years old.", "entities": [{"start": 11, "end": 27, "type": "full_name", "origin": "vietnamese_korean"}, {"start": 36, "end": 38, "type": "age", "origin": "number"}]}
+{"id": "05_11", "text": "I work at the Hollis Clinic over on Maple Avenue.", "entities": [{"start": 14, "end": 27, "type": "organization", "origin": "place"}, {"start": 36, "end": 48, "type": "street", "origin": "place"}]}
+{"id": "06_11", "text": "I moved from Boise back in December 17.", "entities": [{"start": 13, "end": 18, "type": "city", "origin": "place"}, {"start": 27, "end": 38, "type": "date", "origin": "date"}]}
+{"id": "07_11", "text": "You can reach me at 555-1816.", "entities": [{"start": 20, "end": 28, "type": "phone", "origin": "number"}]}
+{"id": "08_11", "text": "My email is amira dot okafor at gmail dot com.", "entities": [{"start": 12, "end": 45, "type": "email", "origin": "email"}]}
+{"id": "09_11", "text": "Doctor Delgado at the Hollis Clinic changed my medication.", "entities": [{"start": 7, "end": 14, "type": "last_name", "origin": "surname"}, {"start": 22, "end": 35, "type": "organization", "origin": "place"}]}
+{"id": "10_11", "text": "I told Ananya I couldn't come, and Ananya got upset.", "entities": [{"start": 7, "end": 13, "type": "first_name", "origin": "indian"}, {"start": 35, "end": 41, "type": "first_name", "origin": "indian"}]}
+{"id": "11_11", "text": "We grew up on Figueroa Street in Lagos.", "entities": [{"start": 14, "end": 29, "type": "street", "origin": "place"}, {"start": 33, "end": 38, "type": "city", "origin": "place"}]}
+{"id": "12_11", "text": "My brother, Diego Delgado, is the only one who knows.", "entities": [{"start": 12, "end": 25, "type": "full_name", "origin": "hispanic"}]}
+{"id": "13_11", "text": "Last January 17 I stayed with Min-jun for a week.", "entities": [{"start": 5, "end": 15, "type": "date", "origin": "date"}, {"start": 30, "end": 37, "type": "first_name", "origin": "vietnamese_korean"}]}
+{"id": "14_11", "text": "I haven't seen Ngozi since the funeral.", "entities": [{"start": 15, "end": 20, "type": "first_name", "origin": "african"}]}
+{"id": "15_11", "text": "Honestly Xiaoming is the reason I'm still going.", "entities": [{"start": 9, "end": 17, "type": "first_name", "origin": "chinese"}]}
+{"id": "00_12", "text": "Mostly I talk to my wife Emily, she checks on me every day.", "entities": [{"start": 25, "end": 30, "type": "first_name", "origin": "anglo"}]}
+{"id": "01_12", "text": "My son Chengdong drove me here today.", "entities": [{"start": 7, "end": 16, "type": "first_name", "origin": "chinese"}]}
+{"id": "02_12", "text": "I live in Duluth with my cousin Tyler.", "entities": [{"start": 10, "end": 16, "type": "city", "origin": "place"}, {"start": 32, "end": 37, "type": "first_name", "origin": "anglo"}]}
+{"id": "03_12", "text": "Chengdong and I used to go running on Sundays.", "entities": [{"start": 0, "end": 9, "type": "first_name", "origin": "chinese"}]}
+{"id": "04_12", "text": "My name is Minh Mensah and I'm 25 years old.", "entities": [{"start": 11, "end": 22, "type": "full_name", "origin": "vietnamese_korean"}, {"start": 31, "end": 33, "type": "age", "origin": "number"}]}
+{"id": "05_12", "text": "I work at Kroger over on Figueroa Street.", "entities": [{"start": 10, "end": 16, "type": "organization", "origin": "place"}, {"start": 25, "end": 40, "type": "street", "origin": "place"}]}
+{"id": "06_12", "text": "I moved from Lagos back in June 6.", "entities": [{"start": 13, "end": 18, "type": "city", "origin": "place"}, {"start": 27, "end": 33, "type": "date", "origin": "date"}]}
+{"id": "07_12", "text": "You can reach me at six three nine, six one two zero.", "entities": [{"start": 20, "end": 52, "type": "phone", "origin": "number"}]}
+{"id": "08_12", "text": "My email is arjun dot nguyen at gmail dot com.", "entities": [{"start": 12, "end": 45, "type": "email", "origin": "email"}]}
+{"id": "09_12", "text": "Doctor Park at Kroger changed my medication.", "entities": [{"start": 7, "end": 11, "type": "last_name", "origin": "surname"}, {"start": 15, "end": 21, "type": "organization", "origin": "place"}]}
+{"id": "10_12", "text": "I told Jacob I couldn't come, and Jacob got upset.", "entities": [{"start": 7, "end": 12, "type": "first_name", "origin": "anglo"}, {"start": 34, "end": 39, "type": "first_name", "origin": "anglo"}]}
+{"id": "11_12", "text": "We grew up on Vermont Avenue in Tucson.", "entities": [{"start": 14, "end": 28, "type": "street", "origin": "place"}, {"start": 32, "end": 38, "type": "city", "origin": "place"}]}
+{"id": "12_12", "text": "My cousin, Chidi Tran, is the only one who knows.", "entities": [{"start": 11, "end": 21, "type": "full_name", "origin": "african"}]}
+{"id": "13_12", "text": "Last June 13 I stayed with Yusuf for a week.", "entities": [{"start": 5, "end": 12, "type": "date", "origin": "date"}, {"start": 27, "end": 32, "type": "first_name", "origin": "arabic"}]}
+{"id": "14_12", "text": "I haven't seen Yusuf since the funeral.", "entities": [{"start": 15, "end": 20, "type": "first_name", "origin": "arabic"}]}
+{"id": "15_12", "text": "Honestly Tyler is the reason I'm still going.", "entities": [{"start": 9, "end": 14, "type": "first_name", "origin": "anglo"}]}
+{"id": "00_13", "text": "Mostly I talk to my sister Ananya, she checks on me every day.", "entities": [{"start": 27, "end": 33, "type": "first_name", "origin": "indian"}]}
+{"id": "01_13", "text": "My daughter Emily drove me here today.", "entities": [{"start": 12, "end": 17, "type": "first_name", "origin": "anglo"}]}
+{"id": "02_13", "text": "I live in Fresno with my wife Logan.", "entities": [{"start": 10, "end": 16, "type": "city", "origin": "place"}, {"start": 30, "end": 35, "type": "first_name", "origin": "anglo"}]}
+{"id": "03_13", "text": "Aditya and I used to go running on Sundays.", "entities": [{"start": 0, "end": 6, "type": "first_name", "origin": "indian"}]}
+{"id": "04_13", "text": "My name is Kwame Chen and I'm 30 years old.", "entities": [{"start": 11, "end": 21, "type": "full_name", "origin": "african"}, {"start": 30, "end": 32, "type": "age", "origin": "number"}]}
+{"id": "05_13", "text": "I work at Desert Valley Bank over on Elm Court.", "entities": [{"start": 10, "end": 28, "type": "organization", "origin": "place"}, {"start": 37, "end": 46, "type": "street", "origin": "place"}]}
+{"id": "06_13", "text": "I moved from Wugang back in August 3.", "entities": [{"start": 13, "end": 19, "type": "city", "origin": "place"}, {"start": 28, "end": 36, "type": "date", "origin": "date"}]}
+{"id": "07_13", "text": "You can reach me at 555-3114.", "entities": [{"start": 20, "end": 28, "type": "phone", "origin": "number"}]}
+{"id": "08_13", "text": "My email is oluwaseun dot chen at gmail dot com.", "entities": [{"start": 12, "end": 47, "type": "email", "origin": "email"}]}
+{"id": "09_13", "text": "Doctor Brennan at Kroger changed my medication.", "entities": [{"start": 7, "end": 14, "type": "last_name", "origin": "surname"}, {"start": 18, "end": 24, "type": "organization", "origin": "place"}]}
+{"id": "10_13", "text": "I told Arjun I couldn't come, and Arjun got upset.", "entities": [{"start": 7, "end": 12, "type": "first_name", "origin": "indian"}, {"start": 34, "end": 39, "type": "first_name", "origin": "indian"}]}
+{"id": "11_13", "text": "We grew up on Elm Court in Wugang.", "entities": [{"start": 14, "end": 23, "type": "street", "origin": "place"}, {"start": 27, "end": 33, "type": "city", "origin": "place"}]}
+{"id": "12_13", "text": "My son, Yuxuan Feldman, is the only one who knows.", "entities": [{"start": 8, "end": 22, "type": "full_name", "origin": "chinese"}]}
+{"id": "13_13", "text": "Last March 24 I stayed with Amira for a week.", "entities": [{"start": 5, "end": 13, "type": "date", "origin": "date"}, {"start": 28, "end": 33, "type": "first_name", "origin": "arabic"}]}
+{"id": "14_13", "text": "I haven't seen Will since the funeral.", "entities": [{"start": 15, "end": 19, "type": "first_name", "origin": "common_word"}]}
+{"id": "15_13", "text": "Honestly Elena is the reason I'm still going.", "entities": [{"start": 9, "end": 14, "type": "first_name", "origin": "hispanic"}]}
+{"id": "00_14", "text": "Mostly I talk to my husband Chengdong, she checks on me every day.", "entities": [{"start": 28, "end": 37, "type": "first_name", "origin": "chinese"}]}
+{"id": "01_14", "text": "My roommate Omar drove me here today.", "entities": [{"start": 12, "end": 16, "type": "first_name", "origin": "arabic"}]}
+{"id": "02_14", "text": "I live in Dearborn with my girlfriend Tyler.", "entities": [{"start": 10, "end": 18, "type": "city", "origin": "place"}, {"start": 38, "end": 43, "type": "first_name", "origin": "anglo"}]}
+{"id": "03_14", "text": "Elena and I used to go running on Sundays.", "entities": [{"start": 0, "end": 5, "type": "first_name", "origin": "hispanic"}]}
+{"id": "04_14", "text": "My name is Omar Park and I'm 53 years old.", "entities": [{"start": 11, "end": 20, "type": "full_name", "origin": "arabic"}, {"start": 29, "end": 31, "type": "age", "origin": "number"}]}
+{"id": "05_14", "text": "I work at Riverside Logistics over on Kingsley Road.", "entities": [{"start": 10, "end": 29, "type": "organization", "origin": "place"}, {"start": 38, "end": 51, "type": "street", "origin": "place"}]}
+{"id": "06_14", "text": "I moved from Monterrey back in August 15.", "entities": [{"start": 13, "end": 22, "type": "city", "origin": "place"}, {"start": 31, "end": 40, "type": "date", "origin": "date"}]}
+{"id": "07_14", "text": "You can reach me at five one four, zero four three six.", "entities": [{"start": 20, "end": 54, "type": "phone", "origin": "number"}]}
+{"id": "08_14", "text": "My email is xiaoming dot kowalski at gmail dot com.", "entities": [{"start": 12, "end": 50, "type": "email", "origin": "email"}]}
+{"id": "09_14", "text": "Doctor Kowalski at the Hollis Clinic changed my medication.", "entities": [{"start": 7, "end": 15, "type": "last_name", "origin": "surname"}, {"start": 23, "end": 36, "type": "organization", "origin": "place"}]}
+{"id": "10_14", "text": "I told Hunter I couldn't come, and Hunter got upset.", "entities": [{"start": 7, "end": 13, "type": "first_name", "origin": "common_word"}, {"start": 35, "end": 41, "type": "first_name", "origin": "common_word"}]}
+{"id": "11_14", "text": "We grew up on Juniper Lane in Monterrey.", "entities": [{"start": 14, "end": 26, "type": "street", "origin": "place"}, {"start": 30, "end": 39, "type": "city", "origin": "place"}]}
+{"id": "12_14", "text": "My husband, Chengdong Chen, is the only one who knows.", "entities": [{"start": 12, "end": 26, "type": "full_name", "origin": "chinese"}]}
+{"id": "13_14", "text": "Last August 5 I stayed with Khalid for a week.", "entities": [{"start": 5, "end": 13, "type": "date", "origin": "date"}, {"start": 28, "end": 34, "type": "first_name", "origin": "arabic"}]}
+{"id": "14_14", "text": "I haven't seen Zuri since the funeral.", "entities": [{"start": 15, "end": 19, "type": "first_name", "origin": "african"}]}
+{"id": "15_14", "text": "Honestly Sanjana is the reason I'm still going.", "entities": [{"start": 9, "end": 16, "type": "first_name", "origin": "indian"}]}
+{"id": "00_15", "text": "Mostly I talk to my husband Seo-yeon, she checks on me every day.", "entities": [{"start": 28, "end": 36, "type": "first_name", "origin": "vietnamese_korean"}]}
+{"id": "01_15", "text": "My therapist Seo-yeon drove me here today.", "entities": [{"start": 13, "end": 21, "type": "first_name", "origin": "vietnamese_korean"}]}
+{"id": "02_15", "text": "I live in Wugang with my daughter Lihua.", "entities": [{"start": 10, "end": 16, "type": "city", "origin": "place"}, {"start": 34, "end": 39, "type": "first_name", "origin": "chinese"}]}
+{"id": "03_15", "text": "Kwame and I used to go running on Sundays.", "entities": [{"start": 0, "end": 5, "type": "first_name", "origin": "african"}]}
+{"id": "04_15", "text": "My name is Abigail Sharma and I'm 67 years old.", "entities": [{"start": 11, "end": 25, "type": "full_name", "origin": "anglo"}, {"start": 34, "end": 36, "type": "age", "origin": "number"}]}
+{"id": "05_15", "text": "I work at Bayview High School over on Hollis Street.", "entities": [{"start": 10, "end": 29, "type": "organization", "origin": "place"}, {"start": 38, "end": 51, "type": "street", "origin": "place"}]}
+{"id": "06_15", "text": "I moved from Hanoi back in January 27.", "entities": [{"start": 13, "end": 18, "type": "city", "origin": "place"}, {"start": 27, "end": 37, "type": "date", "origin": "date"}]}
+{"id": "07_15", "text": "You can reach me at 555-4472.", "entities": [{"start": 20, "end": 28, "type": "phone", "origin": "number"}]}
+{"id": "08_15", "text": "My email is abigail dot haddad at gmail dot com.", "entities": [{"start": 12, "end": 47, "type": "email", "origin": "email"}]}
+{"id": "09_15", "text": "Doctor Feldman at Kroger changed my medication.", "entities": [{"start": 7, "end": 14, "type": "last_name", "origin": "surname"}, {"start": 18, "end": 24, "type": "organization", "origin": "place"}]}
+{"id": "10_15", "text": "I told Oluwaseun I couldn't come, and Oluwaseun got upset.", "entities": [{"start": 7, "end": 16, "type": "first_name", "origin": "african"}, {"start": 38, "end": 47, "type": "first_name", "origin": "african"}]}
+{"id": "11_15", "text": "We grew up on Kingsley Road in Pune.", "entities": [{"start": 14, "end": 27, "type": "street", "origin": "place"}, {"start": 31, "end": 35, "type": "city", "origin": "place"}]}
+{"id": "12_15", "text": "My mom, Minh Okafor, is the only one who knows.", "entities": [{"start": 8, "end": 19, "type": "full_name", "origin": "vietnamese_korean"}]}
+{"id": "13_15", "text": "Last December 17 I stayed with Will for a week.", "entities": [{"start": 5, "end": 16, "type": "date", "origin": "date"}, {"start": 31, "end": 35, "type": "first_name", "origin": "common_word"}]}
+{"id": "14_15", "text": "I haven't seen Fatima since the funeral.", "entities": [{"start": 15, "end": 21, "type": "first_name", "origin": "arabic"}]}
+{"id": "15_15", "text": "Honestly Ximena is the reason I'm still going.", "entities": [{"start": 9, "end": 15, "type": "first_name", "origin": "hispanic"}]}
+{"id": "00_16", "text": "Mostly I talk to my son Javier, she checks on me every day.", "entities": [{"start": 24, "end": 30, "type": "first_name", "origin": "hispanic"}]}
+{"id": "01_16", "text": "My neighbor Ananya drove me here today.", "entities": [{"start": 12, "end": 18, "type": "first_name", "origin": "indian"}]}
+{"id": "02_16", "text": "I live in Fresno with my friend Hunter.", "entities": [{"start": 10, "end": 16, "type": "city", "origin": "place"}, {"start": 32, "end": 38, "type": "first_name", "origin": "common_word"}]}
+{"id": "03_16", "text": "Sanjana and I used to go running on Sundays.", "entities": [{"start": 0, "end": 7, "type": "first_name", "origin": "indian"}]}
+{"id": "04_16", "text": "My name is Sanjana Mensah and I'm 72 years old.", "entities": [{"start": 11, "end": 25, "type": "full_name", "origin": "indian"}, {"start": 34, "end": 36, "type": "age", "origin": "number"}]}
+{"id": "05_16", "text": "I work at the Hollis Clinic over on Ocean Drive.", "entities": [{"start": 14, "end": 27, "type": "organization", "origin": "place"}, {"start": 36, "end": 47, "type": "street", "origin": "place"}]}
+{"id": "06_16", "text": "I moved from Wugang back in December 7.", "entities": [{"start": 13, "end": 19, "type": "city", "origin": "place"}, {"start": 28, "end": 38, "type": "date", "origin": "date"}]}
+{"id": "07_16", "text": "You can reach me at eight five one, nine four three zero.", "entities": [{"start": 20, "end": 56, "type": "phone", "origin": "number"}]}
+{"id": "08_16", "text": "My email is layla dot patel at gmail dot com.", "entities": [{"start": 12, "end": 44, "type": "email", "origin": "email"}]}
+{"id": "09_16", "text": "Doctor Delgado at Bayview High School changed my medication.", "entities": [{"start": 7, "end": 14, "type": "last_name", "origin": "surname"}, {"start": 18, "end": 37, "type": "organization", "origin": "place"}]}
+{"id": "10_16", "text": "I told Abena I couldn't come, and Abena got upset.", "entities": [{"start": 7, "end": 12, "type": "first_name", "origin": "african"}, {"start": 34, "end": 39, "type": "first_name", "origin": "african"}]}
+{"id": "11_16", "text": "We grew up on Hollis Street in Pasadena.", "entities": [{"start": 14, "end": 27, "type": "street", "origin": "place"}, {"start": 31, "end": 39, "type": "city", "origin": "place"}]}
+{"id": "12_16", "text": "My wife, Yusuf Sharma, is the only one who knows.", "entities": [{"start": 9, "end": 21, "type": "full_name", "origin": "arabic"}]}
+{"id": "13_16", "text": "Last June 8 I stayed with Khalid for a week.", "entities": [{"start": 5, "end": 11, "type": "date", "origin": "date"}, {"start": 26, "end": 32, "type": "first_name", "origin": "arabic"}]}
+{"id": "14_16", "text": "I haven't seen Noor since the funeral.", "entities": [{"start": 15, "end": 19, "type": "first_name", "origin": "arabic"}]}
+{"id": "15_16", "text": "Honestly Minh is the reason I'm still going.", "entities": [{"start": 9, "end": 13, "type": "first_name", "origin": "vietnamese_korean"}]}
+{"id": "00_17", "text": "Mostly I talk to my brother Emily, she checks on me every day.", "entities": [{"start": 28, "end": 33, "type": "first_name", "origin": "anglo"}]}
+{"id": "01_17", "text": "My mom Mateo drove me here today.", "entities": [{"start": 7, "end": 12, "type": "first_name", "origin": "hispanic"}]}
+{"id": "02_17", "text": "I live in Shenzhen with my son Zuri.", "entities": [{"start": 10, "end": 18, "type": "city", "origin": "place"}, {"start": 31, "end": 35, "type": "first_name", "origin": "african"}]}
+{"id": "03_17", "text": "Priya and I used to go running on Sundays.", "entities": [{"start": 0, "end": 5, "type": "first_name", "origin": "indian"}]}
+{"id": "04_17", "text": "My name is Zuri Patel and I'm 36 years old.", "entities": [{"start": 11, "end": 21, "type": "full_name", "origin": "african"}, {"start": 30, "end": 32, "type": "age", "origin": "number"}]}
+{"id": "05_17", "text": "I work at Kroger over on Kingsley Road.", "entities": [{"start": 10, "end": 16, "type": "organization", "origin": "place"}, {"start": 25, "end": 38, "type": "street", "origin": "place"}]}
+{"id": "06_17", "text": "I moved from Hanoi back in March 7.", "entities": [{"start": 13, "end": 18, "type": "city", "origin": "place"}, {"start": 27, "end": 34, "type": "date", "origin": "date"}]}
+{"id": "07_17", "text": "You can reach me at zero three seven, eight two zero four.", "entities": [{"start": 20, "end": 57, "type": "phone", "origin": "number"}]}
+{"id": "08_17", "text": "My email is rose dot feldman at gmail dot com.", "entities": [{"start": 12, "end": 45, "type": "email", "origin": "email"}]}
+{"id": "09_17", "text": "Doctor Chen at Saint Mary's Hospital changed my medication.", "entities": [{"start": 7, "end": 11, "type": "last_name", "origin": "surname"}, {"start": 15, "end": 36, "type": "organization", "origin": "place"}]}
+{"id": "10_17", "text": "I told Yusuf I couldn't come, and Yusuf got upset.", "entities": [{"start": 7, "end": 12, "type": "first_name", "origin": "arabic"}, {"start": 34, "end": 39, "type": "first_name", "origin": "arabic"}]}
+{"id": "11_17", "text": "We grew up on Vermont Avenue in Wugang.", "entities": [{"start": 14, "end": 28, "type": "street", "origin": "place"}, {"start": 32, "end": 38, "type": "city", "origin": "place"}]}
+{"id": "12_17", "text": "My son, Amira Tran, is the only one who knows.", "entities": [{"start": 8, "end": 18, "type": "full_name", "origin": "arabic"}]}
+{"id": "13_17", "text": "Last January 14 I stayed with Zuri for a week.", "entities": [{"start": 5, "end": 15, "type": "date", "origin": "date"}, {"start": 30, "end": 34, "type": "first_name", "origin": "african"}]}
+{"id": "14_17", "text": "I haven't seen Chengdong since the funeral.", "entities": [{"start": 15, "end": 24, "type": "first_name", "origin": "chinese"}]}
+{"id": "15_17", "text": "Honestly Amara is the reason I'm still going.", "entities": [{"start": 9, "end": 14, "type": "first_name", "origin": "african"}]}
+{"id": "00_18", "text": "Mostly I talk to my girlfriend Khalid, she checks on me every day.", "entities": [{"start": 31, "end": 37, "type": "first_name", "origin": "arabic"}]}
+{"id": "01_18", "text": "My daughter Ji-woo drove me here today.", "entities": [{"start": 12, "end": 18, "type": "first_name", "origin": "vietnamese_korean"}]}
+{"id": "02_18", "text": "I live in Riverside with my son Javier.", "entities": [{"start": 10, "end": 19, "type": "city", "origin": "place"}, {"start": 32, "end": 38, "type": "first_name", "origin": "hispanic"}]}
+{"id": "03_18", "text": "Abena and I used to go running on Sundays.", "entities": [{"start": 0, "end": 5, "type": "first_name", "origin": "african"}]}
+{"id": "04_18", "text": "My name is Ananya Brennan and I'm 32 years old.", "entities": [{"start": 11, "end": 25, "type": "full_name", "origin": "indian"}, {"start": 34, "end": 36, "type": "age", "origin": "number"}]}
+{"id": "05_18", "text": "I work at Desert Valley Bank over on Figueroa Street.", "entities": [{"start": 10, "end": 28, "type": "organization", "origin": "place"}, {"start": 37, "end": 52, "type": "street", "origin": "place"}]}
+{"id": "06_18", "text": "I moved from Dearborn back in January 26.", "entities": [{"start": 13, "end": 21, "type": "city", "origin": "place"}, {"start": 30, "end": 40, "type": "date", "origin": "date"}]}
+{"id": "07_18", "text": "You can reach me at 555-3406.", "entities": [{"start": 20, "end": 28, "type": "phone", "origin": "number"}]}
+{"id": "08_18", "text": "My email is jun dot tran at gmail dot com.", "entities": [{"start": 12, "end": 41, "type": "email", "origin": "email"}]}
+{"id": "09_18", "text": "Doctor Ramirez at Bayview High School changed my medication.", "entities": [{"start": 7, "end": 14, "type": "last_name", "origin": "surname"}, {"start": 18, "end": 37, "type": "organization", "origin": "place"}]}
+{"id": "10_18", "text": "I told Vikram I couldn't come, and Vikram got upset.", "entities": [{"start": 7, "end": 13, "type": "first_name", "origin": "indian"}, {"start": 35, "end": 41, "type": "first_name", "origin": "indian"}]}
+{"id": "11_18", "text": "We grew up on Ocean Drive in Riverside.", "entities": [{"start": 14, "end": 25, "type": "street", "origin": "place"}, {"start": 29, "end": 38, "type": "city", "origin": "place"}]}
+{"id": "12_18", "text": "My boyfriend, Hope Haddad, is the only one who knows.", "entities": [{"start": 14, "end": 25, "type": "full_name", "origin": "common_word"}]}
+{"id": "13_18", "text": "Last October 24 I stayed with Lucia for a week.", "entities": [{"start": 5, "end": 15, "type": "date", "origin": "date"}, {"start": 30, "end": 35, "type": "first_name", "origin": "hispanic"}]}
+{"id": "14_18", "text": "I haven't seen Elena since the funeral.", "entities": [{"start": 15, "end": 20, "type": "first_name", "origin": "hispanic"}]}
+{"id": "15_18", "text": "Honestly June is the reason I'm still going.", "entities": [{"start": 9, "end": 13, "type": "first_name", "origin": "common_word"}]}
+{"id": "00_19", "text": "Mostly I talk to my son Mateo, she checks on me every day.", "entities": [{"start": 24, "end": 29, "type": "first_name", "origin": "hispanic"}]}
+{"id": "01_19", "text": "My daughter Seo-yeon drove me here today.", "entities": [{"start": 12, "end": 20, "type": "first_name", "origin": "vietnamese_korean"}]}
+{"id": "02_19", "text": "I live in Shenzhen with my boyfriend Bao.", "entities": [{"start": 10, "end": 18, "type": "city", "origin": "place"}, {"start": 37, "end": 40, "type": "first_name", "origin": "vietnamese_korean"}]}
+{"id": "03_19", "text": "Javier and I used to go running on Sundays.", "entities": [{"start": 0, "end": 6, "type": "first_name", "origin": "hispanic"}]}
+{"id": "04_19", "text": "My name is Aditya Brennan and I'm 21 years old.", "entities": [{"start": 11, "end": 25, "type": "full_name", "origin": "indian"}, {"start": 34, "end": 36, "type": "age", "origin": "number"}]}
+{"id": "05_19", "text": "I work at Pinecrest Dental over on Juniper Lane.", "entities": [{"start": 10, "end": 26, "type": "organization", "origin": "place"}, {"start": 35, "end": 47, "type": "street", "origin": "place"}]}
+{"id": "06_19", "text": "I moved from Tucson back in December 22.", "entities": [{"start": 13, "end": 19, "type": "city", "origin": "place"}, {"start": 28, "end": 39, "type": "date", "origin": "date"}]}
+{"id": "07_19", "text": "You can reach me at 555-5649.", "entities": [{"start": 20, "end": 28, "type": "phone", "origin": "number"}]}
+{"id": "08_19", "text": "My email is megan dot abdullah at gmail dot com.", "entities": [{"start": 12, "end": 47, "type": "email", "origin": "email"}]}
+{"id": "09_19", "text": "Doctor Haddad at Lincoln Elementary changed my medication.", "entities": [{"start": 7, "end": 13, "type": "last_name", "origin": "surname"}, {"start": 17, "end": 35, "type": "organization", "origin": "place"}]}
+{"id": "10_19", "text": "I told Deepika I couldn't come, and Deepika got upset.", "entities": [{"start": 7, "end": 14, "type": "first_name", "origin": "indian"}, {"start": 36, "end": 43, "type": "first_name", "origin": "indian"}]}
+{"id": "11_19", "text": "We grew up on Vermont Avenue in Dearborn.", "entities": [{"start": 14, "end": 28, "type": "street", "origin": "place"}, {"start": 32, "end": 40, "type": "city", "origin": "place"}]}
+{"id": "12_19", "text": "My therapist, Rose Sharma, is the only one who knows.", "entities": [{"start": 14, "end": 25, "type": "full_name", "origin": "common_word"}]}
+{"id": "13_19", "text": "Last October 7 I stayed with Elena for a week.", "entities": [{"start": 5, "end": 14, "type": "date", "origin": "date"}, {"start": 29, "end": 34, "type": "first_name", "origin": "hispanic"}]}
+{"id": "14_19", "text": "I haven't seen Minh since the funeral.", "entities": [{"start": 15, "end": 19, "type": "first_name", "origin": "vietnamese_korean"}]}
+{"id": "15_19", "text": "Honestly Rose is the reason I'm still going.", "entities": [{"start": 9, "end": 13, "type": "first_name", "origin": "common_word"}]}
+{"id": "00_20", "text": "Mostly I talk to my boss Sanjana, she checks on me every day.", "entities": [{"start": 25, "end": 32, "type": "first_name", "origin": "indian"}]}
+{"id": "01_20", "text": "My roommate Bao drove me here today.", "entities": [{"start": 12, "end": 15, "type": "first_name", "origin": "vietnamese_korean"}]}
+{"id": "02_20", "text": "I live in Wugang with my daughter Amara.", "entities": [{"start": 10, "end": 16, "type": "city", "origin": "place"}, {"start": 34, "end": 39, "type": "first_name", "origin": "african"}]}
+{"id": "03_20", "text": "Wei and I used to go running on Sundays.", "entities": [{"start": 0, "end": 3, "type": "first_name", "origin": "chinese"}]}
+{"id": "04_20", "text": "My name is Oluwaseun Feldman and I'm 47 years old.", "entities": [{"start": 11, "end": 28, "type": "full_name", "origin": "african"}, {"start": 37, "end": 39, "type": "age", "origin": "number"}]}
+{"id": "05_20", "text": "I work at Saint Mary's Hospital over on Vermont Avenue.", "entities": [{"start": 10, "end": 31, "type": "organization", "origin": "place"}, {"start": 40, "end": 54, "type": "street", "origin": "place"}]}
+{"id": "06_20", "text": "I moved from Monterrey back in June 17.", "entities": [{"start": 13, "end": 22, "type": "city", "origin": "place"}, {"start": 31, "end": 38, "type": "date", "origin": "date"}]}
+{"id": "07_20", "text": "You can reach me at one three five, nine four three five.", "entities": [{"start": 20, "end": 56, "type": "phone", "origin": "number"}]}
+{"id": "08_20", "text": "My email is javier dot sharma at gmail dot com.", "entities": [{"start": 12, "end": 46, "type": "email", "origin": "email"}]}
+{"id": "09_20", "text": "Doctor Brennan at Desert Valley Bank changed my medication.", "entities": [{"start": 7, "end": 14, "type": "last_name", "origin": "surname"}, {"start": 18, "end": 36, "type": "organization", "origin": "place"}]}
+{"id": "10_20", "text": "I told Rohan I couldn't come, and Rohan got upset.", "entities": [{"start": 7, "end": 12, "type": "first_name", "origin": "indian"}, {"start": 34, "end": 39, "type": "first_name", "origin": "indian"}]}
+{"id": "11_20", "text": "We grew up on Juniper Lane in Pasadena.", "entities": [{"start": 14, "end": 26, "type": "street", "origin": "place"}, {"start": 30, "end": 38, "type": "city", "origin": "place"}]}
+{"id": "12_20", "text": "My cousin, Chengdong Kowalski, is the only one who knows.", "entities": [{"start": 11, "end": 29, "type": "full_name", "origin": "chinese"}]}
+{"id": "13_20", "text": "Last December 28 I stayed with Khalid for a week.", "entities": [{"start": 5, "end": 16, "type": "date", "origin": "date"}, {"start": 31, "end": 37, "type": "first_name", "origin": "arabic"}]}
+{"id": "14_20", "text": "I haven't seen Connor since the funeral.", "entities": [{"start": 15, "end": 21, "type": "first_name", "origin": "anglo"}]}
+{"id": "15_20", "text": "Honestly Jacob is the reason I'm still going.", "entities": [{"start": 9, "end": 14, "type": "first_name", "origin": "anglo"}]}
+{"id": "00_21", "text": "Mostly I talk to my brother Hunter, she checks on me every day.", "entities": [{"start": 28, "end": 34, "type": "first_name", "origin": "common_word"}]}
+{"id": "01_21", "text": "My husband Amara drove me here today.", "entities": [{"start": 11, "end": 16, "type": "first_name", "origin": "african"}]}
+{"id": "02_21", "text": "I live in Lagos with my boyfriend Chidi.", "entities": [{"start": 10, "end": 15, "type": "city", "origin": "place"}, {"start": 34, "end": 39, "type": "first_name", "origin": "african"}]}
+{"id": "03_21", "text": "Oluwaseun and I used to go running on Sundays.", "entities": [{"start": 0, "end": 9, "type": "first_name", "origin": "african"}]}
+{"id": "04_21", "text": "My name is Bao Delgado and I'm 77 years old.", "entities": [{"start": 11, "end": 22, "type": "full_name", "origin": "vietnamese_korean"}, {"start": 31, "end": 33, "type": "age", "origin": "number"}]}
+{"id": "05_21", "text": "I work at Pinecrest Dental over on Figueroa Street.", "entities": [{"start": 10, "end": 26, "type": "organization", "origin": "place"}, {"start": 35, "end": 50, "type": "street", "origin": "place"}]}
+{"id": "06_21", "text": "I moved from Duluth back in June 26.", "entities": [{"start": 13, "end": 19, "type": "city", "origin": "place"}, {"start": 28, "end": 35, "type": "date", "origin": "date"}]}
+{"id": "07_21", "text": "You can reach me at six nine three, nine one eight seven.", "entities": [{"start": 20, "end": 56, "type": "phone", "origin": "number"}]}
+{"id": "08_21", "text": "My email is kwame dot tran at gmail dot com.", "entities": [{"start": 12, "end": 43, "type": "email", "origin": "email"}]}
+{"id": "09_21", "text": "Doctor Haddad at Saint Mary's Hospital changed my medication.", "entities": [{"start": 7, "end": 13, "type": "last_name", "origin": "surname"}, {"start": 17, "end": 38, "type": "organization", "origin": "place"}]}
+{"id": "10_21", "text": "I told Megan I couldn't come, and Megan got upset.", "entities": [{"start": 7, "end": 12, "type": "first_name", "origin": "anglo"}, {"start": 34, "end": 39, "type": "first_name", "origin": "anglo"}]}
+{"id": "11_21", "text": "We grew up on Ocean Drive in Chandler.", "entities": [{"start": 14, "end": 25, "type": "street", "origin": "place"}, {"start": 29, "end": 37, "type": "city", "origin": "place"}]}
+{"id": "12_21", "text": "My husband, Hunter Feldman, is the only one who knows.", "entities": [{"start": 12, "end": 26, "type": "full_name", "origin": "common_word"}]}
+{"id": "13_21", "text": "Last October 15 I stayed with Megan for a week.", "entities": [{"start": 5, "end": 15, "type": "date", "origin": "date"}, {"start": 30, "end": 35, "type": "first_name", "origin": "anglo"}]}
+{"id": "14_21", "text": "I haven't seen Hope since the funeral.", "entities": [{"start": 15, "end": 19, "type": "first_name", "origin": "common_word"}]}
+{"id": "15_21", "text": "Honestly Jun is the reason I'm still going.", "entities": [{"start": 9, "end": 12, "type": "first_name", "origin": "chinese"}]}
+{"id": "00_22", "text": "Mostly I talk to my neighbor Emily, she checks on me every day.", "entities": [{"start": 29, "end": 34, "type": "first_name", "origin": "anglo"}]}
+{"id": "01_22", "text": "My wife Xiaoming drove me here today.", "entities": [{"start": 8, "end": 16, "type": "first_name", "origin": "chinese"}]}
+{"id": "02_22", "text": "I live in Sacramento with my brother Abigail.", "entities": [{"start": 10, "end": 20, "type": "city", "origin": "place"}, {"start": 37, "end": 44, "type": "first_name", "origin": "anglo"}]}
+{"id": "03_22", "text": "Mei and I used to go running on Sundays.", "entities": [{"start": 0, "end": 3, "type": "first_name", "origin": "chinese"}]}
+{"id": "04_22", "text": "My name is Priya Ramirez and I'm 20 years old.", "entities": [{"start": 11, "end": 24, "type": "full_name", "origin": "indian"}, {"start": 33, "end": 35, "type": "age", "origin": "number"}]}
+{"id": "05_22", "text": "I work at Pinecrest Dental over on Elm Court.", "entities": [{"start": 10, "end": 26, "type": "organization", "origin": "place"}, {"start": 35, "end": 44, "type": "street", "origin": "place"}]}
+{"id": "06_22", "text": "I moved from Dearborn back in January 2.", "entities": [{"start": 13, "end": 21, "type": "city", "origin": "place"}, {"start": 30, "end": 39, "type": "date", "origin": "date"}]}
+{"id": "07_22", "text": "You can reach me at 555-3348.", "entities": [{"start": 20, "end": 28, "type": "phone", "origin": "number"}]}
+{"id": "08_22", "text": "My email is zhangwei dot abdullah at gmail dot com.", "entities": [{"start": 12, "end": 50, "type": "email", "origin": "email"}]}
+{"id": "09_22", "text": "Doctor Okafor at Riverside Logistics changed my medication.", "entities": [{"start": 7, "end": 13, "type": "last_name", "origin": "surname"}, {"start": 17, "end": 36, "type": "organization", "origin": "place"}]}
+{"id": "10_22", "text": "I told Vikram I couldn't come, and Vikram got upset.", "entities": [{"start": 7, "end": 13, "type": "first_name", "origin": "indian"}, {"start": 35, "end": 41, "type": "first_name", "origin": "indian"}]}
+{"id": "11_22", "text": "We grew up on Kingsley Road in Shenzhen.", "entities": [{"start": 14, "end": 27, "type": "street", "origin": "place"}, {"start": 31, "end": 39, "type": "city", "origin": "place"}]}
+{"id": "12_22", "text": "My husband, Zuri Liu, is the only one who knows.", "entities": [{"start": 12, "end": 20, "type": "full_name", "origin": "african"}]}
+{"id": "13_22", "text": "Last January 2 I stayed with Arjun for a week.", "entities": [{"start": 5, "end": 14, "type": "date", "origin": "date"}, {"start": 29, "end": 34, "type": "first_name", "origin": "indian"}]}
+{"id": "14_22", "text": "I haven't seen Bao since the funeral.", "entities": [{"start": 15, "end": 18, "type": "first_name", "origin": "vietnamese_korean"}]}
+{"id": "15_22", "text": "Honestly Mateo is the reason I'm still going.", "entities": [{"start": 9, "end": 14, "type": "first_name", "origin": "hispanic"}]}
+{"id": "00_23", "text": "Mostly I talk to my boyfriend Amira, she checks on me every day.", "entities": [{"start": 30, "end": 35, "type": "first_name", "origin": "arabic"}]}
+{"id": "01_23", "text": "My boyfriend Fatima drove me here today.", "entities": [{"start": 13, "end": 19, "type": "first_name", "origin": "arabic"}]}
+{"id": "02_23", "text": "I live in Riverside with my neighbor Hyun.", "entities": [{"start": 10, "end": 19, "type": "city", "origin": "place"}, {"start": 37, "end": 41, "type": "first_name", "origin": "vietnamese_korean"}]}
+{"id": "03_23", "text": "Rodrigo and I used to go running on Sundays.", "entities": [{"start": 0, "end": 7, "type": "first_name", "origin": "hispanic"}]}
+{"id": "04_23", "text": "My name is Chidi Liu and I'm 29 years old.", "entities": [{"start": 11, "end": 20, "type": "full_name", "origin": "african"}, {"start": 29, "end": 31, "type": "age", "origin": "number"}]}
+{"id": "05_23", "text": "I work at Lincoln Elementary over on Ocean Drive.", "entities": [{"start": 10, "end": 28, "type": "organization", "origin": "place"}, {"start": 37, "end": 48, "type": "street", "origin": "place"}]}
+{"id": "06_23", "text": "I moved from Hanoi back in March 22.", "entities": [{"start": 13, "end": 18, "type": "city", "origin": "place"}, {"start": 27, "end": 35, "type": "date", "origin": "date"}]}
+{"id": "07_23", "text": "You can reach me at 555-3300.", "entities": [{"start": 20, "end": 28, "type": "phone", "origin": "number"}]}
+{"id": "08_23", "text": "My email is camila dot park at gmail dot com.", "entities": [{"start": 12, "end": 44, "type": "email", "origin": "email"}]}
+{"id": "09_23", "text": "Doctor Abdullah at Pinecrest Dental changed my medication.", "entities": [{"start": 7, "end": 15, "type": "last_name", "origin": "surname"}, {"start": 19, "end": 35, "type": "organization", "origin": "place"}]}
+{"id": "10_23", "text": "I told Yuxuan I couldn't come, and Yuxuan got upset.", "entities": [{"start": 7, "end": 13, "type": "first_name", "origin": "chinese"}, {"start": 35, "end": 41, "type": "first_name", "origin": "chinese"}]}
+{"id": "11_23", "text": "We grew up on Hollis Street in Fresno.", "entities": [{"start": 14, "end": 27, "type": "street", "origin": "place"}, {"start": 31, "end": 37, "type": "city", "origin": "place"}]}
+{"id": "12_23", "text": "My boyfriend, Grace Delgado, is the only one who knows.", "entities": [{"start": 14, "end": 27, "type": "full_name", "origin": "common_word"}]}
+{"id": "13_23", "text": "Last October 3 I stayed with Abena for a week.", "entities": [{"start": 5, "end": 14, "type": "date", "origin": "date"}, {"start": 29, "end": 34, "type": "first_name", "origin": "african"}]}
+{"id": "14_23", "text": "I haven't seen Grace since the funeral.", "entities": [{"start": 15, "end": 20, "type": "first_name", "origin": "common_word"}]}
+{"id": "15_23", "text": "Honestly Khalid is the reason I'm still going.", "entities": [{"start": 9, "end": 15, "type": "first_name", "origin": "arabic"}]}
+{"id": "00_24", "text": "Mostly I talk to my boss Ji-woo, she checks on me every day.", "entities": [{"start": 25, "end": 31, "type": "first_name", "origin": "vietnamese_korean"}]}
+{"id": "01_24", "text": "My therapist Tariq drove me here today.", "entities": [{"start": 13, "end": 18, "type": "first_name", "origin": "arabic"}]}
+{"id": "02_24", "text": "I live in Duluth with my cousin Seo-yeon.", "entities": [{"start": 10, "end": 16, "type": "city", "origin": "place"}, {"start": 32, "end": 40, "type": "first_name", "origin": "vietnamese_korean"}]}
+{"id": "03_24", "text": "Oluwaseun and I used to go running on Sundays.", "entities": [{"start": 0, "end": 9, "type": "first_name", "origin": "african"}]}
+{"id": "04_24", "text": "My name is Ji-woo Haddad and I'm 26 years old.", "entities": [{"start": 11, "end": 24, "type": "full_name", "origin": "vietnamese_korean"}, {"start": 33, "end": 35, "type": "age", "origin": "number"}]}
+{"id": "05_24", "text": "I work at Bayview High School over on Ocean Drive.", "entities": [{"start": 10, "end": 29, "type": "organization", "origin": "place"}, {"start": 38, "end": 49, "type": "street", "origin": "place"}]}
+{"id": "06_24", "text": "I moved from Lagos back in October 21.", "entities": [{"start": 13, "end": 18, "type": "city", "origin": "place"}, {"start": 27, "end": 37, "type": "date", "origin": "date"}]}
+{"id": "07_24", "text": "You can reach me at 555-2584.", "entities": [{"start": 20, "end": 28, "type": "phone", "origin": "number"}]}
+{"id": "08_24", "text": "My email is amira dot sharma at gmail dot com.", "entities": [{"start": 12, "end": 45, "type": "email", "origin": "email"}]}
+{"id": "09_24", "text": "Doctor Patel at Riverside Logistics changed my medication.", "entities": [{"start": 7, "end": 12, "type": "last_name", "origin": "surname"}, {"start": 16, "end": 35, "type": "organization", "origin": "place"}]}
+{"id": "10_24", "text": "I told Tendai I couldn't come, and Tendai got upset.", "entities": [{"start": 7, "end": 13, "type": "first_name", "origin": "african"}, {"start": 35, "end": 41, "type": "first_name", "origin": "african"}]}
+{"id": "11_24", "text": "We grew up on Elm Court in Katy.", "entities": [{"start": 14, "end": 23, "type": "street", "origin": "place"}, {"start": 27, "end": 31, "type": "city", "origin": "place"}]}
+{"id": "12_24", "text": "My boss, Wei Chen, is the only one who knows.", "entities": [{"start": 9, "end": 17, "type": "full_name", "origin": "chinese"}]}
+{"id": "13_24", "text": "Last August 10 I stayed with Arjun for a week.", "entities": [{"start": 5, "end": 14, "type": "date", "origin": "date"}, {"start": 29, "end": 34, "type": "first_name", "origin": "indian"}]}
+{"id": "14_24", "text": "I haven't seen Kwame since the funeral.", "entities": [{"start": 15, "end": 20, "type": "first_name", "origin": "african"}]}
+{"id": "15_24", "text": "Honestly Chidi is the reason I'm still going.", "entities": [{"start": 9, "end": 14, "type": "first_name", "origin": "african"}]}

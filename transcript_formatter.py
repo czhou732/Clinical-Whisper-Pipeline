@@ -133,20 +133,16 @@ def classify_speakers(segments: list[dict]) -> dict[str, str]:
         scores[spk] = score
 
     # ── Assign roles ──
-    ranked = sorted(scores, key=scores.get, reverse=True)  # type: ignore[arg-type]
-    roles: dict[str, str] = {}
-    roles[ranked[0]] = "Interviewer"
-
-    if len(ranked) == 2:
-        roles[ranked[1]] = "Subject"
-    else:
-        # Two-speaker core: highest score → Interviewer, lowest → Subject,
-        # everyone else → Other_N.
-        roles[ranked[-1]] = "Subject"
-        other_idx = 1
-        for spk in ranked[1:-1]:
-            roles[spk] = f"Other_{other_idx}"
-            other_idx += 1
+    # Only the two speakers who talk most can be Interviewer and Subject.
+    # Among extra labels, which are often fragments of one person split off by
+    # diarization, a short one wins every "interviewer-like" signal above
+    # (few words, short turns): it once beat the real host to "Interviewer".
+    by_talk = sorted(speaker_data, key=lambda s: speaker_data[s]["total_duration"],
+                     reverse=True)
+    core = sorted(by_talk[:2], key=scores.get, reverse=True)  # type: ignore[arg-type]
+    roles: dict[str, str] = {core[0]: "Interviewer", core[1]: "Subject"}
+    for other_idx, spk in enumerate(by_talk[2:], start=1):
+        roles[spk] = f"Other_{other_idx}"
 
     log.info("Speaker roles: %s", roles)
     return roles
@@ -159,9 +155,13 @@ def classify_speakers(segments: list[dict]) -> dict[str, str]:
 def format_structured_transcript(
     segments: list[dict],
     roles: dict[str, str],
+    names: Optional[dict[str, str]] = None,
 ) -> str:
     """
     Format diarized segments into a clean, timestamped clinical transcript.
+
+    A speaker the user has named reads "Name (Role)", so the role the scorer
+    relies on stays on every line.
 
     Consecutive segments from the same speaker are merged into a single turn.
 
@@ -178,40 +178,131 @@ def format_structured_transcript(
     if not segments:
         return ""
 
-    # ── Merge consecutive same-speaker segments ──
-    merged_turns: list[dict] = []
-
-    for seg in segments:
-        spk = seg.get("speaker", "Unknown")
-        text = (seg.get("text") or "").strip()
-        start = float(seg.get("start", 0.0))
-        end = float(seg.get("end", 0.0))
-
-        if not text:
-            continue
-
-        if merged_turns and merged_turns[-1]["speaker"] == spk:
-            # Extend the current turn
-            merged_turns[-1]["end"] = end
-            merged_turns[-1]["texts"].append(text)
-        else:
-            merged_turns.append({
-                "speaker": spk,
-                "start": start,
-                "end": end,
-                "texts": [text],
-            })
+    # ── Merge consecutive same-speaker segments (turn_spans: one line each) ──
+    merged_turns = [{
+        "speaker": segments[idx[0]].get("speaker", "Unknown"),
+        "start": float(segments[idx[0]].get("start", 0.0)),
+        "end": float(segments[idx[-1]].get("end", 0.0)),
+        "texts": [(segments[i].get("text") or "").strip() for i in idx],
+    } for idx in turn_spans(segments)]
 
     # ── Format each turn ──
     lines: list[str] = []
     for turn in merged_turns:
         ts_start = _seconds_to_mmss(turn["start"])
         ts_end = _seconds_to_mmss(turn["end"])
-        role = roles.get(turn["speaker"], turn["speaker"])
+        role = speaker_label(turn["speaker"], roles, names)
         combined_text = " ".join(turn["texts"])
         lines.append(f"[{ts_start} - {ts_end}] {role}: {combined_text}")
 
     return "\n".join(lines)
+
+
+def turn_spans(segments: list[dict]) -> list[list[int]]:
+    """Segment indices of each transcript line: consecutive non-empty segments
+    of one speaker. Line n of format_structured_transcript is turn n here."""
+    spans: list[list[int]] = []
+    last = None
+    for i, seg in enumerate(segments):
+        if not (seg.get("text") or "").strip():
+            continue
+        spk = seg.get("speaker", "Unknown")
+        if spans and spk == last:
+            spans[-1].append(i)
+        else:
+            spans.append([i])
+        last = spk
+    return spans
+
+
+def move_turn(segments: list[dict], turn: int, to: str, start: Optional[float] = None
+              ) -> tuple[list[dict], dict]:
+    """Give transcript line ``turn`` to speaker ``to`` ("new" for a new speaker).
+
+    ``start`` is the line's start time as the user saw it; a mismatch of more
+    than a second means the transcript changed underneath (refused). Returns
+    the new segments and a record of the move, without any text.
+    """
+    spans = turn_spans(segments)
+    if not 0 <= turn < len(spans):
+        raise ValueError("That line is no longer in the transcript. Reload and try again.")
+    idx = spans[turn]
+    first = segments[idx[0]]
+    if start is not None and abs(float(first.get("start", 0.0)) - float(start)) > 1.0:
+        raise ValueError("The transcript changed since it was shown. Reload and try again.")
+    old = first.get("speaker", "Unknown")
+    labels = {s.get("speaker") for s in segments}
+    if to == "new":
+        n = 1
+        while f"S{n:02d}" in labels:
+            n += 1
+        to = f"S{n:02d}"
+    elif to not in labels:
+        raise ValueError(f"Unknown speaker {to!r}.")
+    if to == old:
+        raise ValueError("That line already belongs to this speaker.")
+    out = [dict(s) for s in segments]
+    for i in idx:
+        out[i]["speaker"] = to
+        out[i]["moved_by_hand"] = True
+    record = {"at": round(float(first.get("start", 0.0)), 2), "from": old, "to": to,
+              "seconds": round(sum(float(out[i].get("end", 0)) - float(out[i].get("start", 0)) for i in idx), 1),
+              "new_speaker": to not in labels}
+    return out, record
+
+
+def speaker_label(spk: str, roles: dict[str, str],
+                  names: Optional[dict[str, str]] = None) -> str:
+    """How a speaker appears in the transcript: their role, or "Name (Role)"."""
+    role = roles.get(spk, spk)
+    name = (names or {}).get(spk)
+    return f"{name} ({role})" if name else role
+
+
+_NAME_MAX = 40
+
+
+def clean_names(names: Optional[dict], speakers) -> dict[str, str]:
+    """Keep user-typed labels that are safe to put on a transcript line.
+
+    One line, no colon (the line format uses one), at most 40 characters,
+    and only for speakers this recording actually has.
+    """
+    out: dict[str, str] = {}
+    for spk, name in (names or {}).items():
+        if spk not in speakers or not isinstance(name, str):
+            continue
+        name = " ".join(name.replace(":", " ").split())[:_NAME_MAX].strip()
+        if name:
+            out[spk] = name
+    return out
+
+
+def speaker_samples(segments: list[dict], per_speaker: int = 2,
+                    max_chars: int = 140) -> dict[str, dict]:
+    """A few lines and the talk time for each speaker, to tell them apart.
+
+    Takes each speaker's earliest turns of at least six words: short ones
+    ("yeah", "mm-hmm") identify nobody. Text is the masked transcript.
+    """
+    out: dict[str, dict] = {}
+    for seg in segments:
+        spk = seg.get("speaker", "Unknown")
+        entry = out.setdefault(spk, {"talk_s": 0.0, "lines": [], "first_s": None,
+                                     "sample_s": None})
+        start, end = float(seg.get("start", 0.0)), float(seg.get("end", 0.0))
+        entry["talk_s"] += max(0.0, end - start)
+        if entry["first_s"] is None:
+            entry["first_s"] = start
+        text = " ".join((seg.get("text") or "").split())
+        if len(entry["lines"]) < per_speaker and len(text.split()) >= 6:
+            if entry["sample_s"] is None:
+                entry["sample_s"] = start  # where "Play a sample" starts
+            entry["lines"].append(text if len(text) <= max_chars
+                                  else text[:max_chars].rsplit(" ", 1)[0] + "…")
+    for entry in out.values():
+        entry["talk_s"] = round(entry["talk_s"], 1)
+    return out
 
 
 # ---------------------------------------------------------------------------

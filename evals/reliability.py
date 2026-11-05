@@ -268,8 +268,12 @@ def _icc_band(v: float) -> str:
             else "good" if v < 0.9 else "excellent")
 
 
+def _average_measures(icc: float, k: int) -> float:
+    """ICC(1,k) from ICC(1,1): reliability of the mean of k exchangeable runs."""
+    return k * icc / (1 + (k - 1) * icc)
+
+
 def render(report: dict[str, Any]) -> str:
-    d0 = next(iter(report["dimensions"].values()), {})
     lines = [
         "# Scorer reliability on real recordings", "",
         f"{report['clips']} clips from separate source recordings, scored "
@@ -278,16 +282,24 @@ def render(report: dict[str, Any]) -> str:
         "One-way random-effects ICC(1,1), per Shrout & Fleiss (1979): the repeated "
         "scores are exchangeable draws from one stochastic process, not a fixed "
         "panel of identifiable raters.", "",
-        "| dimension | mean | range | SEM | SD between | ratio | ICC(1,1) | 95% CI | |",
-        "|---|---|---|---|---|---|---|---|---|",
+        "| dimension | mean | range | SEM | SD between | ratio | ICC(1,1) | 95% CI | |"
+        " ICC(1,k): mean of k runs | 95% CI | |",
+        "|---|---|---|---|---|---|---|---|---|---|---|---|",
     ]
+    runs = sorted(set(report["runs_per_clip"].values()))[0]
     for k, d in report["dimensions"].items():
         icc, ci = d["icc_1_1"], d.get("icc_ci95")
         ci_s = f"{ci[0]:.2f} – {ci[1]:.2f}" if ci else "—"
+        # Average-measures ICC from the same one-way ANOVA: an exact function of
+        # ICC(1,1) at this k — the reliability of llm_scoring.samples = k.
+        icck = _average_measures(icc, runs)
+        cik = (f"{_average_measures(max(ci[0], -0.24), runs):.2f} – "
+               f"{_average_measures(ci[1], runs):.2f}") if ci else "—"
         lines.append(
             f"| {k} | {d['mean']} | {d['min']:.0f}–{d['max']:.0f} | {d['sem']} "
             f"| {d['sd_between']} | {d['discrimination_ratio']} | {icc} | {ci_s} "
-            f"| {_icc_band(icc) if icc is not None else '—'} |"
+            f"| {_icc_band(icc) if icc is not None else '—'} "
+            f"| {icck:.2f} | {cik} | {_icc_band(icck)} |"
         )
 
     lines += [
@@ -307,7 +319,7 @@ def render(report: dict[str, Any]) -> str:
 
     lines += [
         "", "## Limitations", "",
-        f"- **n = {d0.get('n_targets', '?')} targets** is well below the ~30 "
+        f"- **n = {report['clips']} targets** is well below the ~30 "
         "usually recommended for an ICC study, which is why the confidence "
         "intervals above are very wide. Treat the point estimates as indicative.",
         "- Clips were drawn two per source recording, so they are **clustered** "
@@ -343,6 +355,8 @@ def main() -> None:
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--clips", required=True, help="Directory of audio clips.")
     ap.add_argument("--runs", type=int, default=5, help="Scoring runs per clip.")
+    ap.add_argument("--samples", type=int, default=1,
+                    help="Samples averaged within each run (the app's llm_scoring.samples).")
     ap.add_argument("--config", default=str(PROJECT_ROOT / "config.example.yaml"))
     ap.add_argument("--report", default=str(PROJECT_ROOT / "evals/reports/reliability.json"))
     args = ap.parse_args()
@@ -361,7 +375,9 @@ def main() -> None:
     # Repeated greedy decoding would be identical and report a spurious zero
     # spread, so sampling must be on for this measurement to mean anything.
     cfg.setdefault("llm_scoring", {})["temperature"] = 0.7
-    cfg["llm_scoring"]["samples"] = 1
+    # Each "run" is one scoring; --samples > 1 makes each run itself a mean of
+    # that many samples, measuring the reliability of the shipped default.
+    cfg["llm_scoring"]["samples"] = args.samples
     # Every run must sample. The shipped default makes the first pass greedy,
     # which would make repeated runs byte-identical and report a within-clip SD
     # of exactly zero — measuring the code path, not the model.

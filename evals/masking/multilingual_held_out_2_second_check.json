@@ -1,0 +1,57 @@
+{
+ "zh": {
+  "model": "OpenMed/privacy-filter-multilingual-v2-mlx-8bit",
+  "threshold": 0.3,
+  "second_check": true,
+  "recall": 0.905,
+  "by_type": {
+   "name": 0.883,
+   "city": 0.958
+  },
+  "over_masking_chars": 0.038
+ },
+ "ja": {
+  "model": "OpenMed/privacy-filter-multilingual-v2-mlx-8bit",
+  "threshold": 0.3,
+  "second_check": true,
+  "recall": 0.806,
+  "by_type": {
+   "name": 0.75,
+   "city": 0.917
+  },
+  "over_masking_chars": 0.036
+ },
+ "ko": {
+  "model": "OpenMed/privacy-filter-multilingual-v2-mlx-8bit",
+  "threshold": 0.3,
+  "second_check": true,
+  "recall": 0.736,
+  "by_type": {
+   "name": 0.646,
+   "city": 0.917
+  },
+  "over_masking_chars": 0.057
+ },
+ "hi": {
+  "model": "OpenMed/privacy-filter-multilingual-v2-mlx-8bit",
+  "threshold": 0.3,
+  "second_check": true,
+  "recall": 0.778,
+  "by_type": {
+   "name": 0.771,
+   "city": 0.792
+  },
+  "over_masking_chars": 0.013
+ },
+ "es": {
+  "model": "OpenMed/privacy-filter-multilingual-v2-mlx-8bit",
+  "threshold": 0.3,
+  "second_check": true,
+  "recall": 1.0,
+  "by_type": {
+   "name": 1.0,
+   "city": 1.0
+  },
+  "over_masking_chars": 0.082
+ }
+}

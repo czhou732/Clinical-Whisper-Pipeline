@@ -36,3 +36,12 @@ test_results.csv
 # Clinical eval scorer cache (regenerated on demand; keyed by model+prompt hash)
 evals/.cache/
 .model_stage/
+plan/
+.addon_stage/
+.addon_stage_languages/
+speed.json
+.addon_stage_kintsugi/
+.addon_stage_praat/
+.addon_stage_deid/
+.addon_stage_lang_*/
+.venv-presidio/

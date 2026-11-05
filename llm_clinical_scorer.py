@@ -77,24 +77,26 @@ log = logging.getLogger("ClinicalWhisper")
 # ---------------------------------------------------------------------------
 OLLAMA_GENERATE_ENDPOINT = "/api/generate"
 
+# Scorer version 2 (Oct 2026). Four judgements a transcript can support, each
+# on a 0-3 scale with written anchors, and each only with a quote. Removed from
+# version 1: hesitancy and psychomotor (the timing measures do that directly),
+# and elaboration (now counted: elaboration.py). Version 1's ICCs do not apply.
+SCORER_VERSION = "2"
+SCALE_MAX = 3
 REQUIRED_SCORE_KEYS = [
-    "hesitancy_score",
+    "anhedonia_content",
+    "depressed_mood_content",
     "affect_flatness",
     "engagement_level",
-    "elaboration_positive",
-    "elaboration_negative",
-    "psychomotor_indicators",
 ]
 
+# Text fields only. There are no default numbers: a score that couldn't be
+# made is missing (None), never a placeholder that looks like a measurement.
 DEFAULT_SCORES: dict[str, Any] = {
-    "hesitancy_score": 0,
-    "affect_flatness": 0,
-    "engagement_level": 5,
-    "elaboration_positive": 5,
-    "elaboration_negative": 5,
-    "psychomotor_indicators": 0,
+    **{k: None for k in REQUIRED_SCORE_KEYS},
     "key_observations": [],
-    "clinical_impression": "Scoring could not be completed.",
+    "summary": "",
+    "clinical_impression": "",
 }
 
 # ---------------------------------------------------------------------------
@@ -153,50 +155,46 @@ def _split_into_windows(transcript: str, window_words: int = WINDOW_WORDS) -> li
 def _aggregate_scores(runs: list[dict[str, Any]]) -> dict[str, Any]:
     """Combine per-window (and per-sample) scores into one result.
 
-    The six dimensions are averaged across runs and rounded; the spread is
-    reported alongside so a score that varied widely across an interview is
-    visible rather than hidden behind a single number. Observations are pooled
-    in order, de-duplicated, and the longest impression is kept as the summary.
+    Each dimension is the mean of the runs that could rate it (one decimal).
+    When fewer than half the runs found evidence for a dimension, it stays
+    missing: a score most runs couldn't support is not reported. The spread
+    is kept so a score that varied across an interview is visible. Evidence
+    quotes are pooled per dimension; the longest summary is kept.
     """
     out: dict[str, Any] = {}
     spread: dict[str, Any] = {}
+    evidence: dict[str, list[str]] = {}
 
     for key in REQUIRED_SCORE_KEYS:
         values = [r[key] for r in runs if isinstance(r.get(key), (int, float))]
-        if not values:
-            out[key] = DEFAULT_SCORES[key]
-            continue
-        mean = sum(values) / len(values)
-        out[key] = int(round(mean))
-        if len(values) > 1:
-            var = sum((v - mean) ** 2 for v in values) / len(values)
-            spread[key] = {
-                "mean": round(mean, 2),
-                "sd": round(var ** 0.5, 2),
-                "min": min(values),
-                "max": max(values),
-                "n": len(values),
-            }
+        if not values or len(values) < len(runs) / 2:
+            out[key] = None
+        else:
+            mean = sum(values) / len(values)
+            out[key] = round(mean, 1)
+            if len(values) > 1:
+                var = sum((v - mean) ** 2 for v in values) / len(values)
+                spread[key] = {"mean": round(mean, 2), "sd": round(var ** 0.5, 2),
+                               "min": min(values), "max": max(values), "n": len(values)}
+        quotes: list[str] = []
+        for r in runs:
+            for q in (r.get("evidence") or {}).get(key) or []:
+                if q not in quotes:
+                    quotes.append(q)
+        if quotes:
+            evidence[key] = quotes[:4]
+    out["evidence"] = evidence
+    labels = {"anhedonia_content": "Interest and pleasure",
+              "depressed_mood_content": "Mood", "affect_flatness": "Emotional language",
+              "engagement_level": "Engagement"}
+    out["key_observations"] = [f"{labels.get(k, k)}: \u201c{q[0]}\u201d" for k, q in evidence.items()]
 
-    seen: set[str] = set()
-    observations: list[str] = []
-    for r in runs:
-        for obs in r.get("key_observations") or []:
-            if isinstance(obs, str) and obs not in seen:
-                seen.add(obs)
-                observations.append(obs)
-    out["key_observations"] = observations[:12]
-
-    impressions = [
-        r.get("clinical_impression")
-        for r in runs
-        if isinstance(r.get("clinical_impression"), str) and r.get("clinical_impression")
-    ]
-    out["clinical_impression"] = (
-        max(impressions, key=len) if impressions else DEFAULT_SCORES["clinical_impression"]
-    )
-    if len(impressions) > 1:
-        out["window_impressions"] = impressions
+    summaries = [r.get("summary") for r in runs if isinstance(r.get("summary"), str) and r.get("summary")]
+    out["summary"] = max(summaries, key=len) if summaries else ""
+    # Kept under the old name for readers of version-1 results.
+    out["clinical_impression"] = out["summary"]
+    if len(summaries) > 1:
+        out["window_summaries"] = summaries
 
     if spread:
         out["score_spread"] = spread
@@ -208,132 +206,70 @@ def _aggregate_scores(runs: list[dict[str, Any]]) -> dict[str, Any]:
 # Prompt template
 # ---------------------------------------------------------------------------
 CLINICAL_SCORING_PROMPT = """\
-You are a clinical research assistant analyzing a structured interview transcript. \
-Score each dimension 0-10 based on evidence in the transcript. \
-Cite specific quotes to support each score.
+You are helping a research team read an interview transcript. You will rate four \
+things about what the participant (labelled Subject or Participant) says, each on \
+a 0-3 scale, and you must quote the participant's own words as evidence for every \
+rating.
 
-Your task is to analyze the following clinical interview transcript and optional \
-acoustic/prosodic data, then produce a structured clinical assessment as a JSON object.
+Rules:
+- Rate only from what is written. You cannot hear the audio: do not comment on \
+voice, pitch, tone, pauses, speed, fillers or how the person sounds.
+- Every rating needs at least one exact quote from the participant (copy the words \
+exactly). If the transcript gives no evidence for a rating, set "score" to null.
+- Do not diagnose or name conditions. Describe what was said.
+- Ignore the interviewer's words when choosing quotes.
 
-## Scoring Dimensions (each 0-10)
+Scales:
+- anhedonia_content: what the participant says about interest and pleasure.
+  0 = describes enjoying things or looking forward to things;
+  1 = mentions some loss of interest or enjoyment;
+  2 = clearly says they have lost interest or pleasure in several things;
+  3 = says they have little or no interest or pleasure in almost anything.
+- depressed_mood_content: what the participant says about their mood.
+  0 = no low mood described; 1 = mentions feeling down at times;
+  2 = clearly describes feeling sad, down or hopeless;
+  3 = describes persistent or pervasive low mood or hopelessness.
+- affect_flatness: how much feeling the participant's language carries.
+  0 = varied emotional language; 1 = somewhat limited;
+  2 = mostly flat and factual; 3 = almost no emotional language, even about significant events.
+- engagement_level: how the participant takes part in the conversation.
+  0 = mostly one-word or minimal answers; 1 = brief answers;
+  2 = full answers that sometimes elaborate; 3 = elaborates, volunteers, asks questions.
 
-- **hesitancy_score**: How much the subject hesitates, pauses, or uses filler words \
-(um, uh, like, you know, long pauses marked as [...], false starts, self-corrections). \
-0 = fluent and decisive, 10 = extremely hesitant with constant fillers and restarts.
-
-- **affect_flatness**: How emotionally flat or blunted the subject's responses are. \
-Look for monotone descriptions, lack of emotional language, absence of affective words, \
-minimal variation in expression. \
-0 = rich emotional expression, 10 = completely flat/blunted affect.
-
-- **engagement_level**: How engaged and interactive the subject is with the interviewer. \
-Look for question-asking, elaboration beyond what is asked, humor, topic initiation, \
-responsive follow-ups vs. monosyllabic answers. \
-0 = completely disengaged/monosyllabic, 10 = highly engaged and interactive.
-
-- **elaboration_positive**: How much the subject elaborates when discussing positive \
-topics (enjoyable activities, achievements, relationships, future plans). \
-0 = no elaboration on positive topics, 10 = extensive positive elaboration.
-
-- **elaboration_negative**: How much the subject elaborates when discussing negative \
-topics (problems, distress, losses, complaints, symptoms). \
-0 = no elaboration on negative topics, 10 = extensive negative elaboration.
-
-- **psychomotor_indicators**: Signs of psychomotor retardation or agitation in speech \
-patterns — unusually slow responses, trailing off, pressured speech, abrupt topic \
-changes, or marked latency. \
-0 = normal speech rhythm, 10 = severe psychomotor disturbance.
-
-## Output Format
-
-Return a single JSON object with exactly these keys:
+Return one JSON object exactly in this shape:
 
 ```json
 {{
-  "hesitancy_score": <0-10>,
-  "affect_flatness": <0-10>,
-  "engagement_level": <0-10>,
-  "elaboration_positive": <0-10>,
-  "elaboration_negative": <0-10>,
-  "psychomotor_indicators": <0-10>,
-  "key_observations": [
-    "observation 1 with 'quoted evidence'",
-    "observation 2 with 'quoted evidence'"
-  ],
-  "clinical_impression": "One paragraph summarizing the clinical picture."
+  "anhedonia_content": {{"score": <0-3 or null>, "evidence": ["exact quote", ...]}},
+  "depressed_mood_content": {{"score": <0-3 or null>, "evidence": ["exact quote", ...]}},
+  "affect_flatness": {{"score": <0-3 or null>, "evidence": ["exact quote", ...]}},
+  "engagement_level": {{"score": <0-3 or null>, "evidence": ["exact quote", ...]}},
+  "summary": "Two or three sentences describing what the participant said, without diagnosis."
 }}
 ```
 
-## Few-Shot Examples
+## Example
 
-### Example 1 — Mildly Disengaged Subject
+Transcript excerpt:
+Interviewer: What have you been enjoying lately?
+Subject: Honestly, nothing really. I used to go hiking every weekend but I haven't bothered in months.
+Interviewer: How has your mood been?
+Subject: Kind of flat. Not sad exactly, just... nothing.
 
-**Transcript excerpt:**
-Interviewer: How have you been spending your time lately?
-Subject: Um... I don't know. Just, like, the usual stuff I guess.
-Interviewer: Can you tell me more about that?
-Subject: Not really. Just... hanging around.
-Interviewer: Have you been enjoying anything recently?
-Subject: Not really, no.
-
-**Acoustic context:** pitch_cv: 0.08, loudness_cv: 0.05, vta: 4.2
-
-**Correct output:**
+Correct output:
 ```json
 {{
-  "hesitancy_score": 6,
-  "affect_flatness": 7,
-  "engagement_level": 2,
-  "elaboration_positive": 1,
-  "elaboration_negative": 2,
-  "psychomotor_indicators": 4,
-  "key_observations": [
-    "Subject uses frequent fillers: 'Um... I don't know. Just, like, the usual stuff'",
-    "Minimal elaboration on any topic — responses are monosyllabic or near-monosyllabic",
-    "No positive content volunteered — 'Not really, no' when asked about enjoyment",
-    "Low pitch variability (pitch_cv: 0.08) supports flat affect observation"
-  ],
-  "clinical_impression": "The subject presents with markedly reduced engagement and flat affect. Responses are vague and minimal, with frequent fillers suggesting either cognitive sluggishness or reluctance to engage. There is a notable absence of any positive elaboration and low prosodic variability, consistent with anhedonic or depressive presentation. Psychomotor slowing is mildly suggested by the trailing responses and pauses."
+  "anhedonia_content": {{"score": 2, "evidence": ["nothing really", "I used to go hiking every weekend but I haven't bothered in months"]}},
+  "depressed_mood_content": {{"score": 1, "evidence": ["Kind of flat. Not sad exactly"]}},
+  "affect_flatness": {{"score": 2, "evidence": ["just... nothing"]}},
+  "engagement_level": {{"score": 1, "evidence": ["Honestly, nothing really."]}},
+  "summary": "The participant says they have stopped a hobby they used to do weekly and describes their mood as flat rather than sad."
 }}
 ```
 
-### Example 2 — Engaged Subject With Selective Negativity
+## Transcript
 
-**Transcript excerpt:**
-Interviewer: Tell me about your week.
-Subject: It's been okay, actually. I went to my daughter's soccer game on Saturday which was great — she scored two goals! I was really proud of her.
-Interviewer: That sounds wonderful. Anything difficult this week?
-Subject: Yeah, work has been really stressful. My boss has been on my case about this project and I just feel like nothing I do is good enough. I stayed late three nights this week and it's exhausting. I barely see my kids during the week now.
-
-**Acoustic context:** pitch_cv: 0.22, loudness_cv: 0.18, vta: 1.8
-
-**Correct output:**
-```json
-{{
-  "hesitancy_score": 1,
-  "affect_flatness": 1,
-  "engagement_level": 9,
-  "elaboration_positive": 7,
-  "elaboration_negative": 8,
-  "psychomotor_indicators": 1,
-  "key_observations": [
-    "Subject is fluent and articulate with no fillers or pauses",
-    "Rich positive elaboration: 'she scored two goals! I was really proud of her'",
-    "Extensive negative elaboration with specific details: 'stayed late three nights', 'barely see my kids'",
-    "Strong emotional language: 'really proud', 'really stressful', 'exhausting'",
-    "High prosodic variability (pitch_cv: 0.22) consistent with expressive speech"
-  ],
-  "clinical_impression": "The subject is highly engaged and emotionally expressive across both positive and negative domains. They provide detailed, specific accounts of experiences and demonstrate a full range of affect. Speech is fluent and well-organized. The notable finding is selective distress around work demands with preserved capacity for positive experience, suggesting situational stress rather than a pervasive mood disturbance."
-}}
-```
-
-## Now analyze the following:
-
-### Interview Transcript
 {transcript}
-
-### Acoustic Context
-{acoustic_context}
 
 Return ONLY the JSON object, no additional text before or after it.
 """
@@ -392,6 +328,97 @@ def unload_models() -> int:
         log.info("Released clinical scoring model from memory.")
     return freed
 
+def _llama_prompt(prompt: str) -> str:
+    return (f"<|begin_of_text|><|start_header_id|>user<|end_header_id|>\n\n{prompt}"
+            f"<|eot_id|><|start_header_id|>assistant<|end_header_id|>\n\n")
+
+
+def _answer_complete(text: str) -> bool:
+    """True once the answer holds every score and the closing impression.
+
+    summary is the last field, so nothing is tested before it appears;
+    otherwise a repair could close the object after the first score and
+    truncate the answer.
+    """
+    if '"summary"' not in text:
+        return False
+    candidate = _first_json_object(text, quiet=True)
+    if not candidate:
+        return False
+    try:
+        data = json.loads(candidate)
+    except json.JSONDecodeError:
+        return False
+    return all(k in data for k in REQUIRED_SCORE_KEYS) and bool(data.get("summary"))
+
+
+def _resolve_model(model_name: str) -> str:
+    """A local folder for the model when the scoring add-on or bundle has one."""
+    try:
+        import addons
+    except ImportError:  # pragma: no cover
+        return model_name
+    return addons.resolve(model_name)
+
+
+def _mlx_model(model_name: str):
+    if model_name not in _MODEL_CACHE:
+        log.info(f"Loading MLX model {model_name}...")
+        _MODEL_CACHE[model_name] = load(_resolve_model(model_name))
+    return _MODEL_CACHE[model_name]
+
+
+def call_local_lm_reusing_prompt(
+    prompt: str,
+    temperatures: list[float],
+    model_name: str,
+    max_tokens: int = 1200,
+    should_cancel=None,
+    on_pass=None,
+) -> list[str]:
+    """Several scoring passes over one chunk, reading the chunk only once.
+
+    Measured on a 6,030-token chunk: reading the prompt takes 10.4 s of a
+    12.6 s pass, writing the answer 2.3 s. Re-reading an identical chunk for
+    each of the 5 passes is the cost, so the model reads it once, and after
+    each pass its memory is rewound to the end of the prompt for the next.
+    Each pass is otherwise the same as before: same sampling, same early stop.
+    """
+    from mlx_lm.models.cache import make_prompt_cache, trim_prompt_cache
+
+    model, tokenizer = _mlx_model(model_name)
+    text = _llama_prompt(prompt)
+    add_special = tokenizer.bos_token is None or not text.startswith(tokenizer.bos_token)
+    tokens = tokenizer.encode(text, add_special_tokens=add_special)
+
+    # Read everything but the last token, in the same 2,048-token pieces
+    # mlx-lm uses, then let each pass start from the last token.
+    cache = make_prompt_cache(model)
+    prefix = tokens[:-1]
+    for i in range(0, len(prefix), 2048):
+        model(mx.array(prefix[i:i + 2048])[None], cache=cache)
+        mx.eval([c.state for c in cache])
+    read_to = cache[0].offset
+
+    answers = []
+    for s_idx, temp in enumerate(temperatures):
+        if should_cancel is not None and should_cancel():
+            raise ScoringCancelled("Scoring stopped.")
+        kwargs = {"sampler": make_sampler(temp=temp)} if temp > 0 else {}
+        chunks: list[str] = []
+        for n, part in enumerate(stream_generate(
+                model, tokenizer, prompt=mx.array(tokens[-1:]), max_tokens=max_tokens,
+                prompt_cache=cache, **kwargs), start=1):
+            chunks.append(part.text)
+            if (n % 8 == 0 or '"}' in part.text) and _answer_complete("".join(chunks)):
+                break
+        answers.append("".join(chunks))
+        trim_prompt_cache(cache, cache[0].offset - read_to)  # rewind for the next pass
+        if on_pass is not None:
+            on_pass(s_idx)
+    return answers
+
+
 def call_local_lm(
     prompt: str,
     model_name: str = "mlx-community/Meta-Llama-3-8B-Instruct-4bit",
@@ -411,7 +438,7 @@ def call_local_lm(
         log.info(f"Loading MLX model {model_name}...")
         
         if model_name not in _MODEL_CACHE:
-            model, tokenizer = load(model_name)
+            model, tokenizer = load(_resolve_model(model_name))
             _MODEL_CACHE[model_name] = (model, tokenizer)
         else:
             model, tokenizer = _MODEL_CACHE[model_name]
@@ -450,7 +477,7 @@ def call_local_lm(
                 if checks % 8 and '"}' not in part.text:
                     continue
                 buffer = "".join(chunks)
-                if '"clinical_impression"' not in buffer:
+                if '"summary"' not in buffer:
                     continue
                 candidate = _first_json_object(buffer, quiet=True)
                 if not candidate:
@@ -459,9 +486,7 @@ def call_local_lm(
                     data = json.loads(candidate)
                 except json.JSONDecodeError:
                     continue
-                if all(k in data for k in REQUIRED_SCORE_KEYS) and data.get(
-                    "clinical_impression"
-                ):
+                if all(k in data for k in REQUIRED_SCORE_KEYS) and data.get("summary"):
                     break
             return "".join(chunks)
 
@@ -605,6 +630,40 @@ def _repair_truncated_json(
     return fragment
 
 
+def _norm(text: str) -> str:
+    return " ".join(re.sub(r"[^\w\s']", " ", text.lower()).split())
+
+
+def participant_text(transcript: str) -> str:
+    """The participant's lines only, to check quotes against."""
+    lines = [line.split(":", 1)[1] for line in transcript.splitlines()
+             if ":" in line and re.search(r"(Subject|Participant)\)?\s*:", line.split("]")[-1][:60])]
+    return _norm(" ".join(lines)) if lines else _norm(transcript)
+
+
+def check_evidence(parsed: dict[str, Any], transcript: str) -> dict[str, Any]:
+    """Keep a score only if at least one of its quotes is really in the transcript.
+
+    A quote counts when it appears in the participant's words, allowing small
+    differences in punctuation (fuzzy match of 85 or more). Scores whose quotes
+    were all invented, or that came with none, become missing: no quote, no score.
+    """
+    from rapidfuzz import fuzz
+
+    said = participant_text(transcript)
+    dropped = []
+    for key in REQUIRED_SCORE_KEYS:
+        real = [q for q in parsed.get("evidence", {}).get(key, [])
+                if len(_norm(q)) >= 3 and (_norm(q) in said or fuzz.partial_ratio(_norm(q), said) >= 85)]
+        parsed.setdefault("evidence", {})[key] = real
+        if parsed.get(key) is not None and not real:
+            parsed[key] = None
+            dropped.append(key)
+    if dropped:
+        parsed.setdefault("_unsupported", []).extend(dropped)
+    return parsed
+
+
 def parse_scoring_response(raw: str) -> dict[str, Any]:
     """
     Extract and validate a clinical scoring JSON object from raw LLM output.
@@ -648,61 +707,38 @@ def parse_scoring_response(raw: str) -> dict[str, Any]:
     json_str = _first_json_object(cleaned)
 
     if json_str is None:
-        raise ValueError(
-            f"No JSON object found in LLM response. "
-            f"Preview: {raw[:300]!r}"
-        )
+        # No preview of the answer in the message: it lands in the log, and the
+        # model's answer quotes the (de-identified) transcript.
+        raise ValueError(f"No JSON object found in LLM response ({len(raw)} characters).")
 
     try:
         data = json.loads(json_str)
     except json.JSONDecodeError as exc:
-        raise ValueError(
-            f"Invalid JSON in LLM response: {exc}. "
-            f"Preview: {json_str[:400]!r}"
-        ) from exc
+        raise ValueError(f"Invalid JSON in LLM response: {exc}.") from exc
 
     if not isinstance(data, dict):
         raise ValueError(
             f"LLM response parsed to {type(data).__name__}, expected dict."
         )
 
-    # Fill missing score keys with defaults
+    # Each dimension is {"score": 0-3 or null, "evidence": [quotes]}; a bare
+    # number (an older answer shape) is accepted without evidence.
+    evidence: dict[str, list[str]] = {}
     for key in REQUIRED_SCORE_KEYS:
-        if key not in data:
-            log.warning("Missing score key '%s', using default: %s", key, DEFAULT_SCORES[key])
-            data[key] = DEFAULT_SCORES[key]
+        item = data.get(key)
+        score, quotes = (item.get("score"), item.get("evidence")) if isinstance(item, dict) else (item, [])
+        if isinstance(score, bool) or not isinstance(score, (int, float)):
+            score = None
+        elif not 0 <= score <= SCALE_MAX:
+            log.warning("Score '%s' was %s, outside 0-%d; dropped", key, score, SCALE_MAX)
+            score = None
+        data[key] = score
+        evidence[key] = [str(q).strip() for q in (quotes or []) if isinstance(q, str) and q.strip()]
+    data["evidence"] = evidence
 
-    # Clamp all numeric scores to 0-10
-    for key in REQUIRED_SCORE_KEYS:
-        val = data[key]
-        if isinstance(val, (int, float)):
-            clamped = max(0, min(10, val))
-            if clamped != val:
-                log.warning(
-                    "Score '%s' was %s, clamped to %s", key, val, clamped
-                )
-            data[key] = clamped
-        else:
-            log.warning(
-                "Score '%s' has non-numeric value %r, using default", key, val
-            )
-            data[key] = DEFAULT_SCORES[key]
-
-    # Ensure key_observations is a list of strings
-    if "key_observations" not in data or not isinstance(data["key_observations"], list):
-        log.warning("Missing or invalid 'key_observations', using empty list")
-        data["key_observations"] = []
-    else:
-        # Filter out any non-string entries
-        data["key_observations"] = [
-            str(obs) for obs in data["key_observations"] if obs
-        ]
-
-    # Ensure clinical_impression is a string
-    if "clinical_impression" not in data or not isinstance(data["clinical_impression"], str):
-        log.warning("Missing or invalid 'clinical_impression', using default")
-        data["clinical_impression"] = DEFAULT_SCORES["clinical_impression"]
-
+    summary = data.get("summary") or data.get("clinical_impression")
+    data["summary"] = summary if isinstance(summary, str) else ""
+    data["key_observations"] = []
     return data
 
 
@@ -710,10 +746,16 @@ def parse_scoring_response(raw: str) -> dict[str, Any]:
 # Main scoring function
 # ===================================================================
 
+class ScoringCancelled(RuntimeError):
+    """Stop was pressed during scoring."""
+
+
 def score_transcript(
     structured_transcript: str,
     acoustic_context: str = "No acoustic data available.",
     config: Optional[dict[str, Any]] = None,
+    progress=None,
+    should_cancel=None,
 ) -> dict[str, Any]:
     """
     Score a clinical interview transcript using a local LLM.
@@ -775,40 +817,71 @@ def score_transcript(
     per_window: list[dict[str, Any]] = []
     errors: list[str] = []
 
+    # Sample 2..N with temperature so the spread is meaningful; by default the
+    # first pass stays greedy so the headline score is reproducible. Set
+    # greedy_first: false to sample every pass (needed to measure decoding
+    # sensitivity, since repeated greedy runs are identical by construction).
+    temps = [temperature if (s_idx > 0 or not greedy_first) else 0.0 for s_idx in range(samples)]
+    total_passes = len(windows) * samples
+    passes_done = 0
+    # On Apple Silicon each chunk is read once and reused for all its passes
+    # (identical answers, ~2x faster); elsewhere passes run one at a time.
+    reuse = load is not None and sys.platform == "darwin" and stream_generate is not None
+
+    def _tick(w_idx: int, s_idx: int) -> None:
+        nonlocal passes_done
+        passes_done += 1
+        if progress is not None:
+            progress(passes_done / total_passes,
+                     f"chunk {w_idx + 1} of {len(windows)}, run {s_idx + 1} of {samples}")
+
+    def _check_cancel() -> None:
+        if should_cancel is not None and should_cancel():
+            raise ScoringCancelled("Scoring stopped.")
+
     for w_idx, window in enumerate(windows):
-        for s_idx in range(samples):
-            prompt = CLINICAL_SCORING_PROMPT.format(
-                transcript=window,
-                acoustic_context=acoustic_context,
-            )
+        prompt = CLINICAL_SCORING_PROMPT.format(
+            transcript=window,
+            acoustic_context=acoustic_context,
+        )
+        raws: list[Optional[str]] = []
+        if reuse:
             try:
-                raw = call_local_lm(
-                    prompt=prompt,
-                    model_name=model,
-                    timeout=timeout,
-                    hf_model_name=hf_model,
-                    max_tokens=max_tokens,
-                    # Sample 2..N with temperature so the spread is meaningful;
-                    # by default the first pass stays greedy so the headline
-                    # score is reproducible. Set greedy_first: false to sample
-                    # every pass — needed to measure decoding sensitivity, since
-                    # repeated greedy runs are identical by construction and
-                    # would report a spurious zero spread.
-                    temperature=temperature if (s_idx > 0 or not greedy_first) else 0.0,
+                raws = call_local_lm_reusing_prompt(
+                    prompt, temps, model, max_tokens=max_tokens,
+                    should_cancel=should_cancel,
+                    on_pass=lambda s_idx, w=w_idx: _tick(w, s_idx),
                 )
+            except ScoringCancelled:
+                raise
             except Exception as exc:
                 log.error("LLM generation failed (window %d): %s", w_idx + 1, exc)
                 errors.append(str(exc))
-                continue
+                raws = []
+        else:
+            for s_idx, temp in enumerate(temps):
+                _check_cancel()
+                try:
+                    raws.append(call_local_lm(
+                        prompt=prompt, model_name=model, timeout=timeout,
+                        hf_model_name=hf_model, max_tokens=max_tokens, temperature=temp,
+                    ))
+                except Exception as exc:
+                    log.error("LLM generation failed (window %d): %s", w_idx + 1, exc)
+                    errors.append(str(exc))
+                    raws.append(None)
+                _tick(w_idx, s_idx)
 
+        for raw in raws:
+            if raw is None:
+                continue
             try:
                 parsed = parse_scoring_response(raw)
             except ValueError as exc:
                 log.error("Failed to parse LLM response (window %d): %s", w_idx + 1, exc)
-                log.debug("Raw response: %s", raw[:500])
                 errors.append(str(exc))
                 continue
-
+            parsed = check_evidence(parsed, window)
             parsed["_window"] = w_idx
             per_window.append(parsed)
 
@@ -817,6 +890,7 @@ def score_transcript(
     if not per_window:
         result = dict(DEFAULT_SCORES)
         result["_meta"] = {
+            "scorer_version": SCORER_VERSION,
             "model": model,
             "elapsed_seconds": elapsed,
             "error": errors[0] if errors else "no usable LLM response",
@@ -827,11 +901,16 @@ def score_transcript(
 
     scoring = _aggregate_scores(per_window)
     scoring["_meta"] = {
+        "scorer_version": SCORER_VERSION,
         "model": model,
         "elapsed_seconds": elapsed,
         "windows": len(windows),
         "samples_per_window": samples,
         "runs_used": len(per_window),
+        # Passes whose answer could not be used (generation error or malformed
+        # JSON). The reliability shown is for the runs actually averaged.
+        "runs_expected": total_passes,
+        "runs_failed": total_passes - len(per_window),
         "transcript_words": total_words,
         "window_words": window_words,
         "transcript_scope": scope,
