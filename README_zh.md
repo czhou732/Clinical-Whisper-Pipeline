@@ -1,344 +1,234 @@
-[English](README.md) | 中文
-
 # ClinicalWhisper
 
+[English README](README.md)
+
 [![Hugging Face Spaces](https://img.shields.io/badge/%F0%9F%A4%97%20Hugging%20Face-Live%20Demo-blue)](https://huggingface.co/spaces/ChengdongPeter/Clinical-Whisper)
-[![Python](https://img.shields.io/badge/Python-3.9%2B-blue)](https://www.python.org/)
+[![Python](https://img.shields.io/badge/Python-3.11%2B-blue)](https://www.python.org/)
 [![License](https://img.shields.io/badge/License-MIT-green)](LICENSE)
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.20559786.svg)](https://doi.org/10.5281/zenodo.20559786)
+[![bioRxiv](https://img.shields.io/badge/bioRxiv-10.64898%2F2026.06.08.728970-b31b1b)](https://doi.org/10.64898/2026.06.08.728970)
 
-**隐私优先的临床语音分析流水线 — 转录、说话人分离、情感分析与声学特征提取，100% 本地处理。**
+**面向临床访谈转录与研究分析、注重隐私的本地处理流程。**
 
-ClinicalWhisper 在本地设备上完整处理临床音频录音，数据不会离开设备，适用于 HIPAA/GDPR 等合规环境。
-
----
-
-## v3.0 更新内容
-
-- 🧠 **基于 Transformer 的情感分析** — 使用 `cardiffnlp/twitter-roberta-base-sentiment-latest` 替代 TextBlob，提供更准确的临床情感评分
-- 🧪 **完整测试套件** — 20+ 项 pytest 测试，覆盖情感分析、声学特征、流水线集成及 Zhou Index
-- 📊 **批量处理模式** — 一次性处理整个目录的音频文件，生成汇总 CSV
-- 📈 **纵向追踪** — 跨会话追踪患者指标，自动检测趋势
-- 📦 **现代化打包** — 支持 `pyproject.toml` 和 `pip install -e .`
-- 🔄 **GitHub Actions CI** — 每次推送和 Pull Request 自动运行测试
-- 🔧 **NLTK 句子分词** — 相比正则分割，能更好地处理缩写和边界情况
-- 📋 **CSV/SPSS 导出** — 将分析 JSON 展平为 R/SPSS 兼容的表格数据
+ClinicalWhisper v5.3 在本机处理临床音频。处理期间，音频、转录文本和分析结果不会发送到外部推理服务。
 
 ---
 
-## 功能特性
+## 当前版本：v5.3
 
-| 类别 | 说明 |
+- **MOSS-Transcribe-Diarize 0.9B**：在一次处理中完成转录与说话人区分，取代早期版本的 Whisper + Pyannote 主流程。
+- **OpenMED 标识符遮蔽**：在本地识别并遮蔽姓名、日期、地址、电话号码、病历号等信息，之后再运行基于规则的安全检查。自动遮蔽可能漏检，分享数据前仍需人工复核。
+- **评分器 v2**：本地 Llama-3-8B 根据受访者原话生成四项 0–3 的实验性研究评分。Apple Silicon 使用 MLX，其他平台使用 Hugging Face Transformers。
+- **桌面应用和批处理**：macOS 桌面应用用于交互式处理；命令行批处理可将整个目录的录音汇总为 CSV。
+
+早期版本曾使用 RoBERTa 情感分析和 Ollama。这些组件不属于当前主流程。
+
+---
+
+## 架构概览
+
+| 类别 | 当前实现 |
 |---|---|
-| **语音转录** | Apple Silicon 上使用 MLX Whisper（快 4–10 倍），其他平台回退至 OpenAI Whisper |
-| **说话人分离** | pyannote.audio — 逐说话人识别与标注 |
-| **情感分析** | 基于 Transformer 的评分（1–10），语调检测，关键时刻识别 |
-| **声学特征** | OpenSMILE eGeMAPSv02 — 音高、响度、jitter、shimmer、Zhou Index（VTA） |
-| **批量处理** | 目录 → CSV 流水线，逐文件错误处理 |
-| **纵向追踪** | 基于线性回归的跨会话趋势检测 |
-| **会议智能** | 基于 Ollama 的本地 LLM 摘要（可选） |
-| **Plaud 集成** | 通过 USB 或导出文件夹自动导入 Plaud Note 设备录音 |
-| **隐私保护** | 100% 本地处理 — 零网络请求，零云端依赖 |
-| **输出格式** | Markdown（兼容 Obsidian）、JSON 分析结果、CSV 导出 |
+| 转录与说话人区分 | MOSS-Transcribe-Diarize 0.9B；自动选择 Apple Silicon、CUDA 或 CPU 路径 |
+| 标识符遮蔽 | OpenMED `OpenMed-PII-SuperClinical-Small-44M-v1`，加规则安全检查 |
+| 声学特征 | OpenSMILE eGeMAPSv02：音高、响度、抖动、闪烁和 VTA |
+| LLM 研究评分 | Llama-3-8B；四项 0–3 评分，每项必须有受访者原话作为证据 |
+| 输出 | 每个录音一个完整 JSON；批处理或桌面导出一个汇总 CSV |
 
----
+## 主流程
 
-## 系统架构
-
-```
-音频文件 (.m4a/.mp3/.wav/.mp4)
+```text
+音频（WAV / MP3 / M4A / MP4 / OGG / Opus / FLAC / AAC）
     │
-    ▼
-┌─────────────────────────────────────────────────────────┐
-│                    ClinicalWhisper                       │
-│                                                         │
-│  ┌──────────┐   ┌─────────────┐   ┌──────────────────┐ │
-│  │ 预处理    │──▶│ MLX Whisper │──▶│ 说话人分离       │ │
-│  │ (FFmpeg)  │   │ / OpenAI    │   │ (pyannote.audio)  │ │
-│  └──────────┘   └──────┬──────┘   └────────┬─────────┘ │
-│                        │                   │           │
-│                        ▼                   │           │
-│              ┌─────────────────┐           │           │
-│              │   片段构建器    │◀──────────┘           │
-│              └────────┬────────┘                       │
-│                       │                                │
-│          ┌────────────┼────────────┐                   │
-│          ▼            ▼            ▼                   │
-│  ┌──────────────┐ ┌────────┐ ┌───────────┐            │
-│  │ 情感分析     │ │ 统计   │ │ 声学特征  │            │
-│  │ (RoBERTa)    │ │        │ │ (OpenSMILE│            │
-│  │              │ │        │ │  eGeMAPS) │            │
-│  └──────┬───────┘ └───┬────┘ └─────┬─────┘            │
-│         └─────────────┼────────────┘                   │
-│                       ▼                                │
-│              ┌─────────────────┐                       │
-│              │ JSON + Markdown │                       │
-│              │ 输出            │                       │
-│              └─────────────────┘                       │
-└─────────────────────────────────────────────────────────┘
-    │
-    ▼
-┌───────────────────────┐
-│ 研究工具              │
-│ • 批量处理            │
-│ • CSV/SPSS 导出       │
-│ • 纵向追踪            │
-└───────────────────────┘
+    ▼  PyAV 分块解码为 16 kHz 单声道音频
+┌───────────────────────────────────────────────────────────────┐
+│                    ClinicalWhisper v5.3                       │
+│                                                               │
+│  1. MOSS 转录与说话人区分（归一化副本）                       │
+│  2. OpenMED 标识符遮蔽及规则检查                              │
+│  3. OpenSMILE 声学分析（保留原始增益的副本）                  │
+│  4. 访谈者 / 受访者角色识别                                   │
+│  5. 本地 LLM 研究评分（长访谈按窗口处理）                     │
+│                         │                                     │
+│                         ▼                                     │
+│                 JSON 分析报告 + 汇总 CSV                      │
+└───────────────────────────────────────────────────────────────┘
 ```
+
+转录使用电平归一化副本，以减少安静录音产生空转录的情况。响度和 VTA 会受增益影响，因此声学特征使用保留原始增益的音频副本。
 
 ---
 
-## 安装
+## 指标状态与限制
 
-### 前置要求
+### 标准声学特征
 
-- Python 3.9+
-- FFmpeg（`brew install ffmpeg`）
-- 推荐使用 Apple Silicon Mac（以获得 MLX 加速）
+`pitch_mean_st`、`pitch_cv`、`loudness_cv`、`jitter` 和 `shimmer` 来自 OpenSMILE 的 eGeMAPSv02 标准参数集。
 
-### 安装步骤
+### 实验性 LLM 评分
 
-```bash
-git clone https://github.com/czhou732/ClinicalWhisper.git
-cd ClinicalWhisper
-python3 -m venv venv
-source venv/bin/activate
+评分器 v2 输出以下四项 0–3 研究评分：
 
-# 使用 pyproject.toml 安装（可编辑模式）
-pip install -e .
+- `anhedonia_content`：受访者对兴趣和愉悦的描述；
+- `depressed_mood_content`：受访者对低落情绪的描述；
+- `affect_flatness`：受访者语言中情感表达的丰富程度；
+- `engagement_level`：受访者参与对话和主动展开回答的程度。
 
-# Apple Silicon 用户（推荐 — 快 4–10 倍）：
-pip install mlx-whisper
+每项评分都必须附有受访者原话；没有足够文本证据时，输出为空值，而不是用默认数字代替。这些评分尚未与 PHQ-9、SHAPS、HAM-D、SCID、临床人员评分或其他临床参考标准进行外部效度验证，不能用于诊断或治疗决策。
 
-# 下载 NLTK 数据（仅需一次）
-python -c "import nltk; nltk.download('punkt_tab')"
-```
+仓库中的 `evals/reports/reliability_v2.md` 报告了测试—重测可靠性：13 段短测试文本（12 段合成情境和 1 段合成双人访谈）各运行 5 次。
 
-### 可选依赖
+| 评分 | 5 次运行均有证据的文本数 | ICC(1,1) | 95% CI | 5 次运行均值的可靠性 |
+|---|---:|---:|---:|---:|
+| `anhedonia_content` | 8 / 13 | 0.956 | 0.89–0.99 | 0.99 |
+| `depressed_mood_content` | 5 / 13 | 0.826 | 0.55–0.98 | 0.96 |
+| `affect_flatness` | 9 / 13 | 0.309 | 0.05–0.70 | 0.69 |
+| `engagement_level` | 11 / 13 | 0.693 | 0.46–0.89 | 0.92 |
 
-```bash
-# 说话人分离（需要 HuggingFace token）
-pip install pyannote.audio
-export HF_TOKEN="your_token_here"
+这些合成样例较短且刻意设置得较清晰，因此对真实访谈可能过于乐观。`affect_flatness` 即使平均 5 次运行仍然不可靠。可靠性表示重复运行的一致程度，不等于临床准确率或临床效度。`evals/` 中的临床情境测试是软件回归测试，不是临床验证研究。
 
-# 声学特征
-pip install opensmile soundfile
+### VTA
 
-# 会议智能
-# 从 https://ollama.ai 安装 Ollama，然后：
-ollama pull gpt-oss:20b
-```
+VTA 是项目自定义派生指标：`-ln(CV_F0 × CV_Energy)`。该指标尚无外部验证；2.4 和 4.6 的分段来自组成特征的内部范围，并非真实临床样本校准结果。
 
 ---
 
-## 快速开始
+## 系统要求
 
-### 单文件处理（监听模式）
-
-```bash
-source venv/bin/activate
-python main.py
-```
-
-将音频文件（`.m4a`、`.mp3`、`.wav`、`.mp4`）拖入 `Input/` 文件夹，包含完整分析的转录文件将出现在配置的输出目录中。
-
-### 异步 API 模式
-
-```bash
-# 启动 API 服务器
-python api.py
-
-# 提交任务
-curl -X POST http://127.0.0.1:8000/jobs \
-  -F "file=@recording.m4a"
-```
-
-### 作为守护进程运行（macOS）
-
-```bash
-bash scripts/start_pipeline.sh        # 启动流水线 + Plaud 连接器
-bash scripts/start_pipeline.sh --stop  # 停止所有服务
-```
-
----
-
-## 批量处理
-
-一次性处理整个目录的音频文件：
-
-```bash
-python batch_processor.py --input ./audio_dir --output results.csv
-```
-
-使用自定义配置：
-
-```bash
-python batch_processor.py \
-  --input /path/to/recordings \
-  --output /path/to/results.csv \
-  --config config.yaml
-```
-
-输出 CSV 列说明：
-
-| 列名 | 说明 |
+| 项目 | 要求 |
 |---|---|
-| `filename` | 源音频文件名 |
-| `word_count` | 转录文本总词数 |
-| `duration_minutes` | 音频时长 |
-| `sentiment_score` | 整体情感评分（1–10） |
-| `sentiment_label` | Positive / Neutral / Negative |
-| `vta` | Zhou Index（语音快感缺乏指标） |
-| `pitch_mean_st` | 平均基频（半音） |
-| `pitch_cv` | 音高变异系数 |
-| `loudness_mean_db` | 平均响度（dB） |
-| `loudness_cv` | 响度变异系数 |
-| `jitter` | 音高微扰 |
-| `shimmer` | 振幅微扰 |
+| Python | 3.11 或更高版本 |
+| 推荐硬件 | Apple Silicon Mac（MLX 路径）；Windows、Linux 和 Intel Mac 使用 Transformers，并在可用时使用 CUDA |
+| ffmpeg | 无需单独安装；PyAV 自带解码所需的 FFmpeg 库 |
+| 磁盘与网络 | 从源码首次运行需要下载模型；基础 DMG 包含转录和遮蔽模型。约 5 GB 的临床评分模型通过独立的 Scoring 附加组件安装 |
 
 ---
 
-## 研究工具
+## 桌面应用（推荐）
 
-### CSV 导出（兼容 R/SPSS）
-
-将分析 JSON 展平为单个 CSV 文件，用于统计分析：
+在 macOS 上构建应用和 DMG：
 
 ```bash
-python export_features.py --input ./Output --output features.csv
+./build_dmg.sh
 ```
 
-输出包含 21 列，涵盖人口统计、情感、声学及元数据 — 可直接导入 R、SPSS 或 pandas。
+挂载 `ClinicalWhisper.dmg`，将 **ClinicalWhisper** 拖到 Applications。由于应用尚未经过 Apple 公证，第一次启动时请右键点击应用并选择 **Open**。
 
-### 纵向追踪
+将音频拖入窗口并点击 Process。窗口会显示各阶段进度和结果；**Save CSV…** 可将汇总表保存到指定位置。
 
-追踪患者在多个会话中的指标变化：
+基础应用可以转录并遮蔽英文访谈。实验性临床评分需要另外安装 **ClinicalWhisper Scoring** 附加组件；其他语言的标识符遮蔽、姓名静音、Praat 和 Kintsugi 功能也通过各自的可选附加组件提供。请在应用底部点击 **Install an add-on…** 并选择已挂载附加组件中的文件夹。
+
+打包应用默认写入：
+
+```text
+~/ClinicalWhisper/
+├── Output/       # <name>_analysis.json、汇总 CSV 和可选导出
+└── config.yaml   # 可选的用户配置
+```
+
+桌面应用直接读取用户选择的源文件，不移动或复制源音频。该数据目录位于 Documents 之外，以降低常见 iCloud Documents 设置自动同步研究数据的风险。可通过 `CLINICALWHISPER_DATA_DIR` 修改根目录。自定义配置文件应放在 `~/ClinicalWhisper/config.yaml`。
+
+从源码运行桌面应用：
 
 ```bash
-python longitudinal.py --patient P001 --input ./Output
+uv run python main_app.py
 ```
-
-通过线性回归检测 VTA、音高变异性、响度变异性、情感评分和词数的趋势（改善 / 稳定 / 下降）。
 
 ---
 
-## 配置
+## 从源码安装
 
-所有设置位于 `config.yaml`：
+```bash
+git clone https://github.com/czhou732/Clinical-Whisper-Pipeline.git
+cd Clinical-Whisper-Pipeline
+uv venv
+```
+
+在 macOS 上激活环境：
+
+```bash
+source .venv/bin/activate
+```
+
+安装项目和 MOSS 可选依赖：
+
+```bash
+uv pip install -e ".[diarization]"
+```
+
+## 命令行批处理
+
+```bash
+uv run python batch_processor.py --input ./Input --output ./Output/summary.csv --config config.example.yaml
+```
+
+每个录音在 CSV 中占一行，包括研究标识符、质量标记、词数、时长、四项评分器 v2 输出、时间特征，以及整段录音和受访者级别的声学特征。完整转录、引用证据、来源信息、警告和分窗口结果保存在每个录音的 JSON 文件中。
+
+### 关键配置
 
 ```yaml
-model: "small.en"                        # Whisper 模型大小
-mlx_model: "mlx-community/whisper-small.en-mlx"
+moss:
+  model: "OpenMOSS-Team/MOSS-Transcribe-Diarize"
+  device: "auto"          # auto | mps | cuda | cpu
+  dtype: "auto"
+  hotwords: []
 
-sentiment:
+pii_scrubbing:
   enabled: true
-  sentences_per_segment: 5
+  confidence_threshold: 0.5
+  strict: true             # 遮蔽失败时终止，不输出未遮蔽转录
 
-diarization:
-  enabled: true                          # 需要 pyannote.audio + HF token
+llm_scoring:
+  enabled: true
+  mlx_model: "mlx-community/Meta-Llama-3-8B-Instruct-4bit"
+  hf_model: "NousResearch/Meta-Llama-3-8B-Instruct"
+  window_words: 2800
+  transcript_scope: "dialogue"
+  samples: 5
 
-acoustic_features:
-  enabled: true                          # 需要 opensmile
-
-audio_extensions: [".m4a", ".mp3", ".wav", ".mp4"]
+audio_retention: "archive"
+keep_models_loaded: false
 ```
 
-完整配置选项（包括 Plaud 集成、会议智能和流水线设置）请参阅 [config.yaml](config.yaml)。
+### 内存处理
+
+批处理先转录文件并释放转录模型，再加载评分模型，因此两个大型模型不会同时常驻内存。音频按块解码到磁盘，避免将长录音完整加载到内存。
+
+### 长访谈评分
+
+超过一个上下文窗口的转录会在说话轮次边界分段，并逐窗口评分后聚合。JSON 中的 `_meta.coverage` 记录成功覆盖比例，`_meta.per_window_scores` 保留各窗口结果。失败或部分成功的运行不会被当作完整结果隐藏起来。
+
+### 当前未接入主流程的模块
+
+`longitudinal.py`、`question_detector.py`、`llm_embeddings.py` 和 `sentiment_analyzer.py` 可作为独立工具使用，但当前桌面应用和批处理主流程不会导入它们。
+
+### 可复现性
+
+每个分析 JSON 都包含 `provenance`：解析后的模型提交哈希、评分设置、软件包版本、平台信息，以及从 Git checkout 运行时的源代码提交。转录或严格模式下的标识符遮蔽失败会终止当前任务，而不是生成看似完整的结果。
 
 ---
 
-## 测试
+## 支持与问题报告
 
-```bash
-# 运行完整测试套件
-pytest
+使用问题或可复现的软件缺陷请提交到 [GitHub Issues](https://github.com/czhou732/Clinical-Whisper-Pipeline/issues)。请提供 ClinicalWhisper 版本、操作系统、准确命令或应用操作步骤，以及完整错误信息。
 
-# 详细输出
-pytest -v
+桌面应用底部的 **Save diagnostics for a bug report** 可生成经过处理的诊断压缩包，其中不含音频和转录文本，并会移除文件名。也可将该压缩包发送给 Peter Zhou：`czhou732@usc.edu`。
 
-# 运行特定测试模块
-pytest tests/test_sentiment.py -v
-```
-
-测试套件覆盖：
-- 情感分析（Transformer 模型加载、评分、边界情况）
-- 声学特征提取与 VTA 计算
-- 批量处理与 CSV 导出
-- 纵向趋势检测
-- 配置加载
-
----
-
-## 输出格式
-
-每个处理完成的文件会生成：
-
-1. **Markdown 笔记** — 兼容 Obsidian，包含 YAML 前置元数据、完整转录、说话人标签、情感分析和声学指标
-2. **JSON 分析文件**（`*_analysis.json`）— 机器可读的输出，包含所有提取的特征
-
-JSON 结构：
-
-```json
-{
-  "job_id": "batch_a1b2c3d4e5f6",
-  "model": "small.en",
-  "statistics": {
-    "word_count": 1247,
-    "duration_seconds": 423.5
-  },
-  "overall_sentiment": {
-    "label": "Neutral",
-    "score": 6,
-    "polarity": 0.112
-  },
-  "overall_acoustics": {
-    "pitch_mean_st": 42.3,
-    "pitch_cv": 0.187,
-    "loudness_mean_db": 65.2,
-    "vta": 3.41
-  },
-  "segments": [...],
-  "speaker_acoustics": {...}
-}
-```
-
----
-
-## Zhou Index
-
-ClinicalWhisper 计算自定义的**语音快感缺乏指标（VTA）** — Zhou Index：
-
-```
-V_anh = −log(CV_F0 × CV_Energy)
-```
-
-其中：
-- **CV_F0** = 基频变异系数（音高变异性）
-- **CV_Energy** = 响度/能量变异系数
-
-更高的 VTA 值表示更平坦、更单调的语音 — 这是快感缺乏和抑郁状态的潜在生物标志物。该指标基于 OpenSMILE 的 eGeMAPSv02 特征集，其中归一化标准差（stddevNorm）即为变异系数。
-
----
-
-## 作者
-
-**周成栋（Chengdong Zhou）** — 南加州大学本科研究员
-*研究方向：计算神经科学与临床 AI*
-
-- GitHub: [@czhou732](https://github.com/czhou732)
+不要在公开 issue 中上传临床音频、原始转录、身份信息、凭据、模型权重或其他私密研究数据。疑似安全或隐私问题请通过电子邮件私下报告。
 
 ---
 
 ## 引用
 
-如果您在研究中使用了 ClinicalWhisper，请引用：
+如果在研究中使用 ClinicalWhisper，请引用相关的 [bioRxiv 预印本](https://doi.org/10.64898/2026.06.08.728970)：
 
 ```bibtex
-@software{zhou2025clinicalwhisper,
-  author    = {Zhou, Chengdong},
-  title     = {ClinicalWhisper: Privacy-First Clinical Speech Analysis Pipeline},
-  year      = {2025},
-  publisher = {GitHub},
-  url       = {https://github.com/czhou732/ClinicalWhisper}
+@article{zhou2026clinicalwhisper,
+  title={Cross-Modal Benchmarking of Acoustic Prosody and Ventral Striatal BOLD for Depression-Related Anhedonia Classification: A Pre-Registered Study with the ClinicalWhisper Pipeline},
+  author={Zhou, Chengdong and Wu, Muqing and Xiang, Yi and Itti, Laurent},
+  journal={bioRxiv},
+  year={2026},
+  doi={10.64898/2026.06.08.728970}
 }
 ```
 
@@ -346,4 +236,4 @@ V_anh = −log(CV_F0 × CV_Energy)
 
 ## 许可证
 
-[MIT](LICENSE)
+本项目采用 [MIT License](LICENSE)。第三方模型和组件的许可证见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。
