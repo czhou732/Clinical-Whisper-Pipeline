@@ -156,6 +156,9 @@ def test_resume_with_nothing_left_is_success_not_failure(tmp_path, monkeypatch, 
     out = tmp_path / "summary.csv"
     out.write_text("filename,word_count\na.wav,10\n")
     monkeypatch.setattr(batch_processor, "batch_process", lambda *a, **k: pd.DataFrame())
+    # The model check is not under test; without this the test only passes on
+    # a machine that has already downloaded the models.
+    monkeypatch.setattr(batch_processor.offline, "require_models", lambda *a, **k: None)
     batch_processor.main(["-i", str(tmp_path), "-o", str(out), "--resume"])  # no SystemExit
     assert "Nothing left to process" in capsys.readouterr().out
 
