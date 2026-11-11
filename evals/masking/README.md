@@ -2,14 +2,24 @@
 
 ## Against other tools (English, replication set)
 
-`held_out_2.jsonl`: 300 sentences written on Oct 2 2026 after every rule and
-fix, before any tool was run on it. Same scorer for every tool.
+`held_out_2.jsonl`: 300 sentences generated from 25 sentence frames (227
+distinct sentences; 8 distinct organisations and 8 distinct streets), committed
+on Oct 2 2026 (2a119f0) before any tool was run on it. Same scorer for every
+tool. The three gap rules described below (8f9ecc6) were added after this set
+was run, so the ClinicalWhisper row is the build just before 5.3.0; shipped
+5.3 scores 100% on this set, but that figure is not independent because the
+rules fix the misses seen here (Kroger, Ocean Drive, a written phone number).
 
 | masker | recall | over-masking | organisations | phone numbers | names that are ordinary words |
 |---|---|---|---|---|---|
 | Microsoft Presidio 2.2.364 (spaCy en_core_web_lg, defaults) | 74.3% | 2.7% | 20% | 24% | 67% |
 | OpenMED alone (threshold 0.5) | 89.0% | 3.3% | 48% | 32% | 100% |
-| **ClinicalWhisper 5.3 (OpenMED + safety net)** | **98.0%** | 3.3% | 88% | 96% | 100% |
+| **ClinicalWhisper, build before 5.3.0 (OpenMED + safety net, before the gap rules)** | **98.0%** | 3.3% | 88% | 96% | 100% |
+
+Presidio's defaults ignore organisations (`labels_to_ignore: ORGANIZATION`) and
+have no rule for spoken emails; 64 of its 77 misses are organisations, phone
+numbers or emails. On names, places, dates and ages alone, Presidio caught
+94.2% and ClinicalWhisper 99.1%.
 
 Presidio also caught fewer African (85%) and Vietnamese/Korean (78%) names than
 Anglo ones (100%); OpenMED and ClinicalWhisper caught every name origin. On the
