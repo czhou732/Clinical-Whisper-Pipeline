@@ -52,6 +52,7 @@ def _extract_row(analysis_path: str, audio_filename: str) -> dict:
     quality = data.get("quality") or {}
     reliability = data.get("score_reliability") or {}
     llm_scores = data.get("llm_clinical_scoring", {})
+    llm_meta = llm_scores.get("_meta", {}) if isinstance(llm_scores, dict) else {}
     acoustics = data.get("overall_acoustics", {})
     timing = data.get("timing_features") or {}
     subject = timing.get("subject_speaker")
@@ -62,6 +63,22 @@ def _extract_row(analysis_path: str, audio_filename: str) -> dict:
     acoustic_keys = ("vta", "pitch_mean_st", "pitch_cv", "loudness_mean_db",
                      "loudness_cv", "jitter", "shimmer")
 
+    llm_status = data.get("llm_scoring_status")
+    if not llm_status:
+        if not llm_scores:
+            llm_status = "not_run"
+        elif llm_meta.get("error"):
+            llm_status = "failed"
+        elif (llm_meta.get("runs_failed") or llm_meta.get("errors") or
+              (isinstance(llm_meta.get("coverage"), (int, float)) and
+               llm_meta["coverage"] < 1.0)):
+            llm_status = "partial"
+        else:
+            llm_status = "completed"
+    llm_coverage = data.get("llm_scoring_coverage", llm_meta.get("coverage"))
+    if llm_status == "failed" and llm_coverage is None:
+        llm_coverage = 0.0
+
     return {
         "filename": audio_filename,
         "participant_id": data.get("participant_id", ""),
@@ -69,6 +86,9 @@ def _extract_row(analysis_path: str, audio_filename: str) -> dict:
         "criterion_score": data.get("criterion_score", ""),
         "analysis_json": analysis_path,
         "status": data.get("status", ""),
+        "llm_scoring_status": llm_status,
+        "llm_scoring_coverage": llm_coverage,
+        "warnings": " | ".join(str(w) for w in data.get("warnings", []) if w),
         "app_version": data.get("pipeline_version", ""),
         # Codes only; the messages are in the analysis JSON and the app.
         "quality_flags": ";".join(f["code"] for f in quality.get("flags", [])),

@@ -34,12 +34,14 @@ dependencies = [
     "torchaudio",
     "pywebview",
     "onnxruntime>=1.24.3",
+    "rapidfuzz>=3.0.0",
 ]
 
 [project.optional-dependencies]
 dev = [
     "pytest>=7.0",
     "pytest-cov",
+    "jiwer>=4.0.0",
 ]
 diarization = [
     "moss-transcribe-diarize @ git+https://github.com/OpenMOSS/MOSS-Transcribe-Diarize.git",

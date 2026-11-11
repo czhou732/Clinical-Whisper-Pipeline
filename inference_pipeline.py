@@ -571,6 +571,41 @@ class InferencePipeline:
             self._acoustic_pool.shutdown(wait=True)
             self._acoustic_pool = None
 
+    @staticmethod
+    def _assess_llm_scoring(result: dict) -> tuple[str, Optional[float], list[str]]:
+        """Turn scorer metadata into a user-visible completion status."""
+        if not result:
+            return "not_run", None, []
+
+        meta = result.get("_meta") or {}
+        if not isinstance(meta, dict):
+            return "completed", None, []
+
+        raw_coverage = meta.get("coverage")
+        try:
+            coverage = float(raw_coverage) if raw_coverage is not None else None
+        except (TypeError, ValueError):
+            coverage = None
+
+        if meta.get("error"):
+            return "failed", 0.0, [f"Clinical scoring failed: {meta['error']}"]
+
+        runs_failed = meta.get("runs_failed")
+        if not isinstance(runs_failed, int):
+            errors = meta.get("errors")
+            runs_failed = len(errors) if isinstance(errors, list) else 0
+        if runs_failed or (coverage is not None and coverage < 1.0):
+            details = []
+            if runs_failed:
+                details.append(f"{runs_failed} scoring run(s) failed")
+            if coverage is not None:
+                details.append(f"transcript coverage was {coverage:.1%}")
+            return "partial", coverage, [
+                "Clinical scoring incomplete: " + "; ".join(details) + "."
+            ]
+
+        return "completed", coverage, []
+
     def transcribe_job(self, job: dict) -> dict:
         """First half for one file: decode, transcribe, de-identify, acoustics.
 
@@ -1182,7 +1217,8 @@ class InferencePipeline:
         # Checkpoint: the transcript, timing and voice features are saved before
         # scoring starts, so a crash, Stop or sleep during a long scoring stage
         # does not throw them away. The batch command resumes scoring from here.
-        llm_enabled = self.cfg.get("llm_scoring", {}).get("enabled", True)
+        llm_requested = self.cfg.get("llm_scoring", {}).get("enabled", True)
+        llm_enabled = llm_requested
         if llm_enabled and structured_transcript and (group or roles_uncertain):
             llm_enabled = False
         if llm_enabled and structured_transcript and not english:
@@ -1210,6 +1246,8 @@ class InferencePipeline:
 
         # ── Stage 5b: LLM Clinical Scoring (MLX) ──
         llm_scoring = {}
+        llm_scoring_status = "disabled" if not llm_requested else "not_run"
+        llm_scoring_coverage = None
         if structured_transcript and llm_enabled:
             try:
                 from llm_clinical_scorer import score_transcript
@@ -1220,10 +1258,18 @@ class InferencePipeline:
                     progress=lambda frac, detail: self._emit("Clinical scoring", frac, detail),
                     should_cancel=self.should_cancel,
                 )
-                log.info("Job %s: LLM scoring complete", job_id)
+                (llm_scoring_status, llm_scoring_coverage,
+                 scoring_warnings) = self._assess_llm_scoring(llm_scoring)
+                warnings.extend(scoring_warnings)
+                if scoring_warnings:
+                    log.warning("Job %s: %s", job_id, scoring_warnings[0])
+                else:
+                    log.info("Job %s: LLM scoring complete", job_id)
             except Exception as exc:
                 log.warning("Job %s: LLM clinical scoring failed: %s", job_id, exc)
                 warnings.append(f"LLM clinical scoring failed: {exc}")
+                llm_scoring_status = "failed"
+                llm_scoring_coverage = 0.0
         elif not llm_enabled and not scoring_missing and english and not gate:
             # Asked for deliberately (the app's "transcribe only", the batch
             # command's --transcribe-only), this is a choice, not a fault: it
@@ -1239,9 +1285,6 @@ class InferencePipeline:
 
         # Reliability at the number of runs actually averaged per chunk.
         meta = llm_scoring.get("_meta") or {}
-        if meta.get("error"):
-            # Every run failed: the scores are missing, and the result says so.
-            warnings.append(f"Clinical scoring failed: {meta['error']}")
         if llm_scoring and not meta.get("error"):
             import consistency
             subject_t = (timing_payload.get("per_speaker") or {}).get(
@@ -1261,6 +1304,8 @@ class InferencePipeline:
             })
 
         payload = _payload(llm_scoring, reliability)
+        payload["llm_scoring_status"] = llm_scoring_status
+        payload["llm_scoring_coverage"] = llm_scoring_coverage
 
         output_path.write_text(json.dumps(payload, indent=2, default=str), encoding="utf-8")
         os.chmod(output_path, 0o600)
