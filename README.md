@@ -6,17 +6,17 @@
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.20559786.svg)](https://doi.org/10.5281/zenodo.20559786)
 [![bioRxiv](https://img.shields.io/badge/bioRxiv-10.64898%2F2026.06.08.728970-b31b1b)](https://doi.org/10.64898/2026.06.08.728970)
 
-**A privacy-first, on-device multimodal framework for anhedonia classification.**
+**A privacy-first, local pipeline for clinical interview transcription and research analysis.**
 
-ClinicalWhisper v5.1 processes clinical audio recordings entirely on the local machine. Audio, transcripts, and results never leave the device.
+ClinicalWhisper v5.3 processes clinical audio recordings entirely on the local machine. Audio, transcripts, and results never leave the device during processing.
 
 ---
 
-## What's New in v5.0
+## Current release: v5.3
 
 - 🗣️ **MOSS-Transcribe-Diarize 0.9B** — joint transcription and diarization in a single pass, replacing Whisper + Pyannote. Public and ungated; no Hugging Face token needed.
-- 🛡️ **OpenMED PII scrubbing** — local HIPAA Safe Harbor de-identification of the transcript (names, dates, addresses, phone numbers, MRNs).
-- 🧠 **Native MLX LLM scoring** — Llama-3-8B-Instruct runs on Apple Silicon via `mlx-lm`. No Ollama, no external services.
+- 🛡️ **OpenMED PII scrubbing** — local identifier masking, followed by rule-based safety-net checks. Automatic masking still requires human review before data are shared.
+- 🧠 **Scorer v2** — four evidence-backed 0–3 research ratings run through MLX on Apple Silicon or Transformers elsewhere. No Ollama or external inference service is used.
 - 🖥️ **Native desktop app** — a standalone `.app`; results render in the window and save where you choose.
 
 ### Previous releases
@@ -35,17 +35,17 @@ ClinicalWhisper v5.1 processes clinical audio recordings entirely on the local m
 | **Transcription & Diarization** | MOSS-Transcribe-Diarize 0.9B (MPS on Apple Silicon, CUDA, or CPU) |
 | **HIPAA de-identification** | OpenMED `OpenMed-PII-SuperClinical-Small-44M-v1`, mask method |
 | **Acoustic features** | OpenSMILE eGeMAPSv02 — pitch, loudness, jitter, shimmer, VTA |
-| **LLM clinical scoring** | Llama-3-8B scores hesitancy, affect flatness, engagement, elaboration, psychomotor indicators (0–10). **Not yet validated against any clinical instrument — see Status below.** |
+| **LLM research scoring** | Llama-3-8B rates anhedonia content, depressed-mood content, emotional-language flatness, and engagement (0–3, with transcript evidence). **These experimental scores are not clinically validated — see Status below.** |
 | **Batch processing** | Directory → CSV pipeline with per-file error handling |
 
 ## The Pipeline
 
 ```
-Audio File (.m4a/.mp3/.wav/.mp4)
+Audio File (.wav/.mp3/.m4a/.mp4/.ogg/.opus/.flac/.aac)
     │
     ▼  PyAV → 16 kHz mono WAV, plus a level-normalised copy
 ┌──────────────────────────────────────────────────────────────────┐
-│                      ClinicalWhisper v5.0                        │
+│                      ClinicalWhisper v5.3                        │
 │                                                                  │
 │  Stage 1: Transcribe & Diarize   (MOSS, normalised audio)        │
 │  Stage 2: PII Scrubbing          (OpenMED, HIPAA Safe Harbor)    │
@@ -74,40 +74,29 @@ evidentiary weight.
 `shimmer`) are eGeMAPSv02 via OpenSMILE — a published, standardised parameter set,
 so the values are comparable to the affective-computing literature.
 
-**The six clinical scores are unvalidated, and their reliability is low.** They
-are the output of a local LLM reading the transcript. There is no correlation with
-PHQ-9, SHAPS, HAM-D or any other instrument, and no inter-rater reliability against
-clinicians.
+**The four scorer-v2 outputs are experimental research features.** A local LLM
+reads the transcript and assigns 0–3 ratings for `anhedonia_content`,
+`depressed_mood_content`, `affect_flatness`, and `engagement_level`. Every reported
+rating requires a quotation from the participant; unsupported ratings remain
+missing rather than being replaced with a default number. Agreement with PHQ-9,
+SHAPS, HAM-D, SCID, clinician ratings, or any other clinical reference has not been
+established.
 
-Reliability *has* now been measured — see `evals/reports/reliability.md`. Across 9
-clips from 5 separate recordings, scored 5 times each with sampling on, using
-one-way random-effects ICC(1,1) (Shrout & Fleiss, 1979):
+Test-retest reliability has been measured on 13 short test transcripts (12
+synthetic vignettes and one synthetic two-voice interview), each scored five times
+with sampling enabled. See `evals/reports/reliability_v2.md` and its raw JSON:
 
-| | ICC(1,1) | 95% CI | MDC95 | |
-|---|---|---|---|---|
-| psychomotor_indicators | 0.22 | -0.01 – 0.62 | 3.7 | poor |
-| hesitancy_score | 0.29 | 0.03 – 0.68 | 4.5 | poor |
-| engagement_level | 0.37 | 0.09 – 0.74 | 3.6 | poor |
-| affect_flatness | 0.50 | 0.21 – 0.82 | 3.8 | moderate |
-| elaboration_negative | 0.53 | 0.24 – 0.83 | 4.0 | moderate |
-| elaboration_positive | 0.60 | 0.31 – 0.86 | 2.9 | moderate |
+| scorer-v2 output | transcripts with complete evidence | ICC(1,1) | 95% CI | reliability of five-run mean |
+|---|---:|---:|---:|---:|
+| `anhedonia_content` | 8 / 13 | 0.956 | 0.89–0.99 | 0.99 |
+| `depressed_mood_content` | 5 / 13 | 0.826 | 0.55–0.98 | 0.96 |
+| `affect_flatness` | 9 / 13 | 0.309 | 0.05–0.70 | 0.69 |
+| `engagement_level` | 11 / 13 | 0.693 | 0.46–0.89 | 0.92 |
 
-No dimension reaches the conventional "good" threshold of 0.75, and every
-confidence interval is wide because n = 9 is well below the ~30 usually
-recommended for an ICC study. MDC95 is the smallest change exceeding measurement
-error: on a 0–10 scale, two recordings must differ by **2.9–4.5 points** before
-the gap is distinguishable from noise.
-
-The shipped default is greedy decoding, so in normal use the same file returns the
-same score every time — this is not run-to-run instability in the app. What a low
-ICC means is that the score is one draw from a wide distribution rather than a
-stable estimate, and will move under small changes to prompt, transcript, or model
-version. Averaging several samples (`llm_scoring.samples: 5`) reduces that spread.
-
-These should be described as automated interview features whose agreement with
-clinical judgement has not been established — not as a validated instrument, and
-not as a diagnosis. Correlating them against a clinical scale would currently be
-limited by their own reliability rather than by the construct.
+The synthetic examples are short and deliberately clear, so these estimates may
+be optimistic for real interviews. Missing evidence also reduced the usable sample
+for each rating. In particular, `affect_flatness` remains unreliable even after
+five runs. Reliability is repeatability, not clinical accuracy or validity.
 
 The eval suite (`evals/`) is a **regression test**, not a validation study: it
 checks that the scorer still behaves as it did before a code change, using
@@ -129,7 +118,7 @@ percentiles from a real corpus before being reported.
 |---|---|
 | **Hardware** | Apple Silicon Mac (M1 or newer) for the MLX path. Check with `uname -m` — it must print `arm64`. Intel Macs, Windows, and Linux fall back to HuggingFace transformers on CUDA or CPU, which is substantially slower. |
 | **ffmpeg** | Not required. Audio is decoded through PyAV, which ships its own ffmpeg libraries. |
-| **Disk / network** | The DMG is self-contained: model weights are inside the app, so nothing downloads and no Hugging Face account is needed. Running **from source** instead pulls ~6.4 GB into `~/.cache` on first use. |
+| **Disk / network** | The base DMG contains the transcription and masking models. Clinical scoring is a separate ~5 GB Scoring add-on. Running **from source** downloads the configured models into the local cache on first use. |
 
 ---
 
@@ -149,18 +138,24 @@ Drop an audio file into the window and press Process. Stage-by-stage progress
 appears in the console panel, results render in the window, and **Save CSV…**
 writes the summary wherever you choose.
 
-Files are written to `~/Documents/ClinicalWhisper/`:
+The base app transcribes and masks English interviews. Experimental clinical
+scores require the separate **ClinicalWhisper Scoring** add-on. Language masking,
+name silencing, Praat, and Kintsugi features are also distributed as optional
+add-ons; install them with **Install an add-on…** at the bottom of the app.
+
+The packaged app writes files to `~/ClinicalWhisper/`, outside Documents so that
+common iCloud Documents settings do not automatically sync study data:
 
 ```
-~/Documents/ClinicalWhisper/
-├── Input/        # uploaded audio
-├── Output/       # <name>_analysis.json and <name>_summary.csv
-└── Processed/    # archived audio after a successful run
+~/ClinicalWhisper/
+├── Output/       # <name>_analysis.json, summary CSVs, and optional exports
+└── config.yaml   # optional user configuration
 ```
 
-Override that location with `CLINICALWHISPER_DATA_DIR`. To customise the
-pipeline, copy `config.example.yaml` to
-`~/Documents/ClinicalWhisper/config.yaml` — the app prefers it over the bundled
+The desktop app reads selected recordings in place; it does not move or copy the
+source audio. Override the data location with `CLINICALWHISPER_DATA_DIR`. To
+customise the pipeline, copy `config.example.yaml` to
+`~/ClinicalWhisper/config.yaml` — the app prefers it over the bundled
 defaults.
 
 ### Run from source instead
@@ -189,8 +184,10 @@ uv pip install "moss-transcribe-diarize @ git+https://github.com/OpenMOSS/MOSS-T
 uv run python batch_processor.py --input ./Input --output ./Output/summary.csv --config config.example.yaml
 ```
 
-One CSV row per file: word count, duration, the six clinical scores, and the
-acoustic features (VTA, pitch mean/CV, loudness mean/CV, jitter, shimmer).
+One CSV row per file includes identifiers and quality flags, word count and
+duration, the four scorer-v2 outputs, measured timing features, and whole-recording
+and participant acoustic features. The complete analysis, transcript evidence,
+provenance, warnings, and per-window details remain in the per-recording JSON.
 
 ### Configuration
 
@@ -205,7 +202,7 @@ moss:
 
 pii_scrubbing:
   enabled: true
-  confidence_threshold: 0.7
+  confidence_threshold: 0.5
   strict: true            # abort rather than emit an unscrubbed transcript
 
 llm_scoring:
@@ -259,19 +256,31 @@ Transcription and PII scrubbing failures abort the job rather than emitting a
 partial result — an analysis file full of zeros is indistinguishable from a real
 one, so the pipeline refuses to produce one.
 
----
+## Support and problem reports
 
+For usage questions or reproducible bugs, open a
+[GitHub issue](https://github.com/czhou732/Clinical-Whisper-Pipeline/issues).
+Include the ClinicalWhisper version, operating system, exact command or app steps,
+and the error message. The desktop app can create a sanitized diagnostics archive
+with **Save diagnostics for a bug report**; it excludes audio and transcripts and
+removes file names. That archive can also be sent to Peter Zhou at
+`czhou732@usc.edu`.
+
+Do not attach clinical audio, raw transcripts, identifiers, credentials, model
+weights, or other private study data to a public issue. Report suspected security
+or privacy problems privately by email rather than in the public tracker.
 
 ---
 
 ## Citation
 
-If you use ClinicalWhisper v5.0 in your research, please cite our [bioRxiv preprint](https://doi.org/10.64898/2026.06.08.728970):
+If you use ClinicalWhisper in your research, please cite the associated
+[bioRxiv preprint](https://doi.org/10.64898/2026.06.08.728970):
 
 ```bibtex
 @article{zhou2026clinicalwhisper,
-  title={Privacy-first, on-device multimodal framework for anhedonia classification},
-  author={Zhou, Chengdong and others},
+  title={Cross-Modal Benchmarking of Acoustic Prosody and Ventral Striatal BOLD for Depression-Related Anhedonia Classification: A Pre-Registered Study with the ClinicalWhisper Pipeline},
+  author={Zhou, Chengdong and Wu, Muqing and Xiang, Yi and Itti, Laurent},
   journal={bioRxiv},
   year={2026},
   doi={10.64898/2026.06.08.728970}
