@@ -1,6 +1,7 @@
 """Clinical scorer version 2: 0-3 scores that need a real quote."""
 
 import json
+import sys
 
 import llm_clinical_scorer as s
 
@@ -54,3 +55,42 @@ def test_aggregate_needs_half_the_runs():
 def test_prompt_no_longer_carries_voice_numbers():
     assert "{acoustic_context}" not in s.CLINICAL_SCORING_PROMPT
     assert "cannot hear" in s.CLINICAL_SCORING_PROMPT
+
+
+def test_cli_model_override_reaches_both_local_backends(tmp_path, monkeypatch, capsys):
+    transcript = tmp_path / "transcript.txt"
+    transcript.write_text(TRANSCRIPT, encoding="utf-8")
+    seen = {}
+
+    def fake_score(structured_transcript, acoustic_context, config):
+        seen.update(config["llm_scoring"])
+        return {"_meta": {"model": "custom/model"}}
+
+    monkeypatch.setattr(s, "score_transcript", fake_score)
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        ["llm_clinical_scorer.py", "--file", str(transcript),
+         "--model", "custom/model", "--json"],
+    )
+
+    s.main()
+
+    assert seen["mlx_model"] == "custom/model"
+    assert seen["hf_model"] == "custom/model"
+    assert json.loads(capsys.readouterr().out)["_meta"]["model"] == "custom/model"
+
+
+def test_human_readable_output_uses_v2_scales():
+    rendered = s._format_scoring_output({
+        "anhedonia_content": 2,
+        "depressed_mood_content": 1,
+        "affect_flatness": None,
+        "engagement_level": 3,
+        "summary": "Research summary.",
+    })
+
+    assert "Interest and Pleasure" in rendered
+    assert "2/3" in rendered
+    assert "Hesitancy" not in rendered
+    assert "/10" not in rendered

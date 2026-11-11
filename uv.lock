@@ -510,6 +510,7 @@ dependencies = [
     { name = "python-multipart" },
     { name = "pywebview" },
     { name = "pyyaml" },
+    { name = "rapidfuzz" },
     { name = "sentencepiece" },
     { name = "soundfile" },
     { name = "streamlit" },
@@ -522,6 +523,7 @@ dependencies = [
 
 [package.optional-dependencies]
 dev = [
+    { name = "jiwer" },
     { name = "pytest" },
     { name = "pytest-cov" },
 ]
@@ -538,6 +540,7 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "fastapi" },
+    { name = "jiwer", marker = "extra == 'dev'", specifier = ">=4.0.0" },
     { name = "mlx-lm" },
     { name = "moss-transcribe-diarize", marker = "extra == 'diarization'", git = "https://github.com/OpenMOSS/MOSS-Transcribe-Diarize.git" },
     { name = "nltk" },
@@ -552,6 +555,7 @@ requires-dist = [
     { name = "python-multipart" },
     { name = "pywebview" },
     { name = "pyyaml" },
+    { name = "rapidfuzz", specifier = ">=3.0.0" },
     { name = "sentencepiece" },
     { name = "soundfile" },
     { name = "streamlit" },

@@ -2,11 +2,9 @@
 """
 LLM Clinical Scorer — ClinicalWhisper
 ======================================
-Uses a local LLM (via Ollama) to produce structured clinical assessments
-from formatted clinical interview transcripts.
-
-Sends the transcript + acoustic context to the local Ollama endpoint and
-parses the JSON response into a validated scoring dictionary.
+Uses a local LLM to produce structured research ratings from formatted
+clinical interview transcripts. Apple Silicon uses MLX; other platforms use
+Hugging Face Transformers with CUDA when available and CPU otherwise.
 
 All processing is local — no data leaves the machine.
 
@@ -14,8 +12,8 @@ Config section (config.yaml):
 -----------------------------
   llm_scoring:
     enabled: true
-    ollama_model: 'qwen2:7b'
-    ollama_base_url: 'http://localhost:11434'
+    mlx_model: 'mlx-community/Meta-Llama-3-8B-Instruct-4bit'
+    hf_model: 'NousResearch/Meta-Llama-3-8B-Instruct'
     timeout_seconds: 300
     max_retries: 1
 
@@ -27,7 +25,7 @@ Usage:
   python llm_clinical_scorer.py --file transcript.txt --acoustics acoustics.json
 
   # Override model:
-  python llm_clinical_scorer.py --file transcript.txt --model llama3:8b
+  python llm_clinical_scorer.py --file transcript.txt --model /path/to/local/model
 """
 
 from __future__ import annotations
@@ -75,8 +73,6 @@ log = logging.getLogger("ClinicalWhisper")
 # ---------------------------------------------------------------------------
 # Constants
 # ---------------------------------------------------------------------------
-OLLAMA_GENERATE_ENDPOINT = "/api/generate"
-
 # Scorer version 2 (Oct 2026). Four judgements a transcript can support, each
 # on a 0-3 scale with written anchors, and each only with a quote. Removed from
 # version 1: hesitancy and psychomotor (the timing measures do that directly),
@@ -467,7 +463,7 @@ def call_local_lm(
             ):
                 chunks.append(part.text)
 
-                # clinical_impression is the last field, so only start testing
+                # summary is the last field, so only start testing
                 # once it appears — otherwise the repair would happily close
                 # the object after the first observation and truncate the
                 # answer. Waiting for a literal "}" does not work: this model
@@ -672,7 +668,7 @@ def parse_scoring_response(raw: str) -> dict[str, Any]:
     - Markdown code fences (```json ... ```)
     - Extra text before/after the JSON block
     - Missing keys (filled with defaults)
-    - Out-of-range scores (clamped to 0-10)
+    - Out-of-range scores (reported as missing)
 
     Parameters
     ----------
@@ -760,8 +756,8 @@ def score_transcript(
     """
     Score a clinical interview transcript using a local LLM.
 
-    Builds the full prompt from the template, transcript, and acoustic
-    context, sends it to Ollama, and returns a validated scoring dict.
+    Builds the full prompt from the template and transcript, runs the active
+    local MLX or Transformers backend, and returns a validated scoring dict.
 
     Parameters
     ----------
@@ -777,15 +773,14 @@ def score_transcript(
     -------
     dict
         Scoring dictionary with keys:
-        - hesitancy_score (0-10)
-        - affect_flatness (0-10)
-        - engagement_level (0-10)
-        - elaboration_positive (0-10)
-        - elaboration_negative (0-10)
-        - psychomotor_indicators (0-10)
+        - anhedonia_content (0-3 or None)
+        - depressed_mood_content (0-3 or None)
+        - affect_flatness (0-3 or None)
+        - engagement_level (0-3 or None)
+        - evidence (dict[str, list[str]])
         - key_observations (list[str])
-        - clinical_impression (str)
-        - _meta (dict with model, elapsed_seconds, raw_response_length)
+        - summary (str)
+        - _meta (dict with model, elapsed_seconds, and run details)
     """
     if config is None:
         config = _load_scoring_config()
@@ -944,20 +939,18 @@ def _format_scoring_output(scoring: dict[str, Any]) -> str:
 
     # Score bars
     score_labels = {
-        "hesitancy_score": "Hesitancy",
-        "affect_flatness": "Affect Flatness",
+        "anhedonia_content": "Interest and Pleasure",
+        "depressed_mood_content": "Depressed Mood Content",
+        "affect_flatness": "Emotional Language",
         "engagement_level": "Engagement",
-        "elaboration_positive": "Elaboration (Positive)",
-        "elaboration_negative": "Elaboration (Negative)",
-        "psychomotor_indicators": "Psychomotor Indicators",
     }
 
     for key, label in score_labels.items():
         val = scoring.get(key, 0)
         if isinstance(val, (int, float)):
             val_int = int(round(val))
-            bar = "\u2588" * val_int + "\u2591" * (10 - val_int)
-            lines.append(f"  {label:<26s} {bar} {val_int}/10")
+            bar = "\u2588" * val_int + "\u2591" * (SCALE_MAX - val_int)
+            lines.append(f"  {label:<26s} {bar} {val_int}/{SCALE_MAX}")
         else:
             lines.append(f"  {label:<26s} N/A")
 
@@ -974,9 +967,9 @@ def _format_scoring_output(scoring: dict[str, Any]) -> str:
 
     lines.append("")
     lines.append("-" * 60)
-    lines.append("  Clinical Impression:")
+    lines.append("  Summary:")
     lines.append("-" * 60)
-    impression = scoring.get("clinical_impression", "N/A")
+    impression = scoring.get("summary") or "N/A"
     # Word-wrap impression at ~72 chars
     words = impression.split()
     current_line = "  "
@@ -1009,7 +1002,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(
         description=(
             "LLM Clinical Scorer — score a clinical interview transcript "
-            "using a local Ollama LLM"
+            "using the local MLX or Transformers backend"
         ),
     )
     parser.add_argument(
@@ -1030,7 +1023,7 @@ def main() -> None:
         "--model",
         type=str,
         default=None,
-        help="Override the Ollama model (e.g. --model llama3:8b)",
+        help="Override the model used by the active local backend",
     )
     parser.add_argument(
         "--config",
@@ -1085,7 +1078,10 @@ def main() -> None:
     # Load config and apply model override
     cfg = _load_scoring_config(args.config)
     if args.model:
-        cfg["llm_scoring"]["ollama_model"] = args.model
+        # Only one backend runs on a given machine. Set both backend-specific
+        # keys so --model controls whichever backend is active.
+        cfg["llm_scoring"]["mlx_model"] = args.model
+        cfg["llm_scoring"]["hf_model"] = args.model
 
     # Run scoring
     log.info("Starting clinical scoring...")

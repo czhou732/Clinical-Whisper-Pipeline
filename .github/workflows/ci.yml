@@ -31,6 +31,11 @@ jobs:
       - name: Download NLTK data
         run: python -c "import nltk; nltk.download('punkt_tab')"
 
+      - name: Download the sentiment model
+        run: python -c "from huggingface_hub import snapshot_download; snapshot_download('cardiffnlp/twitter-roberta-base-sentiment-latest')"
+        # The app runs offline (offline.lock), so tests can only load models
+        # that are already in the Hugging Face cache.
+
       - name: Run tests
         run: pytest tests/ -v -k "not acoustic"
         # Skip acoustic feature tests — opensmile requires system-level deps

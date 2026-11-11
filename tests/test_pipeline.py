@@ -1,6 +1,5 @@
 """Tests for inference_pipeline._compute_statistics and related helpers."""
 
-import pytest
 import sys
 from pathlib import Path
 
@@ -68,3 +67,42 @@ class TestComputeStatistics:
         stats = InferencePipeline._compute_statistics(transcript, segments)
         assert stats["duration_seconds"] == 0.0
         assert stats["estimated_minutes"] == round(9 / 150.0, 2)
+
+
+class TestAssessLLMScoring:
+    """Scorer failures returned in metadata must not look like clean results."""
+
+    def test_total_failure_is_reported(self):
+        result = {
+            "anhedonia_content": None,
+            "_meta": {"error": "model unavailable", "windows": 2},
+        }
+
+        status, coverage, warnings = InferencePipeline._assess_llm_scoring(result)
+
+        assert status == "failed"
+        assert coverage == 0.0
+        assert warnings == ["Clinical scoring failed: model unavailable"]
+
+    def test_partial_failure_reports_coverage(self):
+        result = {
+            "anhedonia_content": 2,
+            "_meta": {"runs_failed": 1, "coverage": 0.5},
+        }
+
+        status, coverage, warnings = InferencePipeline._assess_llm_scoring(result)
+
+        assert status == "partial"
+        assert coverage == 0.5
+        assert "1 scoring run(s) failed" in warnings[0]
+        assert "50.0%" in warnings[0]
+
+    def test_success_remains_clean(self):
+        result = {"anhedonia_content": 2, "_meta": {"coverage": 1.0}}
+
+        status, coverage, warnings = InferencePipeline._assess_llm_scoring(result)
+
+        assert status == "completed"
+        assert coverage == 1.0
+        assert warnings == []
+
