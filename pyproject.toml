@@ -35,6 +35,8 @@ dependencies = [
     "pywebview",
     "onnxruntime>=1.24.3",
     "rapidfuzz>=3.0.0",
+    "av",
+    "scipy",
 ]
 
 [project.optional-dependencies]
