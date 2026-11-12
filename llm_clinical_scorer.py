@@ -348,6 +348,92 @@ def _answer_complete(text: str) -> bool:
     return all(k in data for k in REQUIRED_SCORE_KEYS) and bool(data.get("summary"))
 
 
+def _cut_repeated_quote(text: str, min_repeats: int = 2) -> Optional[str]:
+    """The answer up to a looping evidence list, with that list closed, or None.
+
+    On a long transcript the greedy pass can fall into a loop: it cycles
+    through the same anhedonia quotes (51 of them on a 960-word synthetic
+    interview) until max_tokens, and only anhedonia_content survives the
+    repair. A loop shows itself as quotes coming back within one evidence
+    list. Once ``min_repeats`` quotes in a list are repeats, this returns the
+    text before the first repeat, with the list and its score object closed
+    and the next key opened (``]},\\n  "``), so generation can go on to the
+    next score. One stray duplicate (seen in sampled answers that are
+    otherwise fine) is not a loop. Without a loop the result is None and the
+    answer is left exactly as the model wrote it.
+    """
+    start = text.find("{")
+    if start == -1:
+        return None
+
+    # Per open container: its opener, the quotes seen in it, and for lists
+    # the [repeat count, position of the first repeat].
+    stack: list[tuple[str, set[str], list[int]]] = []
+    in_string = False
+    escaped = False
+    str_start = -1
+
+    for i in range(start, len(text)):
+        ch = text[i]
+        if in_string:
+            if escaped:
+                escaped = False
+            elif ch == "\\":
+                escaped = True
+            elif ch == '"':
+                in_string = False
+                # Quotes are strings inside a list below the top-level object.
+                if len(stack) >= 2 and stack[-1][0] == "[":
+                    try:
+                        value = json.loads(text[str_start:i + 1])
+                    except json.JSONDecodeError:
+                        value = text[str_start + 1:i]
+                    key = _norm(str(value))
+                    _, seen, repeats = stack[-1]
+                    if key and key in seen:
+                        if repeats[0] == 0:
+                            repeats[1] = str_start
+                        repeats[0] += 1
+                        if repeats[0] >= min_repeats:
+                            kept = re.sub(r",\s*$", "", text[:repeats[1]].rstrip())
+                            closers = "".join("]" if c[0] == "[" else "}" for c in reversed(stack[1:]))
+                            return kept + closers + ',\n  "'
+                    seen.add(key)
+            continue
+
+        if ch == '"':
+            in_string = True
+            str_start = i
+        elif ch in "{[":
+            stack.append((ch, set(), [0, -1]))
+        elif ch in "}]":
+            if stack:
+                stack.pop()
+            if not stack:
+                return None
+    return None
+
+
+def _generate_guarded(gen, max_cuts: int = len(REQUIRED_SCORE_KEYS)) -> str:
+    """One answer from ``gen``, stepping past any evidence list that loops.
+
+    ``gen(prefix)`` returns the model's continuation of the answer it is
+    given (an empty string to start). When the answer repeats a quote, it is
+    cut there by _cut_repeated_quote and the model continues from the cut, so
+    the other scores still get written. At most ``max_cuts`` cuts (one per
+    score); after that the answer is returned as it stands.
+    """
+    prefix = ""
+    for attempt in range(max_cuts + 1):
+        text = prefix + gen(prefix)
+        cut = _cut_repeated_quote(text) if attempt < max_cuts else None
+        if cut is None:
+            return text
+        log.info("The scoring answer began repeating a quote; continuing from before the repeat.")
+        prefix = cut
+    return text  # pragma: no cover - the loop always returns
+
+
 def _resolve_model(model_name: str) -> str:
     """A local folder for the model when the scoring add-on or bundle has one."""
     try:
@@ -401,15 +487,22 @@ def call_local_lm_reusing_prompt(
         if should_cancel is not None and should_cancel():
             raise ScoringCancelled("Scoring stopped.")
         kwargs = {"sampler": make_sampler(temp=temp)} if temp > 0 else {}
-        chunks: list[str] = []
-        for n, part in enumerate(stream_generate(
-                model, tokenizer, prompt=mx.array(tokens[-1:]), max_tokens=max_tokens,
-                prompt_cache=cache, **kwargs), start=1):
-            chunks.append(part.text)
-            if (n % 8 == 0 or '"}' in part.text) and _answer_complete("".join(chunks)):
-                break
-        answers.append("".join(chunks))
-        trim_prompt_cache(cache, cache[0].offset - read_to)  # rewind for the next pass
+
+        def gen(prefix: str, kwargs=kwargs) -> str:
+            trim_prompt_cache(cache, cache[0].offset - read_to)  # rewind to the end of the prompt
+            given = tokenizer.encode(prefix, add_special_tokens=False) if prefix else []
+            chunks: list[str] = []
+            for n, part in enumerate(stream_generate(
+                    model, tokenizer, prompt=mx.array(tokens[-1:] + given),
+                    max_tokens=max(1, max_tokens - len(given)), prompt_cache=cache, **kwargs), start=1):
+                chunks.append(part.text)
+                if '"' in part.text and _cut_repeated_quote(prefix + "".join(chunks)) is not None:
+                    break
+                if (n % 8 == 0 or '"}' in part.text) and _answer_complete(prefix + "".join(chunks)):
+                    break
+            return "".join(chunks)
+
+        answers.append(_generate_guarded(gen))
         if on_pass is not None:
             on_pass(s_idx)
     return answers
@@ -448,8 +541,6 @@ def call_local_lm(
         # and it is what pushed responses past the cap and left objects
         # unterminated in the first place.
         if stream_generate is not None:
-            chunks: list[str] = []
-            checks = 0
             stream_kwargs = {}
             if temperature > 0.0 and make_sampler is not None:
                 # Greedy decoding is deterministic, so repeated runs would be
@@ -457,34 +548,26 @@ def call_local_lm(
                 # an actual sampler.
                 stream_kwargs["sampler"] = make_sampler(temp=temperature)
 
-            for part in stream_generate(
-                model, tokenizer, prompt=formatted_prompt,
-                max_tokens=max_tokens, **stream_kwargs
-            ):
-                chunks.append(part.text)
+            def gen(prefix: str) -> str:
+                chunks: list[str] = []
+                for n, part in enumerate(stream_generate(
+                    model, tokenizer, prompt=formatted_prompt + prefix,
+                    max_tokens=max_tokens, **stream_kwargs
+                ), start=1):
+                    chunks.append(part.text)
+                    if '"' in part.text and _cut_repeated_quote(prefix + "".join(chunks)) is not None:
+                        break
+                    # summary is the last field, so _answer_complete only
+                    # starts testing once it appears; otherwise the repair would
+                    # close the object after the first observation and truncate
+                    # the answer. Waiting for a literal "}" does not work: this
+                    # model usually ends the impression string and emits EOS
+                    # without ever closing the object.
+                    if (n % 8 == 0 or '"}' in part.text) and _answer_complete(prefix + "".join(chunks)):
+                        break
+                return "".join(chunks)
 
-                # summary is the last field, so only start testing
-                # once it appears — otherwise the repair would happily close
-                # the object after the first observation and truncate the
-                # answer. Waiting for a literal "}" does not work: this model
-                # usually ends the impression string and emits EOS without ever
-                # closing the object.
-                checks += 1
-                if checks % 8 and '"}' not in part.text:
-                    continue
-                buffer = "".join(chunks)
-                if '"summary"' not in buffer:
-                    continue
-                candidate = _first_json_object(buffer, quiet=True)
-                if not candidate:
-                    continue
-                try:
-                    data = json.loads(candidate)
-                except json.JSONDecodeError:
-                    continue
-                if all(k in data for k in REQUIRED_SCORE_KEYS) and data.get("summary"):
-                    break
-            return "".join(chunks)
+            return _generate_guarded(gen)
 
         return generate(
             model,
@@ -516,8 +599,11 @@ def call_local_lm(
         generator = _MODEL_CACHE[hf_model_name]
 
     log.info("Generating response with Transformers...")
-    outputs = generator(formatted_prompt, max_new_tokens=max_tokens, return_full_text=False)
-    return outputs[0]["generated_text"]
+    def hf_gen(prefix: str) -> str:
+        outputs = generator(formatted_prompt + prefix, max_new_tokens=max_tokens, return_full_text=False)
+        return outputs[0]["generated_text"]
+
+    return _generate_guarded(hf_gen)
 
 
 # ===================================================================
@@ -743,7 +829,9 @@ def parse_scoring_response(raw: str) -> dict[str, Any]:
             log.warning("Score '%s' was %s, outside 0-%d; dropped", key, score, SCALE_MAX)
             score = None
         data[key] = score
-        evidence[key] = [str(q).strip() for q in (quotes or []) if isinstance(q, str) and q.strip()]
+        # A quote given twice is one piece of evidence; keep the first.
+        evidence[key] = list(dict.fromkeys(
+            str(q).strip() for q in (quotes or []) if isinstance(q, str) and q.strip()))
     data["evidence"] = evidence
 
     summary = data.get("summary") or data.get("clinical_impression")
