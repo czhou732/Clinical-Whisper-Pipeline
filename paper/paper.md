@@ -36,7 +36,18 @@ The tool is for researchers with noisy interview audio who need speaker-separate
 
 # State of the field
 
-OpenAI's Whisper [@radford2023] transcribes speech but does not separate speakers, mask identifiers or measure the voice. WhisperX [@bain2023], pyannote.audio [@bredin2023; @plaquet2023], NVIDIA NeMo [@nemo] and Batchalign [@liu2023] transcribe and separate speakers, and OpenWillis [@worthington2024] also measures the voice; their documentation, checked in November 2026, describes no de-identification step. Text de-identification tools such as Microsoft Presidio [@presidio] and Philter [@norgeot2020] mask identifiers in a transcript once it exists, which is also how ClinicalWhisper's main masking works. The closest tool is senselab [@senselab], a Python library whose 2026 pre-releases add identifier detection and audio redaction to transcription, speaker separation and openSMILE features. ClinicalWhisper differs in three ways: it is a desktop application that needs no programming; by default it stops a job rather than write an unmasked transcript; and it labels interviewer and participant roles before any participant measure is reported. It also measures each speaker's voice and response timing, and each result file records failed steps and model versions.
+Speech recognition models such as Whisper [@radford2023] transcribe speech, and speaker diarization toolkits such as pyannote.audio [@bredin2023; @plaquet2023] and NVIDIA NeMo [@nemo] separate speakers; none of them masks identifiers. Table 1 compares ClinicalWhisper with open-source tools that combine some of these steps, based on their code and documentation in November 2026. Text de-identification tools mask a transcript once it exists, which is also how ClinicalWhisper's main masking works. The closest tool is senselab [@senselab], a Python library whose 2026 pre-releases add identifier detection and audio redaction to transcription, speaker separation and openSMILE features. OpenWillis [@worthington2024] labels clinician and participant in two-speaker recordings of supported rating-scale interviews, and Batchalign [@liu2023] now ships a desktop app. ClinicalWhisper is the only one of these tools that combines identifier masking and speaker separation in a desktop application; by default it stops a job rather than write an unmasked transcript, and it withholds participant measures until the speakers' roles are clear or confirmed.
+
+| Tool | Speaker separation | Identifier masking | Interviewer and participant roles | Desktop app |
+|:---|:---|:---|:---|:---|
+| WhisperX [@bain2023] | Yes | No | No | No |
+| Batchalign [@liu2023] | Yes | No | No | Yes |
+| OpenWillis [@worthington2024] | Yes | No | Two-speaker rating-scale interviews | No |
+| senselab [@senselab] | Yes | Pre-release only | No (a pre-release check flags an examiner's voice) | No |
+| Presidio [@presidio], Philter [@norgeot2020] | No (text or image input) | Text and images (Presidio); text (Philter) | No | No |
+| ClinicalWhisper | Yes | Yes; the job stops if masking fails | Interviews and groups | Yes (macOS) |
+
+Table: Open-source tools that cover parts of ClinicalWhisper's work, from their code and documentation in November 2026.
 
 # Software design
 
