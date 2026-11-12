@@ -26,6 +26,16 @@ ClinicalWhisper v5.3 processes clinical audio recordings entirely on the local m
 - **v3.0** — Integrated OpenSMILE (VTA Zhou Index)
 - **v4.0** — Added local LLM inference via Ollama
 
+### Development history
+
+Development started in this repository in January 2026, and the v1.0.0 code was
+archived on Zenodo in June 2026 ([doi:10.5281/zenodo.20559786](https://doi.org/10.5281/zenodo.20559786)).
+The companion study repository, [`czhou732/ClinicalWhisper`](https://github.com/czhou732/ClinicalWhisper)
+(public since February 2026), holds the notebooks in which the Whisper, pyannote and openSMILE
+workflow was built and run at full scale in March 2026, and the analysis behind the
+[bioRxiv preprint](https://doi.org/10.64898/2026.06.08.728970). This repository is the installable
+tool; the study repository links back here.
+
 ---
 
 ## Architecture Overview
