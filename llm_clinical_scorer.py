@@ -630,10 +630,24 @@ def _norm(text: str) -> str:
     return " ".join(re.sub(r"[^\w\s']", " ", text.lower()).split())
 
 
+# One transcript line: an optional "[mm:ss - mm:ss]" timestamp, the speaker
+# label (no colon: speaker names have theirs removed), then what was said.
+_TURN_LINE = re.compile(r"^\s*(?:\[[\d:.\s-]*\]\s*)?([^:\[\]]{1,60}?)\s*:\s?(.*)$")
+_PARTICIPANT_LABEL = re.compile(r"(?:^|\()\s*(?:Subject|Participant)(?:\s+\d+)?\s*\)?$")
+
+
 def participant_text(transcript: str) -> str:
-    """The participant's lines only, to check quotes against."""
-    lines = [line.split(":", 1)[1] for line in transcript.splitlines()
-             if ":" in line and re.search(r"(Subject|Participant)\)?\s*:", line.split("]")[-1][:60])]
+    """The participant's lines only, to check quotes against.
+
+    The label is read from the start of the line, after the timestamp. Reading
+    it after the last "]" (as 5.3.0 did) missed every line holding a masking
+    tag such as [city_1], so quotes from those lines were dropped as invented.
+    """
+    lines = []
+    for line in transcript.splitlines():
+        m = _TURN_LINE.match(line)
+        if m and _PARTICIPANT_LABEL.search(m.group(1)):
+            lines.append(m.group(2))
     return _norm(" ".join(lines)) if lines else _norm(transcript)
 
 
