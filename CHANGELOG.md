@@ -3,6 +3,15 @@
 Dates are those of the tagged commits. Release notes for each version are on the
 [releases page](https://github.com/czhou732/Clinical-Whisper-Pipeline/releases).
 
+## 5.3.1 (2026-11-11)
+
+- Scoring no longer returns null scores when the quoted participant line holds a
+  masking tag (#6, #9).
+- The greedy scoring pass steps past a looping evidence list instead of losing the
+  remaining scores (#7, #10).
+- README links the companion study repository and the Zenodo archive; CONTRIBUTING.md
+  and CHANGELOG.md added.
+
 ## 5.3.0 (2026-11-11)
 
 - Failed and partial LLM scoring is reported in each JSON record and batch CSV row (#1).
