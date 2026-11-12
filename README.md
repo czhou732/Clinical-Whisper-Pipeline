@@ -258,12 +258,8 @@ one, so the pipeline refuses to produce one.
 
 ## Contributing
 
-Contributions are welcome. Open an issue first to describe the bug or the change
-you have in mind, then send a pull request against `main`. Add or update tests
-for the change and run `pytest` before opening the request; CI runs the same
-suite on Python 3.11 and 3.12. Use synthetic or public audio (for example, the
-AMI meeting corpus) in tests and examples, never clinical recordings or study
-data.
+Contributions are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md) for how to report bugs,
+propose changes and run the tests.
 
 ## Support and problem reports
 
