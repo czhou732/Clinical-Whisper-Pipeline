@@ -139,3 +139,65 @@ def test_masked_anhedonic_interview_scores_come_back(monkeypatch):
     assert {k: result[k] for k in s.REQUIRED_SCORE_KEYS} == {
         "anhedonia_content": 3.0, "depressed_mood_content": 3.0,
         "affect_flatness": 2.0, "engagement_level": 2.0}
+
+
+# A greedy answer that loops: the anhedonia list cycles through the same
+# quotes until the token cap, so no other score is ever written.
+_LOOP_QUOTES = ["Nothing really", "I used to play guitar every night but I stopped"]
+LOOPING = ('{\n  "anhedonia_content": {"score": 3, "evidence": ['
+           + ", ".join(json.dumps(q) for q in _LOOP_QUOTES * 20)[:-7])  # cut mid-quote, as at max_tokens
+REST = ('depressed_mood_content": {"score": 2, "evidence": ["Pretty low most days"]},\n'
+        '  "affect_flatness": {"score": 1, "evidence": ["Nothing really"]},\n'
+        '  "engagement_level": {"score": 1, "evidence": ["Nothing really"]},\n'
+        '  "summary": "The participant says they stopped playing guitar and feel low."\n}')
+
+
+def test_looping_answer_alone_keeps_only_the_first_score():
+    parsed = s.parse_scoring_response(LOOPING)
+    assert parsed["anhedonia_content"] == 3
+    assert [parsed[k] for k in s.REQUIRED_SCORE_KEYS[1:]] == [None, None, None]
+
+
+def test_cut_closes_the_looping_list_before_the_first_repeat():
+    cut = s._cut_repeated_quote(LOOPING)
+    assert cut is not None and cut.endswith(']},\n  "')
+    closed = json.loads(cut[:-len(',\n  "')] + "}")
+    assert closed["anhedonia_content"]["evidence"] == _LOOP_QUOTES
+
+
+def test_cut_leaves_answers_without_a_loop_alone():
+    assert s._cut_repeated_quote(answer()) is None  # same quote under two scores is fine
+    one_slip = answer(depressed_mood_content={"score": 2, "evidence": [
+        "Pretty low most days", "Nothing really", "Pretty low most days"]})
+    assert s._cut_repeated_quote(one_slip) is None  # a single duplicate is not a loop
+    assert s._cut_repeated_quote("no json here") is None
+
+
+def test_guard_continues_past_a_loop_and_all_four_scores_arrive():
+    prefixes = []
+
+    def fake_model(prefix):
+        prefixes.append(prefix)
+        return LOOPING if not prefix else REST
+
+    raw = s._generate_guarded(fake_model)
+    assert prefixes[0] == "" and prefixes[1] == s._cut_repeated_quote(LOOPING)
+    parsed = s.check_evidence(s.parse_scoring_response(raw), TRANSCRIPT)
+    assert [parsed[k] for k in s.REQUIRED_SCORE_KEYS] == [3, 2, 1, 1]
+    assert parsed["evidence"]["anhedonia_content"] == _LOOP_QUOTES
+
+
+def test_guard_gives_up_after_one_cut_per_score():
+    calls = []
+
+    def always_loops(prefix):
+        calls.append(prefix)
+        return LOOPING if not prefix else 'x": {"score": 1, "evidence": ["a", "a", "a"'
+
+    s._generate_guarded(always_loops)
+    assert len(calls) == len(s.REQUIRED_SCORE_KEYS) + 1
+
+
+def test_parser_drops_repeated_quotes():
+    raw = answer(anhedonia_content={"score": 2, "evidence": ["Nothing really", "Nothing really", "I stopped"]})
+    assert s.parse_scoring_response(raw)["evidence"]["anhedonia_content"] == ["Nothing really", "I stopped"]
