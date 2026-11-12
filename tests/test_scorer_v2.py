@@ -94,3 +94,48 @@ def test_human_readable_output_uses_v2_scales():
     assert "2/3" in rendered
     assert "Hesitancy" not in rendered
     assert "/10" not in rendered
+
+
+# What the app actually scores: identifiers masked as [tag_n], and a named
+# speaker shown as "Name (Subject)". Synthetic text, no real person.
+MASKED = """[00:00 - 00:05] Interviewer: Where did you grow up?
+[00:05 - 00:20] Subject: I grew up in [city_1]. My brother [first_name_1] moved to [city_2] a few years ago.
+[00:20 - 00:23] Interviewer: What do you enjoy doing on the weekends?
+[00:23 - 00:25] Subject: Not much, honestly.
+[00:25 - 00:28] Interviewer: How has your mood been?
+[00:28 - 00:50] Subject: Pretty low. Most days I feel heavy, like nothing is going to get better. I lie there going over everything that went wrong with [first_name_1].
+[00:50 - 00:52] Interviewer: What has been the hardest part?
+[00:52 - 01:10] Sam (Subject): I played guitar every night and went running with [first_name_2]. I stopped both, and I do not even miss them. I do not really watch TV either, it is just noise."""
+
+MASKED_ANSWER = json.dumps({
+    "anhedonia_content": {"score": 3, "evidence": ["I stopped both, and I do not even miss them"]},
+    "depressed_mood_content": {"score": 3, "evidence": ["Most days I feel heavy, like nothing is going to get better."]},
+    "affect_flatness": {"score": 2, "evidence": ["it is just noise"]},
+    "engagement_level": {"score": 2, "evidence": ["My brother [first_name_1] moved to [city_2] a few years ago"]},
+    "summary": "The participant describes low mood and loss of interest.",
+})
+
+
+def test_quotes_from_lines_with_masked_identifiers_count():
+    # The 5.3.0 bug: a participant line with a masking tag was left out of the
+    # words quotes are checked against, so its quotes were "invented".
+    said = s.participant_text(MASKED)
+    assert "pretty low" in said and "i stopped both" in said and "first_name_1" in said
+    assert "where did you grow up" not in said        # the interviewer's words stay out
+    assert "00 23" not in said and "subject" not in said  # no timestamps or labels
+    parsed = s.check_evidence(s.parse_scoring_response(MASKED_ANSWER), MASKED)
+    assert {k: parsed[k] for k in s.REQUIRED_SCORE_KEYS} == {
+        "anhedonia_content": 3, "depressed_mood_content": 3,
+        "affect_flatness": 2, "engagement_level": 2}
+
+
+def test_masked_anhedonic_interview_scores_come_back(monkeypatch):
+    # End to end through score_transcript with a stand-in model, 5 runs as in
+    # the app: every score must be reported, none missing.
+    monkeypatch.setattr(s, "load", None)  # one pass at a time, no MLX
+    monkeypatch.setattr(s, "call_local_lm", lambda **kw: MASKED_ANSWER)
+    result = s.score_transcript(MASKED, config={"llm_scoring": {"samples": 5, "temperature": 0.7}})
+    assert result["_meta"]["runs_used"] == 5
+    assert {k: result[k] for k in s.REQUIRED_SCORE_KEYS} == {
+        "anhedonia_content": 3.0, "depressed_mood_content": 3.0,
+        "affect_flatness": 2.0, "engagement_level": 2.0}
