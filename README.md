@@ -256,6 +256,15 @@ Transcription and PII scrubbing failures abort the job rather than emitting a
 partial result — an analysis file full of zeros is indistinguishable from a real
 one, so the pipeline refuses to produce one.
 
+## Contributing
+
+Contributions are welcome. Open an issue first to describe the bug or the change
+you have in mind, then send a pull request against `main`. Add or update tests
+for the change and run `pytest` before opening the request; CI runs the same
+suite on Python 3.11 and 3.12. Use synthetic or public audio (for example, the
+AMI meeting corpus) in tests and examples, never clinical recordings or study
+data.
+
 ## Support and problem reports
 
 For usage questions or reproducible bugs, open a

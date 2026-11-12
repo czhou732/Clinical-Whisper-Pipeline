@@ -13,6 +13,8 @@ Licences are as stated on each model's page at the time of writing.
 | mlx-community/Meta-Llama-3-8B-Instruct-4bit (Scoring add-on) | research clinical scores; second name check | Llama 3 Community Licence |
 | KintsugiHealth/dam (Kintsugi add-on) | research voice model | Apache-2.0 |
 | Praat via praat-parselmouth (Praat add-on, separate) | voice measures | GPL-3.0 (kept out of the MIT app) |
+| openSMILE via the `opensmile` Python package (audEERING GmbH) | eGeMAPSv02 voice measures | audEERING Research License: non-commercial use only (see below) |
+| facebook/wav2vec2-base-960h (listening-copy add-on) | word alignment for silencing masked words | Apache-2.0 |
 
 WeSpeaker attribution (CC BY 4.0): voice embeddings use WeSpeaker's ResNet34
 model trained on VoxCeleb (wenet-e2e/wespeaker), unchanged.
@@ -73,3 +75,15 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
+
+## openSMILE
+
+ClinicalWhisper computes voice measures with openSMILE (Eyben et al., 2010),
+installed through audEERING's `opensmile` Python package, which includes the
+openSMILE binary. openSMILE is not MIT-licensed. It is distributed under the
+audEERING Research License, which allows use, copying and distribution for
+non-commercial purposes such as academic research and teaching; commercial use
+needs a licence from audEERING GmbH. The full licence text is installed with
+the package (`opensmile-*.dist-info/licenses/LICENSE`) and ships inside the
+desktop app. Anyone using ClinicalWhisper's voice measures commercially needs
+their own licence from audEERING.
