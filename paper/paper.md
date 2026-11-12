@@ -14,6 +14,7 @@ authors:
     corresponding: true
     affiliation: 1
   - name: Jinghao Yu
+    orcid: 0009-0008-4054-6020
     affiliation: 2
 affiliations:
   - name: Department of Psychology, University of Southern California, Los Angeles, California, United States
